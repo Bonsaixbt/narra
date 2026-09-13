@@ -8,6 +8,7 @@ import { statusOf, STATUS_ORDER, THRESHOLDS } from "./status.js";
 import { flowEdges } from "./flow.js";
 import type { ClusterOut, Edge, MemberOut, TokenInfo } from "./types.js";
 import { walletStats, clusterStatuses, cohortMix, type WalletStat } from "./wallets.js";
+import { narrativeOf } from "./narrative.js";
 import type { Tags } from "./tokenize.js";
 
 export interface Analysis {
@@ -91,7 +92,10 @@ export function analyze(store: Store, windowKey: string, windowSec: number, nowT
     const ein = edges.filter((e) => e.to === c.slug), eout = edges.filter((e) => e.from === c.slug);
     const status = statusOf(heat, ein, eout);
     if (heat.unique_buyers < THRESHOLDS.publish.min_buyers && heat.n_launches < THRESHOLDS.publish.min_launches) return [];
-    return [{ slug: c.slug, label: c.top_tags.map((t) => t.tag).slice(0, 3).join(" · ") || c.slug, label_source: "tags" as const, status, top_tags: c.top_tags, members: c.members, heat, links: c.links, rotating_from: ein[0]?.from ?? null, rotating_to: eout[0]?.to ?? null }];
+    const nar = narrativeOf(c.members.map((m) => tokens.get(m)!).filter(Boolean));
+    const flow = { in_wallets: ein.reduce((s, e) => s + e.wallets, 0), in_eth: r3(ein.reduce((s, e) => s + e.quote_norm, 0)), out_wallets: eout.reduce((s, e) => s + e.wallets, 0), out_eth: r3(eout.reduce((s, e) => s + e.quote_norm, 0)) };
+    return [{ slug: c.slug, label: c.top_tags.map((t) => t.tag).slice(0, 3).join(" · ") || c.slug, label_source: "tags" as const, status, top_tags: c.top_tags, members: c.members, heat, links: c.links,
+      narrative: nar.narrative, narrative_sub: nar.sub, narrative_mix: nar.mix, flow, rank: 0, rotating_from: ein[0]?.from ?? null, rotating_to: eout[0]?.to ?? null }];
   });
   const published = new Set(clusters.map((c) => c.slug));
   for (const [tok, slug] of membership) if (!published.has(slug)) { membership.delete(tok); memberScore.delete(tok); }
@@ -103,6 +107,7 @@ export function analyze(store: Store, windowKey: string, windowSec: number, nowT
     c.cohorts = cohortMix(set, wallets);
   }
   clusters.sort((a, b) => STATUS_ORDER.indexOf(a.status) - STATUS_ORDER.indexOf(b.status) || b.heat.quote_norm_in - a.heat.quote_norm_in || b.heat.n_launches - a.heat.n_launches);
+  clusters.forEach((c, i) => { c.rank = i + 1; });
 
   store.saveSnapshots(clusters.map((c) => ({ slug: c.slug, window: windowKey, ts: to, status: c.status, payload: JSON.stringify({ members: c.members, heat: c.heat, top_tags: c.top_tags }) })));
 
@@ -111,6 +116,8 @@ export function analyze(store: Store, windowKey: string, windowSec: number, nowT
     counts: { candidates: tokens.size, clustered: membership.size, trades: windowTrades.length, launches: launchedInWindow.length, sprayers: dropped },
   };
 }
+
+const r3 = (x: number) => Math.round(x * 1000) / 1000;
 
 export function membersOf(a: Analysis, c: ClusterOut, store: Store): MemberOut[] {
   const last = new Map<string, number>();

@@ -37,6 +37,11 @@ export interface ClusterOut {
   links: { text: number; wallet: number; deployer: number; semantic: number };
   summary?: string;
   label_source?: "tags" | "model" | "cache";
+  narrative: string;
+  narrative_sub: string | null;
+  narrative_mix: Record<string, number>;
+  flow: { in_wallets: number; in_eth: number; out_wallets: number; out_eth: number };
+  rank: number;
   cohorts?: { sniper: number; sprayer: number; rotator: number; "early-in-hot": number; total: number };
   rotating_from: string | null; rotating_to: string | null;
 }
@@ -56,5 +61,7 @@ export interface VerdictOut {
   cluster: { slug: string; status: Status; membership: number } | null;
   alternatives: { slug: string; membership: number }[];
   reasons: string[]; watch: string[];
+  narratives: string[];
+  popularity: { cluster_rank: number | null; clusters_total: number; rank_in_cluster: number | null; cluster_size: number | null; buyers: number; buyers_percentile: number } | null;
   evidence: { early_buyers: number; overlap_buyers: number; text_score: number; wallet_score: number; launch_tx: string | null; launch_block: number | null };
 }

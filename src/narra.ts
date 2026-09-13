@@ -109,6 +109,7 @@ import { decodeLaunch } from "./ingest/decode.js";
 import { TOPICS } from "./chain/topics.js";
 import { initSemantic, ensureEmbeddings, semanticPairs, nameCluster, categorize, type SemanticState } from "./semantic/index.js";
 import { applyCategories } from "./semantic/taxonomy.js";
+import { tokenNarratives } from "./analyze/narrative.js";
 import { createHash } from "node:crypto";
 
 export interface QueryOptions { window?: WindowKey; pair?: "all" | "eth" | "stable" | "stock"; members?: boolean; top?: number; onProgress?: (p: SyncProgress) => void; noSync?: boolean; noSemantic?: boolean }
@@ -178,7 +179,7 @@ Narra.prototype.now = async function (this: Narra, opts: QueryOptions = {}): Pro
   if (opts.top) clusters = clusters.slice(0, opts.top);
   return {
     ...meta, quote_unit: "ETH",
-    clusters: clusters.map((c) => ({ slug: c.slug, label: c.label, status: c.status, top_tags: c.top_tags, n_members: c.members.length, heat: c.heat, links: c.links, summary: c.summary, label_source: c.label_source, cohorts: c.cohorts, rotating_from: c.rotating_from, rotating_to: c.rotating_to, ...(opts.members ? { members: membersOf(a, c, this.store) } : {}) })),
+    clusters: clusters.map((c) => ({ slug: c.slug, label: c.label, status: c.status, top_tags: c.top_tags, n_members: c.members.length, heat: c.heat, links: c.links, summary: c.summary, label_source: c.label_source, narrative: c.narrative, narrative_sub: c.narrative_sub, narrative_mix: c.narrative_mix, flow: c.flow, rank: c.rank, cohorts: c.cohorts, rotating_from: c.rotating_from, rotating_to: c.rotating_to, ...(opts.members ? { members: membersOf(a, c, this.store) } : {}) })),
     counts: a.counts,
   };
 };
@@ -216,11 +217,19 @@ Narra.prototype.coin = async function (this: Narra, address: string, opts: Query
   } else curve = { real_quote_eth: null, threshold_eth: thresholdEth, progress: 1 };
   const swaps = this.store.swapsSince(a.window.from).filter((s) => s.token === token);
   const pool = info.phase === "pool" && launch.graduated_at ? { graduated_at: launch.graduated_at, volume_eth_window: swaps.reduce((s, x) => s + (x.quote_norm ?? 0), 0), swaps_window: swaps.length } : null;
+  // popularity: where the cluster sits on the board and where the token sits inside it, by buyers in the window
+  const myBuyers = a.buyers.get(token)?.size ?? 0;
+  const allBuyerCounts = [...a.tokens.keys()].map((t) => a.buyers.get(t)?.size ?? 0);
+  const below = allBuyerCounts.filter((x) => x < myBuyers).length;
+  const cl = v.cluster ? a.clusters.find((c) => c.slug === v.cluster!.slug) : undefined;
+  const inCluster = cl ? [...cl.members].sort((x, y) => (a.buyers.get(y)?.size ?? 0) - (a.buyers.get(x)?.size ?? 0)) : [];
+  const popularity = { cluster_rank: cl?.rank ?? null, clusters_total: a.clusters.length, rank_in_cluster: cl ? (inCluster.indexOf(token) >= 0 ? inCluster.indexOf(token) + 1 : null) : null, cluster_size: cl?.members.length ?? null, buyers: myBuyers, buyers_percentile: allBuyerCounts.length ? Math.round((below / allBuyerCounts.length) * 100) : 0 };
+  if (cl) v.reasons.push(`popularity: meta #${cl.rank} of ${a.clusters.length} on the board (${cl.narrative}${cl.narrative_sub ? " · " + cl.narrative_sub : ""}); ${popularity.rank_in_cluster ? `token #${popularity.rank_in_cluster} of ${cl.members.length} inside it by buyers` : `not among its ${cl.members.length} members`}; more buyers than ${popularity.buyers_percentile}% of tokens in the window`);
   return {
     ...meta, token, symbol: info.symbol, name: info.name, phase: info.phase, curve, pool,
     pair: { address: launch.pair, symbol: pairRow?.symbol ?? "?", kind: pairRow?.kind ?? "other" },
     launched_at: launch.ts, deployer: launch.deployer,
-    ...v, evidence: { ...v.evidence, launch_tx: launch.tx_hash, launch_block: launch.block },
+    ...v, narratives: tokenNarratives(info), popularity, evidence: { ...v.evidence, launch_tx: launch.tx_hash, launch_block: launch.block },
   };
 };
 
@@ -236,7 +245,7 @@ Narra.prototype.why = async function (this: Narra, slug: string, opts: QueryOpti
   const tags = c.top_tags.map((t) => ({ ...t, examples: c.members.filter((m) => a.tokens.get(m)?.tags.has(t.tag)).slice(0, 5).map((m) => a.tokens.get(m)?.symbol || m.slice(0, 10)) }));
   return {
     ...meta,
-    cluster: { slug: c.slug, label: c.label, status: c.status, top_tags: c.top_tags, n_members: c.members.length, heat: c.heat, links: c.links, summary: c.summary, label_source: c.label_source, cohorts: c.cohorts, rotating_from: c.rotating_from, rotating_to: c.rotating_to, members: membersOf(a, c, this.store) },
+    cluster: { slug: c.slug, label: c.label, status: c.status, top_tags: c.top_tags, n_members: c.members.length, heat: c.heat, links: c.links, summary: c.summary, label_source: c.label_source, narrative: c.narrative, narrative_sub: c.narrative_sub, narrative_mix: c.narrative_mix, flow: c.flow, rank: c.rank, cohorts: c.cohorts, rotating_from: c.rotating_from, rotating_to: c.rotating_to, members: membersOf(a, c, this.store) },
     tags, edges_in: a.edges.filter((e) => e.to === c.slug), edges_out: a.edges.filter((e) => e.from === c.slug),
     rule: "two tokens are linked when weighted Jaccard of their tags ≥ 0.35, or they share ≥ 5 buyers, or they share a deployer and a tag; the cluster is the connected component; the slug is its two heaviest tags",
   };

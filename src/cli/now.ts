@@ -13,10 +13,12 @@ export function renderNow(r: NowOut, members: boolean): string {
   }
   const rows = r.clusters.map((k) => {
     const h = k.heat;
+    const flow = k.flow.in_wallets || k.flow.out_wallets ? c.dim(`⇦${k.flow.in_wallets} ⇨${k.flow.out_wallets}`) : "";
     const rot = k.rotating_from ? c.dim(`← ${k.rotating_from}`) : k.rotating_to ? c.dim(`→ ${k.rotating_to}`) : "";
-    return [STATUS_COLOR[k.status]?.(k.status.padEnd(12)) ?? k.status, k.label_source && k.label_source !== "tags" ? `${k.slug} ${c.dim("· " + k.label)}` : k.slug, `${h.n_launches} CA`, `${eth(h.quote_norm_in)} ETH`, `${h.n_graduated} grad`, `${Math.round(h.graduated_share * 100)}% pool`, `${h.unique_buyers} buyers`, rot];
+    const nar = k.narrative + (k.narrative_sub ? "·" + k.narrative_sub : "");
+    return [c.dim(String(k.rank).padStart(2)), STATUS_COLOR[k.status]?.(k.status.padEnd(12)) ?? k.status, k.label_source && k.label_source !== "tags" ? `${k.slug} ${c.dim("· " + k.label)}` : k.slug, c.cyan(nar), `${h.n_launches} CA`, `${eth(h.quote_norm_in)} ETH`, `${h.n_graduated} grad`, `${h.unique_buyers} buyers`, flow, rot];
   });
-  lines.push(table(rows, [12, 22, 7, 10, 7, 9, 11, 0]));
+  lines.push(table(rows, [2, 12, 22, 18, 7, 10, 7, 12, 8, 0]));
   if (members) {
     for (const k of r.clusters) {
       if (!k.members?.length) continue;
