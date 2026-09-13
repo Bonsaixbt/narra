@@ -1,0 +1,34 @@
+{
+  "name": "narra-cli",
+  "version": "0.1.0",
+  "description": "narra — which meta is printing on Pons v2 / Robinhood Chain right now, and whether a token belongs to it. Terminal-first, read-only, agent-friendly.",
+  "license": "MIT",
+  "type": "module",
+  "engines": { "node": ">=22" },
+  "bin": { "narra": "./dist/bin/narra.js" },
+  "main": "./dist/src/lib.js",
+  "types": "./dist/src/lib.d.ts",
+  "exports": { ".": { "types": "./dist/src/lib.d.ts", "import": "./dist/src/lib.js" } },
+  "files": ["dist", "schemas", "integrations", "README.md", "LICENSE"],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsx bin/narra.ts",
+    "now": "tsx bin/narra.ts now",
+    "doctor": "tsx bin/narra.ts doctor",
+    "test": "node --import tsx --test test/*.test.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "prepublishOnly": "npm run build"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.20.0",
+    "better-sqlite3": "^12.2.0",
+    "viem": "^2.37.0",
+    "zod": "^4.1.0"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/node": "^22.18.0",
+    "tsx": "^4.20.0",
+    "typescript": "^5.9.0"
+  }
+}
