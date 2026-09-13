@@ -13,7 +13,8 @@ import { str } from "./args.js";
 import { open, printJson } from "./common.js";
 import { c, table } from "./render.js";
 import { tokenize, isContentTag, isCategoryTag } from "../analyze/tokenize.js";
-import { semanticConfig } from "../semantic/provider.js";
+import { semanticConfig, modelList, extractJson } from "../semantic/provider.js";
+import { chatWithFallback } from "../semantic/openai.js";
 import dictionary from "../analyze/dictionary.json" with { type: "json" };
 
 const DICT_PATH = join(dirname(fileURLToPath(import.meta.url)), "..", "analyze", "dictionary.json");
@@ -57,8 +58,8 @@ export async function dictionaryCmd(args: Args): Promise<number> {
     let assignments: Record<string, string> = {};
     let model = "none";
     if (cfg.name !== "off") {
-      model = cfg.model || (cfg.name === "anthropic" ? "claude-opus-5" : "gpt-4o-mini");
-      try { assignments = await sortWithModel(cfg, families, cands); } catch (e) { console.error(c.red(`model call failed: ${(e as Error).message.split("\n")[0]}`)); }
+      model = cfg.name === "anthropic" ? (cfg.model || "claude-opus-5") : modelList(cfg, "gpt-4o-mini").join(" → ");
+      try { const r = await sortWithModel(cfg, families, cands); assignments = r.assignments; model = r.model; } catch (e) { console.error(c.red(`model call failed: ${(e as Error).message.split("\n")[0]}`)); model = "failed"; }
     }
     const patch: Record<string, string[]> = {};
     for (const [w, fam] of Object.entries(assignments)) if (fam !== "skip" && families.includes(fam) && cands.some((x) => x.tag === w)) (patch[fam] ??= []).push(w);
@@ -81,20 +82,21 @@ export async function dictionaryCmd(args: Args): Promise<number> {
 }
 
 /** One chat call: words → families. Uses the same OpenAI-compatible or Anthropic transport as cluster naming. */
-export async function sortWithModel(cfg: ReturnType<typeof semanticConfig>, families: string[], cands: Candidate[]): Promise<Record<string, string>> {
+export async function sortWithModel(cfg: ReturnType<typeof semanticConfig>, families: string[], cands: Candidate[]): Promise<{ assignments: Record<string, string>; model: string }> {
   const user = `families: ${families.join(", ")}\n\nwords (word · tokens · ETH · example tickers):\n${cands.map((x) => `- ${x.tag} · ${x.tokens} · ${x.eth} · ${x.examples.join(" ")}`).join("\n")}`;
   let text = "";
+  let model = cfg.model;
   if (cfg.name === "anthropic") {
     const Anthropic = (await import("@anthropic-ai/sdk")).default;
     const client = cfg.key ? new Anthropic({ apiKey: cfg.key }) : new Anthropic();
-    const res = await client.messages.create({ model: cfg.model || "claude-opus-5", max_tokens: 2048, system: SORT_SYSTEM, output_config: { effort: "low" }, messages: [{ role: "user", content: user }] });
-    if (res.stop_reason === "refusal") return {};
+    model = cfg.model || "claude-opus-5";
+    const res = await client.messages.create({ model, max_tokens: 2048, system: SORT_SYSTEM, output_config: { effort: "low" }, messages: [{ role: "user", content: user }] });
+    if (res.stop_reason === "refusal") return { assignments: {}, model };
     for (const b of res.content) if (b.type === "text") text += b.text;
   } else {
-    const r = await fetch(`${cfg.url}/chat/completions`, { method: "POST", headers: { "content-type": "application/json", ...(cfg.key ? { authorization: `Bearer ${cfg.key}` } : {}) }, body: JSON.stringify({ model: cfg.model || "gpt-4o-mini", temperature: 0, max_tokens: 2048, messages: [{ role: "system", content: SORT_SYSTEM }, { role: "user", content: user }] }), signal: AbortSignal.timeout(120_000) });
-    const j = (await r.json()) as { choices?: { message: { content: string } }[] };
-    text = j.choices?.[0]?.message?.content ?? "";
+    const r = await chatWithFallback(cfg, modelList(cfg, "gpt-4o-mini"), [{ role: "system", content: SORT_SYSTEM }, { role: "user", content: user }], 6000);
+    text = r.text; model = r.model;
   }
-  const m = text.match(/\{[\s\S]*\}/);
-  try { const j = JSON.parse(m ? m[0] : text) as { assignments?: Record<string, string> }; return Object.fromEntries(Object.entries(j.assignments ?? {}).map(([k, v]) => [k.toLowerCase(), String(v).toLowerCase()])); } catch { return {}; }
+  const j = (extractJson(text) ?? {}) as { assignments?: Record<string, string> };
+  return { assignments: Object.fromEntries(Object.entries(j.assignments ?? {}).map(([k, v]) => [k.toLowerCase(), String(v).toLowerCase()])), model };
 }

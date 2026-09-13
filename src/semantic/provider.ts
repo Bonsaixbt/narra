@@ -73,10 +73,27 @@ export function namingPrompt(i: ClusterNamingInput): string {
   return `cluster slug: ${i.slug}\nshared tags: ${i.tags.join(", ") || "(none)"}\nlaunches in window: ${i.heat.n_launches}, ETH in: ${i.heat.quote_norm_in.toFixed(2)}, buyers: ${i.heat.unique_buyers}\nmembers:\n${sample}`;
 }
 
+/**
+ * The last parseable JSON object in a text. Reasoning models prefix their answer with prose that may contain braces,
+ * so the first `{…}` match is not enough: try candidate spans from the end until one parses.
+ */
+export function extractJson(text: string): unknown | null {
+  const opens: number[] = []; for (let i = 0; i < text.length; i++) if (text[i] === "{") opens.push(i);
+  const closes: number[] = []; for (let i = text.length - 1; i >= 0; i--) if (text[i] === "}") closes.push(i);
+  let tries = 0;
+  for (const j of closes) for (const i of opens) { if (i >= j || tries++ > 400) continue; try { return JSON.parse(text.slice(i, j + 1)); } catch { /* next span */ } }
+  return null;
+}
+
+/** Models to try in order: NARRA_SEMANTIC_MODEL may be a comma-separated list; a 429, 5xx or empty answer moves to the next. */
+export function modelList(cfg: SemanticConfig, dflt: string): string[] {
+  return (cfg.model || dflt).split(",").map((m) => m.trim()).filter(Boolean);
+}
+export const OPENAI_FREE_DEFAULTS = "nvidia/nemotron-3-super-120b-a12b:free,google/gemma-4-31b-it:free,google/gemma-4-26b-a4b-it:free";
+
 export function parseNaming(text: string, fallbackSlug: string): ClusterNaming {
-  const m = text.match(/\{[\s\S]*\}/);
   try {
-    const j = JSON.parse(m ? m[0] : text) as { label?: string; summary?: string };
+    const j = (extractJson(text) ?? {}) as { label?: string; summary?: string };
     const label = String(j.label ?? "").toLowerCase().replace(/[^a-z0-9一-鿿-]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 40) || fallbackSlug;
     return { label, summary: String(j.summary ?? "").replace(/\s+/g, " ").slice(0, 200) };
   } catch { return { label: fallbackSlug, summary: "" }; }
