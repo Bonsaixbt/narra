@@ -18,6 +18,6 @@ src/
 
 Data flow per command: `sync` (logs → SQLite) → `analyze` (rows → clusters → heat → status → edges → snapshots) → presenter (table, JSON, MCP text, HTTP). `--offline` skips the first step.
 
-`watch` and `serve` re-run the tick every N seconds and diff the previous result into events. v0.1 polls; the websocket subscription is wired in `chain/rpc.ts` and lands in v0.2.
+`watch` and `serve` re-run the tick every N seconds and diff the previous result into events; `ingest/live.ts` subscribes over WebSocket to the factory and the PoolManager and wakes the loop early (debounced 5 s) with a watchdog that re-subscribes after 45 s of silence.
 
 Tests (`node:test`, no network): `test/*.test.ts`, fixtures in `test/fixtures/` are 600 real blocks of factory and curve logs.
