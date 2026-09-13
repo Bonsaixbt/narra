@@ -1,0 +1,163 @@
+# narra — frontend handoff
+
+For the person building the site. Everything you need to start today is in this file; the two longer specs (`FRONTEND.md`, `BACKEND.md`) sit next to it for detail.
+
+## 1. What narra is, in one paragraph
+
+Pons v2 is a memecoin launchpad on Robinhood Chain: about 30 000 tokens launch every day. narra groups those launches into **metas** (waves of similarly named tokens bought by the same crowd), measures which metas are pulling ETH and buyers right now, follows wallets from one meta to the next, and tells you whether a given contract address belongs to a live meta. It is a read-only analytics tool: no wallet, no trading, no private keys anywhere. The verdict `IN` means "belongs to a live meta" and is never a buy signal — the site must keep that framing.
+
+The engine exists and runs as a terminal tool (`narra-cli`, TypeScript, MIT). The site is a thin, fast, good-looking window on the same data.
+
+## 2. What you get from the backend
+
+The backend is the same package run as a service: `narra serve`. It speaks plain JSON over HTTP plus one SSE stream. **You can run the real backend on your laptop today** — no mocks needed:
+
+```sh
+git clone <repo-url> narra && cd narra
+npm install && npm run build
+npx tsx bin/narra.ts serve --port 4663 --window 60m
+# first run fetches the last hour from public RPCs (~2 min), then it stays live
+curl localhost:4663/now | jq .clusters[0]
+```
+
+Every response is validated against zod schemas; the JSON Schemas are checked into `schemas/*.json` (`now`, `coin`, `flow`, `why`, `watch`, `wallets`, `wallet`). Types can be imported from the package: `import type { NowOut, CoinOut } from "narra-cli"`.
+
+### Endpoints (v1, as served by `narra serve` today)
+
+| Method | Path | Returns | Notes |
+|---|---|---|---|
+| GET | `/health` | `{ ok, narra, cursor, launches, trades, swaps, pools, routes[] }` | poll every 30 s for the stale banner |
+| GET | `/now?window=15m\|60m\|4h&members=1&pair=all\|eth\|stable\|stock` | `NowOut` | the board |
+| GET | `/coin/:ca?window=60m` | `CoinOut` or `NotPonsOut` | the card; 400 on a malformed address |
+| GET | `/why/:slug?window=60m` | `WhyOut` | 404 when the slug is not on the board |
+| GET | `/flow?window=60m` | `FlowOut` | edges between metas |
+| GET | `/schema/:name` | JSON Schema | `now`, `coin`, `flow`, `why`, `watch`, `wallets`, `wallet` |
+| GET | `/stream` | SSE | events `LAUNCH`, `STATUS`, `EDGE`, `GRAD`, `JOIN`, `SYNC`; `data:` is a `WatchEvent` |
+
+The production service adds (see `BACKEND.md` §9): `/find?q=`, `/wallets`, `/wallet/:address`, `/history/cluster/:slug`, `/trend`, `/holders/check`, OG image routes, a holder gate for the `15m`/`4h` windows, flow, wallets and history, rate limits and CORS locked to the site's origin. Build against the local service now; the gated routes will return `401 { error: { code: "HOLDER_REQUIRED" } }` in production when the cookie is missing.
+
+### The shapes you will render
+
+`NowOut` (board):
+
+```jsonc
+{
+  "schema_version": "1.0.0", "computed_at": "2026-09-13T15:30:46Z", "window": "60m",
+  "window_from": 1789309620, "window_to": 1789313220, "head_block": 62064460, "lag_blocks": 0,
+  "source": { "rpc": "chainstack", "mode": "cache" }, "quote_unit": "ETH",
+  "counts": { "candidates": 1508, "clustered": 538, "trades": 44910, "launches": 1278, "sprayers": 42 },
+  "clusters": [{
+    "slug": "ponsora-cult", "label": "ponsora · cult", "label_source": "tags", "rank": 1,
+    "status": "ROTATING IN",                      // HOT | EMERGING | ROTATING IN | ROTATING OUT | COOLING | DEAD
+    "narrative": "mixed", "narrative_sub": null, "narrative_mix": { "crypto": 0.4, "money": 0.2 },
+    "top_tags": [{ "tag": "ponsora", "weight": 1.2 }, { "tag": "cult", "weight": 0.9 }],
+    "n_members": 9,
+    "heat": { "n_launches": 7, "n_members": 9, "n_alive": 9, "quote_norm_in": 231.4, "unique_buyers": 1985, "n_graduated": 1,
+              "graduated_share": 0.11, "taxed_ratio": 0.1, "pool_volume_norm": 12.3, "delta_pct": 140, "pair_mix": { "eth": 7, "stable": 1, "stock": 1, "other": 0 } },
+    "links": { "text": 28, "wallet": 3, "deployer": 0, "semantic": 0 },
+    "cohorts": { "sniper": 45, "sprayer": 3, "rotator": 416, "early-in-hot": 120, "total": 1985 },
+    "flow": { "in_wallets": 21, "in_eth": 3.1, "out_wallets": 0, "out_eth": 0 },
+    "rotating_from": "fort-sol", "rotating_to": null,
+    "summary": "…", "members": [ /* only with members=1 */ { "token": "0x…", "symbol": "SOUP", "name": "…", "phase": "curve", "membership": 0.81, "buyers_overlap": 14, "last_trade_ts": 1789313000, "launched_ts": 1789310000, "curve_progress": null } ]
+  }]
+}
+```
+
+`CoinOut` (card):
+
+```jsonc
+{
+  "token": "0xac42…", "symbol": "Roblonks", "name": "Roblonks", "phase": "curve",   // curve | swept | pool | rescued
+  "curve": { "real_quote_eth": 0.01, "threshold_eth": 4.2, "progress": 0.002 }, "pool": null,
+  "pair": { "address": "0x0…", "symbol": "ETH", "kind": "eth" }, "launched_at": 1789312000, "deployer": "0x…",
+  "verdict": "OUT",                                       // IN | EDGE | OUT | ORPHAN | NOISE | NOT_PONS
+  "cluster": { "slug": "cat-fart", "status": "ROTATING IN", "membership": 0.52 },
+  "alternatives": [{ "slug": "cheese-rotating", "membership": 0.51 }],
+  "reasons": ["74/100 early buyers also bought $POWER, $cheese in this window", "…"],
+  "watch": ["41 of 100 early buyers bought goatsen in the last 10m → rotating out risk"],
+  "narratives": ["crypto"],
+  "popularity": { "cluster_rank": 2, "clusters_total": 107, "rank_in_cluster": null, "cluster_size": 9, "buyers": 814, "buyers_percentile": 99 },
+  "evidence": { "early_buyers": 100, "overlap_buyers": 74, "text_score": 0.3, "wallet_score": 0.74, "launch_tx": "0x…", "launch_block": 62058593 },
+  "schema_version": "1.0.0", "computed_at": "…", "window": "60m", "head_block": 62064460, "lag_blocks": 0, "source": { … }
+}
+```
+
+`NotPonsOut`: `{ token, verdict: "NOT_PONS", reasons: [string], …meta }`.
+
+`FlowOut`: `{ nodes: [{ slug, status }], edges: [{ from, to, wallets, quote_norm, deployers }], …meta }`.
+
+`WhyOut`: `{ cluster: Cluster & { members: Member[] }, tags: [{ tag, weight, examples: string[] }], edges_in: Edge[], edges_out: Edge[], rule: string, …meta }`.
+
+`WatchEvent` (SSE `data:`): `{ type: "LAUNCH"|"STATUS"|"EDGE"|"GRAD"|"JOIN"|"SYNC", ts, slug?, from?, to?, token?, symbol?, wallets?, note? }`.
+
+Rules that matter to you:
+- `reasons` and `watch` are finished sentences. Render them verbatim, never paraphrase or summarise.
+- Numbers: ETH with 1 decimal above 10 and 2 below; whole percentages; times as "41m ago" / "2h ago".
+- `rank_in_cluster` can be `null` even with a cluster: the token joins the meta through wallets, not by name. Say "joins it by wallets".
+- Fields never disappear within `schema_version` 1.x; new ones may appear. Ignore unknown fields.
+
+## 3. What to build (day 0)
+
+| Page | What | Gate |
+|---|---|---|
+| `/` | the board + a "paste a CA" field | none |
+| `/coin/[ca]` | the verdict card | none |
+| `/cluster/[slug]` | one meta: numbers, members, tags, edges | none (7-day history: holders) |
+| `/flow` | the edge table | holders |
+| `/holders` | paste a public address → extended mode | none |
+| `/docs` | how it is computed, in plain words | none |
+
+Behaviour that is not optional:
+
+1. **The board opens with the answer.** Before the table: how many metas in which statuses, total ETH and buyers, the hottest meta, where capital is draining (the meta with the most outgoing wallets and how many metas it feeds), narrative shares. The CLI prints exactly this block; copy its logic (`src/cli/now.ts → renderNow`).
+2. **Top 15 by default, DEAD hidden**, "… N more" expands. Rows update in place every 30 s or on an SSE `STATUS` event; sort order changes only when a status changes, so rows do not jump.
+3. **The card replaces the board**, it is not a modal. Verdict large, one word, in colour; cluster status next to it; the `popular` line; reasons as a list; watch-outs in yellow; sources at the bottom; the sentence *"IN means this token belongs to a live meta. It is not a buy signal."* under every card.
+4. **No wallet.** No `Connect`, no `window.ethereum`, no signatures. The holder page takes a pasted public address and calls `POST /holders/check`.
+5. **Stale is visible, never blank.** If `/health` is unreachable or the last snapshot is older than 3 minutes: keep the last data and show `data is N min old — indexer catching up`.
+6. **Share = screenshot.** Each card and meta page has an OG image (served by the backend, you only set the meta tags) and a `?frame=1` mode: header and filters hidden, font +25 %, width fixed at 1080 px, for vertical video frames.
+7. **Phone first for the card.** A pasted CA from the X app is the main entry. The board at 400 px wraps a row to two lines.
+
+## 4. Look
+
+A terminal, not a dashboard. Dark only on day 0. One monospace face for data, one grotesk for headings. Status is always word + colour, never colour alone. No icons, no token logos on the board.
+
+| Token | Value | Use |
+|---|---|---|
+| `bg` | `#0B0C0E` | page |
+| `panel` | `#131519` | panels |
+| `line` | `#23262D` | borders |
+| `fg` | `#E6E7EA` | text |
+| `dim` | `#8A8F99` | secondary |
+| `hot` | `#FF5A36` | HOT, ROTATING IN |
+| `warm` | `#FFB020` | EMERGING |
+| `cool` | `#4F8CFF` | COOLING |
+| `dead` | `#4A4F58` | DEAD |
+| `out` | `#B66CFF` | ROTATING OUT, OUT verdict |
+| `ok` | `#3DDC97` | IN verdict |
+
+Copy rules: the site is in English; never the words *buy, signal, alpha, guaranteed*; board title `what's printing on Pons right now`.
+
+Run `npx tsx bin/narra.ts terminal` in the repo once: it is the reference for density and hierarchy, and the site should feel like its web twin.
+
+## 5. Stack and wiring
+
+- Next.js 16 App Router, TypeScript, Tailwind 4, no component library. Deploy on Vercel.
+- Server-render the first screen from the API (`revalidate: 15`), then SSE (`EventSource("/api/stream")`) with a 30 s polling fallback.
+- Proxy `/api/*` through Next.js route handlers to `NARRA_API_URL` so cookies and CORS stay on one origin; the holder cookie (`narra_holder`, httpOnly, 24 h) is set by the proxy from the backend's answer.
+- Env: `NARRA_API_URL` (server), `NEXT_PUBLIC_SITE_URL`.
+- No analytics, no third-party scripts, one self-hosted font.
+
+## 6. Acceptance
+
+1. `/` on a phone and a desktop: the summary block, then the board; rows update without reload.
+2. Paste a live Pons CA: the card with a verdict and at least three reasons in under 2 s.
+3. Paste a non-Pons address: a clear message, not an error page.
+4. Kill the backend: the board keeps the last data and shows the banner; the card shows a message with retry.
+5. Click a meta: members expand; a link with `?c=slug` opens the same state.
+6. `/holders` before the token exists says "holder mode opens after launch"; after it, a real balance check with no signature.
+7. An X preview of a `/coin/[ca]` link shows the verdict and reasons.
+8. Nowhere a wallet-connect button; nowhere the words buy / signal / alpha / guaranteed.
+
+## 7. How to hand it back
+
+A repository with `README.md` (how to run, env vars), the Vercel project linked, and a short `NOTES.md`: what deviates from this file and why. Open questions go to us before you build around them — the API is ours to extend, so ask for a field rather than deriving it on the client.

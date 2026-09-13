@@ -55,6 +55,8 @@ Rules live in two open files: `src/analyze/dictionary.json` (stop words, aliases
 | Calibration tool | `narra calibrate` reads snapshots, prints quantiles, proposes thresholds for a target HOT share, `--write` stores them with a date | `src/cli/calibrate.ts` |
 | Quality | 50 tests without network (fixtures: 600 real blocks of curve logs, 300 of pool swaps, full replay), typecheck, build, CI on Node 22/24 | `test/`, `.github/workflows/ci.yml` |
 | Docs | README, GUIDE (user guide), STRATEGY (formulas), PONS (what is read from the chain), SAFETY, ARCHITECTURE, OSS (phase-1 spec), product/ (phase-2 specs) | `README.md`, `docs/` |
+| Dictionary with a model in the loop | `narra dictionary suggest`: the words carrying the most ETH that no narrative family knows, sorted into families by the configured chat model (Ollama, Groq, OpenRouter, Anthropic); prints a JSON patch, `--write` merges it for review; a `chinese` word family added | `src/cli/dictionary.ts` |
+| Frontend handoff | `docs/product/HANDOFF-FRONTEND.md`: a self-contained brief for the site developer with the API contract, shapes, pages, look and acceptance | `docs/product/` |
 | Config | `.env` in the project or `~/.narra/.env`: RPC, WSS, DB, retention, semantic layer | `src/env.ts`, `.env.example` |
 
 ---
@@ -68,7 +70,7 @@ Rules live in two open files: `src/analyze/dictionary.json` (stop words, aliases
 | Publish: GitHub and `npm publish narra-cli` | `npx narra-cli` does not work until then | — |
 | Run `narra serve` for a few days, then `narra calibrate --window 60m --hours 168 --write` | status thresholds are still opinions (`calibrated_on: null`) | `integrations/launchd/`, `src/cli/calibrate.ts` |
 | An Anthropic key or an OpenAI-compatible endpoint in `.env` | model-written meta labels are untested live | `.env.example` |
-| Grow the narrative families in `dictionary.json` | about half of the ETH on the trend falls into `mixed` | `src/analyze/dictionary.json` |
+| Grow the narrative families: `narra dictionary suggest --write` with a free model (Ollama / Groq / OpenRouter), then review the diff | about half of the ETH on the trend falls into `mixed` | `src/cli/dictionary.ts` |
 
 ### Before publishing
 
