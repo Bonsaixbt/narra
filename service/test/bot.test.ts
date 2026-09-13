@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { parseCommand, formatDigest, formatCoin, CommunityBot } from "../src/bot.ts";
+import { parseCommand, formatDigest, formatCoin, digestSignature, CommunityBot } from "../src/bot.ts";
 import type { NowOut, CoinOut } from "narra-cli";
 
 const cluster = (slug: string, status: NowOut["clusters"][number]["status"], ethIn: number, out = 0): NowOut["clusters"][number] => ({ slug, label: slug, status, top_tags: [], n_members: 5, heat: { n_launches: 7, n_members: 5, n_alive: 4, quote_norm_in: ethIn, unique_buyers: 120, n_graduated: 1, graduated_share: 0.1, taxed_ratio: 0.1, pool_volume_norm: 0, delta_pct: 10, pair_mix: { eth: 5, stable: 0, stock: 0, other: 0 } }, links: { text: 3, wallet: 1, deployer: 0, semantic: 0 }, narrative: "animals", narrative_sub: null, narrative_mix: {}, flow: { in_wallets: 0, in_eth: 0, out_wallets: out, out_eth: 0 }, rank: 1, rotating_from: null, rotating_to: null });
@@ -30,10 +30,35 @@ test("coin card keeps verdict, meta, popularity, two reasons and one watch-out, 
 test("bot answers commands through the api, ignores chats outside the allow-list, rate-limits per user", async () => {
   const sent: string[] = [];
   const fetchFn = (async (_u: string, init?: RequestInit) => { if (init?.body) sent.push(JSON.parse(String(init.body)).text); return { ok: true, json: async () => ({ ok: true, result: [] }) } as unknown as Response; }) as typeof fetch;
-  const bot = new CommunityBot({ token: "t", communityChats: [], digestEverySec: 9999, commands: true, allowedChats: new Set(["1"]) }, { now: async () => board, coin: async () => null, find: async () => null, flow: async () => null, trend: async () => null }, fetchFn);
+  const bot = new CommunityBot({ token: "t", communityChats: [], digestEverySec: 9999, commands: true, allowedChats: new Set(["1"]) }, { now: async () => board, coin: async () => null, why: async () => null, find: async () => null, flow: async () => null, trend: async () => null }, fetchFn);
   await bot.handle({ message: { text: "/meta", chat: { id: 1 }, from: { id: 7 } } });
   await bot.handle({ message: { text: "/meta", chat: { id: 2 }, from: { id: 7 } } });
   assert.equal(sent.length, 1); assert.ok(sent[0].includes("cat-fart"));
   for (let i = 0; i < 12; i++) await bot.handle({ message: { text: "/help", chat: { id: 1 }, from: { id: 9 } } });
   assert.equal(sent.length, 1 + 10);
+});
+
+
+test("digest posts on change and at the hard max gap, not every interval", async () => {
+  const sent: string[] = [];
+  const fetchFn = (async (_u: string, init?: RequestInit) => { if (init?.body) sent.push(JSON.parse(String(init.body)).text); return { ok: true, json: async () => ({ ok: true, result: [] }) } as unknown as Response; }) as typeof fetch;
+  let current = board;
+  const bot = new CommunityBot({ token: "t", communityChats: ["c"], digestEverySec: 1800, commands: true, allowedChats: null }, { now: async () => current, coin: async () => null, why: async () => null, find: async () => null, flow: async () => null, trend: async () => null }, fetchFn);
+  assert.equal(await bot.digest(0), true);
+  assert.equal(await bot.digest(1800_000), false);                          // nothing changed
+  current = { ...board, clusters: [board.clusters[1], board.clusters[0], board.clusters[2]] };
+  assert.notEqual(digestSignature(current), digestSignature(board));
+  assert.equal(await bot.digest(3600_000), true);                           // changed
+  assert.equal(await bot.digest(3600_000 + 4 * 1800_000), true);           // hard max gap reached
+  assert.equal(sent.length, 3);
+});
+
+test("/coin takes up to three addresses in one message", async () => {
+  const sent: string[] = [];
+  const fetchFn = (async (_u: string, init?: RequestInit) => { if (init?.body) sent.push(JSON.parse(String(init.body)).text); return { ok: true } as Response; }) as typeof fetch;
+  let calls = 0;
+  const bot = new CommunityBot({ token: "t", communityChats: [], digestEverySec: 1, commands: true, allowedChats: null }, { now: async () => board, coin: async () => { calls++; return null; }, why: async () => null, find: async () => null, flow: async () => null, trend: async () => null }, fetchFn);
+  await bot.handle({ message: { text: `/coin 0x${"1".repeat(40)} 0x${"2".repeat(40)} 0x${"3".repeat(40)} 0x${"4".repeat(40)}`, chat: { id: 1, type: "group" }, from: { id: 1 }, message_id: 5 } });
+  assert.equal(calls, 3);
+  assert.equal(sent.length, 1);
 });

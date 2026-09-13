@@ -5,7 +5,7 @@
  *
  * Long polling (getUpdates), so no public webhook is needed.
  */
-import type { NowOut, CoinOut, NotPonsOut, FlowOut } from "narra-cli";
+import type { NowOut, CoinOut, NotPonsOut, FlowOut, WhyOut } from "narra-cli";
 import { RateLimiter } from "./ratelimit.js";
 
 export interface BotConfig { token: string; communityChats: string[]; digestEverySec: number; commands: boolean; allowedChats: Set<string> | null }
@@ -32,12 +32,35 @@ export function formatDigest(r: NowOut, top = 5): string {
   const drain = [...cl].sort((a, b) => b.flow.out_wallets - a.flow.out_wallets)[0];
   const byNar = new Map<string, number>(); for (const k of cl) byNar.set(k.narrative, (byNar.get(k.narrative) ?? 0) + k.heat.quote_norm_in);
   const nar = [...byNar].sort((a, b) => b[1] - a[1]).slice(0, 3).map(([n, v]) => `${n} ${Math.round((v / (ethSum || 1)) * 100)}%`).join(" · ");
-  const L = [`<b>narra · what's printing on Pons · ${r.window}</b>`, `${cl.length} metas · ${eth(ethSum)} ETH · ${cl.reduce((s, k) => s + k.heat.unique_buyers, 0).toLocaleString("en-US")} buyers`, "",
+  const L = [`<b>narra · what's printing on Pons · ${r.window}</b> <i>${new Date().toISOString().slice(11, 16)} UTC</i>`, `${cl.length} metas · ${eth(ethSum)} ETH · ${cl.reduce((s, k) => s + k.heat.unique_buyers, 0).toLocaleString("en-US")} buyers`, "",
     `hottest  <b>${esc(hot.slug)}</b> ${ICON[hot.status] ?? ""} ${eth(hot.heat.quote_norm_in)} ETH · ${hot.heat.unique_buyers} buyers`];
   if (drain && drain.flow.out_wallets >= 8) L.push(`draining <b>${esc(drain.slug)}</b> — ${drain.flow.out_wallets} wallets left`);
   L.push(`narratives ${esc(nar)}`, "");
   for (const k of cl.slice(0, top)) L.push(`${ICON[k.status] ?? "·"} <b>${esc(k.slug)}</b> ${k.status.toLowerCase()} · ${k.heat.n_launches} CA · ${eth(k.heat.quote_norm_in)} ETH · ${k.heat.unique_buyers} buyers${k.rotating_from ? ` · ← ${esc(k.rotating_from)}` : ""}`);
   L.push("", "/coin 0x… · /find word · /flow · /trend");
+  return L.join("\n");
+}
+
+/** What makes a digest worth re-posting: the top five and their statuses, the hottest and the draining meta. */
+export function digestSignature(r: NowOut, top = 5): string {
+  const cl = r.clusters.filter((k) => k.status !== "DEAD");
+  const hot = [...cl].sort((a, b) => b.heat.quote_norm_in - a.heat.quote_norm_in)[0]?.slug ?? "";
+  const drain = [...cl].sort((a, b) => b.flow.out_wallets - a.flow.out_wallets)[0];
+  return [hot, drain && drain.flow.out_wallets >= 8 ? drain.slug : "", ...cl.slice(0, top).map((k) => `${k.slug}:${k.status}`)].join("|");
+}
+
+/** A meta in six lines: numbers, what holds it, tags, members. */
+export function formatWhy(r: WhyOut): string {
+  const k = r.cluster, h = k.heat;
+  const L = [`<b>${esc(k.slug)}</b> ${ICON[k.status] ?? ""} ${k.status.toLowerCase()} · ${esc(k.narrative)}${k.narrative_sub ? " · " + esc(k.narrative_sub) : ""} · #${k.rank}`];
+  if (k.summary) L.push(`<i>${esc(k.summary)}</i>`);
+  L.push(`${h.n_launches} CA · ${k.n_members} members · ${h.n_alive} alive · ${eth(h.quote_norm_in)} ETH · ${h.unique_buyers} buyers · ${h.n_graduated} grad · ${Math.round(h.graduated_share * 100)}% in pool`);
+  L.push(`held by ${k.links.text} name · ${k.links.semantic} semantic · ${k.links.wallet} wallet · ${k.links.deployer} deployer links`);
+  if (r.tags.length) L.push(`tags ${esc(r.tags.map((t) => t.tag).slice(0, 6).join(" "))}`);
+  for (const e of r.edges_in.slice(0, 2)) L.push(`⇦ ${esc(e.from)} · ${e.wallets} wallets`);
+  for (const e of r.edges_out.slice(0, 2)) L.push(`⇨ ${esc(e.to)} · ${e.wallets} wallets`);
+  const members = (k.members ?? []).slice(0, 5).map((m) => `${esc(m.symbol ? "$" + m.symbol : m.token.slice(0, 8))} ${m.membership.toFixed(2)}`).join(" · ");
+  if (members) L.push(`members ${members}`);
   return L.join("\n");
 }
 
@@ -74,6 +97,7 @@ export function formatTrend(t: { hours: number; step: number; narratives: string
 
 export interface BotApi {
   now(window: "15m" | "60m" | "4h"): Promise<NowOut | null>;
+  why(slug: string): Promise<WhyOut | null>;
   coin(address: string): Promise<CoinOut | NotPonsOut | null>;
   find(q: string): Promise<Parameters<typeof formatFind>[0] | null>;
   flow(): Promise<FlowOut | null>;
@@ -94,10 +118,14 @@ export class CommunityBot {
   sent = 0; errors = 0;
   constructor(private cfg: BotConfig, private api: BotApi, private fetchFn: typeof fetch = fetch) {}
 
-  async send(chat: string | number, text: string): Promise<void> {
+  private pausedUntil = 0;
+  async send(chat: string | number, text: string, replyTo?: number): Promise<void> {
+    if (Date.now() < this.pausedUntil) { this.errors++; return; }
     try {
-      const r = await this.fetchFn(`https://api.telegram.org/bot${this.cfg.token}/sendMessage`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ chat_id: chat, text: text.slice(0, 4000), parse_mode: "HTML", disable_web_page_preview: true }), signal: AbortSignal.timeout(10_000) });
-      if (r.ok) this.sent++; else this.errors++;
+      const r = await this.fetchFn(`https://api.telegram.org/bot${this.cfg.token}/sendMessage`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ chat_id: chat, text: text.slice(0, 4000), parse_mode: "HTML", disable_web_page_preview: true, ...(replyTo ? { reply_parameters: { message_id: replyTo, allow_sending_without_reply: true } } : {}) }), signal: AbortSignal.timeout(10_000) });
+      if (r.ok) { this.sent++; return; }
+      this.errors++;
+      if (r.status === 429) { const j = (await r.json().catch(() => ({}))) as { parameters?: { retry_after?: number } }; this.pausedUntil = Date.now() + ((j.parameters?.retry_after ?? 5) * 1000); }
     } catch { this.errors++; }
   }
 
@@ -105,28 +133,43 @@ export class CommunityBot {
     const p = parseCommand(text); if (!p) return null;
     switch (p.cmd) {
       case "meta": case "now": case "board": { const w = p.arg === "15m" || p.arg === "4h" ? p.arg : "60m"; const r = await this.api.now(w); return r ? formatDigest(r) : "warming up, try again in a minute"; }
-      case "coin": { if (!/^0x[0-9a-fA-F]{40}$/.test(p.arg)) return "usage: /coin 0x… (a Pons v2 contract address)"; const r = await this.api.coin(p.arg); return r ? formatCoin(r) : "warming up"; }
+      case "coin": {
+        const addrs = (p.arg.match(/0x[0-9a-fA-F]{40}/g) ?? []).slice(0, 3);
+        if (!addrs.length) return "usage: /coin 0x… (up to three Pons v2 contract addresses)";
+        const cards: string[] = [];
+        for (const a of addrs) { const r = await this.api.coin(a); cards.push(r ? formatCoin(r).replace(FOOT, "") : "warming up"); }
+        return cards.join("\n\n") + FOOT;
+      }
+      case "why": case "meta_why": { if (!p.arg) return "usage: /why meta-slug (or any word from its name)"; try { const r = await this.api.why(p.arg); return r ? formatWhy(r) : "no such meta in this window; try /find"; } catch (e) { return esc((e as Error).message); } }
       case "find": { if (!p.arg) return "usage: /find word"; const r = await this.api.find(p.arg); return r ? formatFind(r) : "warming up"; }
       case "flow": { const r = await this.api.flow(); return r ? formatFlow(r) : "warming up"; }
       case "trend": { const r = await this.api.trend(); return r ? formatTrend(r) : "warming up"; }
-      case "help": case "start": return "<b>narra</b> — which meta is printing on Pons right now\n/meta [15m|60m|4h] — the board\n/coin 0x… — is this token in a live meta\n/find word — search metas and tokens\n/flow — where repeat buyers moved\n/trend — narratives over the last two days" + FOOT;
+      case "help": case "start": return "<b>narra</b> — which meta is printing on Pons right now\n/meta [15m|60m|4h] — the board\n/coin 0x… — is this token in a live meta\n/why meta — what holds a meta together\n/find word — search metas and tokens\n/flow — where repeat buyers moved\n/trend — narratives over the last two days" + FOOT;
       default: return null;
     }
   }
 
-  async handle(update: { message?: { text?: string; chat: { id: number | string }; from?: { id: number } } }): Promise<void> {
+  async handle(update: { message?: { message_id?: number; text?: string; chat: { id: number | string; type?: string }; from?: { id: number } } }): Promise<void> {
     const m = update.message; if (!m?.text || !this.cfg.commands) return;
     if (this.cfg.allowedChats && !this.cfg.allowedChats.has(String(m.chat.id))) return;
     if (!this.perUser.allow(String(m.from?.id ?? m.chat.id))) return;
     const reply = await this.answer(m.text);
-    if (reply) await this.send(m.chat.id, reply);
+    if (reply) await this.send(m.chat.id, reply, m.chat.type && m.chat.type !== "private" ? m.message_id : undefined);
   }
 
-  async digest(): Promise<void> {
-    if (!this.cfg.communityChats.length) return;
-    const r = await this.api.now("60m"); if (!r) return;
+  private lastSignature = "";
+  private lastDigestAt = 0;
+  /** Posts when the board changed (top five, statuses, hottest, draining) and at least every `maxGapSec` regardless. */
+  async digest(now = Date.now(), maxGapSec = this.cfg.digestEverySec * 4): Promise<boolean> {
+    if (!this.cfg.communityChats.length) return false;
+    const r = await this.api.now("60m"); if (!r) return false;
+    const sig = digestSignature(r);
+    const changed = sig !== this.lastSignature;
+    if (!changed && now - this.lastDigestAt < maxGapSec * 1000) return false;
+    this.lastSignature = sig; this.lastDigestAt = now;
     const text = formatDigest(r);
     for (const chat of this.cfg.communityChats) await this.send(chat, text);
+    return true;
   }
 
   start(): void {
@@ -136,7 +179,7 @@ export class CommunityBot {
         try {
           const r = await this.fetchFn(`https://api.telegram.org/bot${this.cfg.token}/getUpdates?offset=${this.offset}&timeout=25&allowed_updates=%5B%22message%22%5D`, { signal: AbortSignal.timeout(35_000) });
           const j = (await r.json()) as { ok: boolean; result?: { update_id: number; message?: { text?: string; chat: { id: number }; from?: { id: number } } }[] };
-          for (const u of j.result ?? []) { this.offset = u.update_id + 1; await this.handle(u); }
+          for (const u of j.result ?? []) { this.offset = u.update_id + 1; await this.handle(u as Parameters<CommunityBot["handle"]>[0]); }
         } catch { this.errors++; await new Promise((res) => setTimeout(res, 5_000)); }
         if (Date.now() >= nextDigest) { nextDigest = Date.now() + this.cfg.digestEverySec * 1000; await this.digest(); }
       }
