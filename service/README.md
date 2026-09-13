@@ -17,4 +17,6 @@ Production: `docker compose up -d` (image builds the library and the service; `.
 
 Telegram alerts: set `NARRA_TG_BOT_TOKEN` and `NARRA_TG_CHAT_IDS`; see `.env.example`. Deployment: `deploy/VPS.md`.
 
-Community bot (same token): `NARRA_TG_COMMUNITY_CHAT_IDS` gets a board digest every `NARRA_TG_DIGEST_EVERY_S`; in any chat the bot is in (or only `NARRA_TG_ALLOWED_CHAT_IDS`) it answers `/meta [15m|60m|4h]`, `/coin 0x…` (or a bare address), `/find word`, `/flow`, `/trend`, `/help`. Reduced views of the same cached analyses the site gets: no wallets, no history, no gate. Long polling, no webhook.
+Community bot (same token): `NARRA_TG_COMMUNITY_CHAT_IDS` gets a board digest every `NARRA_TG_DIGEST_EVERY_S`; in any chat the bot is in (or only `NARRA_TG_ALLOWED_CHAT_IDS`) it answers `/meta [15m|60m|4h]`, `/coin 0x…` (up to three addresses, or a bare address), `/why meta`, `/find word`, `/flow`, `/trend`, `/help`, replying to the message in groups. The digest is posted when the board changed (top five, statuses, hottest, draining) and at least every four intervals regardless. Reduced views of the same cached analyses the site gets: no wallets, no history, no gate. Long polling, no webhook.
+
+BotFather setup: `/newbot`, then `/setprivacy` → Disable so the bot sees bare addresses in groups; add it to the community chat with permission to post; get the chat id from `https://api.telegram.org/bot<token>/getUpdates` after a message in the chat (group ids are negative).

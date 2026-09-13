@@ -39,7 +39,7 @@ service/src/
   stream.ts     SSE hub: holders immediately, anonymous after NARRA_PUBLIC_STREAM_DELAY_S; SYNC heartbeats are never delayed
   og.ts         SVG share cards (1200×630) for a meta and a token; PNG through @resvg/resvg-js (optional dependency)
   alerts.ts     Telegram: STATUS→HOT/ROTATING, EDGE ≥ 8 wallets, GRAD; dedupe per key, per-minute cap, optional delay
-  bot.ts        community bot: digest every N minutes to the community chats; /meta /coin /find /flow /trend /help answered from the cached analyses; per-user rate limit; long polling
+  bot.ts        community bot: change-driven digest to the community chats (hard max gap 4× the interval); /meta /coin (≤3 addresses) /why /find /flow /trend /help from the cached analyses; replies in groups; per-user rate limit; Telegram 429 backoff; long polling
 test/           gate round-trip and tampering, limiter refill, stream delay
 ```
 

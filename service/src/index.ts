@@ -49,6 +49,7 @@ const botCfg = botConfig();
 const bot = botCfg ? new CommunityBot(botCfg, {
   now: async (w) => { const cached = ready(w); return cached ? engine.n.now({ analysis: cached, window: w }) : null; },
   coin: async (a) => { const cached = ready("60m"); return cached ? engine.n.coin(a, { analysis: cached, window: "60m" }) : null; },
+  why: async (slug) => { const cached = ready("60m"); return cached ? engine.n.why(slug, { analysis: cached, window: "60m" }) : null; },
   find: async (q) => { const cached = ready("60m"); return cached ? engine.n.find(q, { analysis: cached, window: "60m" }) : null; },
   flow: async () => { const cached = ready("60m"); return cached ? engine.n.flow({ analysis: cached, window: "60m" }) : null; },
   trend: async () => engine.n.trend(48, 4),
