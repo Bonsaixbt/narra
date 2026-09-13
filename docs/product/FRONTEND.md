@@ -1,63 +1,64 @@
-# NARRA — ТЗ на фронтенд
+# NARRA — frontend spec (phase 2, the site)
 
-Дата: 2026-09-13
-Продукт: сайт-доска терминала META для Pons v2 / Robinhood Chain
-Статус: черновик к дню 0
+Date: 2026-09-13
+Product: the web board for the narra terminal on Pons v2 / Robinhood Chain
+Status: draft toward launch day
 
-Связанные документы: `docs/BACKEND.md` (API и типы), `meta-terminal.md` (продукт).
-
----
-
-## 0. Принципы
-
-1. Сайт — обёртка над тем же движком, что и CLI. Никакой логики вердиктов на клиенте: всё приходит из API.
-2. Без кошелька. Ни одной кнопки `Connect`. Нет `window.ethereum`. Холдер-гейт — только вставка публичного адреса в поле.
-3. Экран сайта = кадр видео. Каждая страница должна читаться с телефона за три секунды и хорошо выглядеть на скриншоте в X.
-4. Сайт живёт при мёртвом бэкенде: показывает последний снимок с баннером «данные устарели», не белый экран.
-5. Никакого языка «покупай». `IN` — это членство в мете, не сигнал.
+Related: `docs/product/BACKEND.md` (API and types), `docs/OSS.md`, `docs/GUIDE.md`.
 
 ---
 
-## 1. Страницы
+## 0. Principles
 
-| Путь | Что | Гейт |
+1. The site is a wrapper over the same engine as the CLI. No verdict logic on the client: everything comes from the API.
+2. No wallet. Not a single `Connect` button. No `window.ethereum`. The holder gate is a pasted public address only.
+3. A screen is a video frame. Every page must read from a phone in three seconds and look good in an X screenshot.
+4. The site survives a dead backend: it shows the last snapshot with a "data is stale" banner, not a blank page.
+5. No "buy" language. `IN` is membership in a meta, not a signal.
+
+---
+
+## 1. Pages
+
+| Path | What | Gate |
 |---|---|---|
-| `/` | Доска мет + поле «вставь CA» | нет |
-| `/coin/[ca]` | Карточка вердикта по токену | нет |
-| `/cluster/[slug]` | Кластер: члены, теги, рёбра, история | история 7 дней — холд |
-| `/flow` | Граф перетока между кластерами | холд |
-| `/holders` | Проверка холда и включение расширенного режима | нет |
-| `/docs` | Как считается: теги, статусы, поток, ограничения | нет |
-| `/api/og/...` | серверные PNG-превью (проксируются из бэкенда) | нет |
+| `/` | the board + "paste a CA" field | no |
+| `/coin/[ca]` | the verdict card for a token | no |
+| `/cluster/[slug]` | a meta: members, tags, edges, history | 7-day history — holders |
+| `/flow` | the capital-flow graph between metas | holders |
+| `/wallets` | wallet cohorts | holders |
+| `/holders` | holder check and extended mode | no |
+| `/docs` | how it is computed: tags, statuses, flow, limits | no |
+| `/api/og/...` | server-rendered PNG previews (proxied from the backend) | no |
 
-Окна `15m` и `4h`, поток, история и живой поток без задержки — за холд. Окно `60m` и карточка токена — бесплатно всегда.
-
----
-
-## 2. Стек
-
-- Next.js 16, App Router, TypeScript. Деплой на Vercel.
-- Tailwind CSS 4. Без UI-библиотеки: компонентов мало, стиль терминальный, готовые наборы только мешают.
-- Данные: `fetch` с `next: { revalidate: 15 }` для доски и кластера, серверный рендер первого экрана, дальше живые обновления через SSE (`EventSource` на `/api/stream`) или поллинг раз в 30 с, если SSE недоступен.
-- Типы ответов импортируются из общего пакета `@narra/schemas` (zod-схемы бэкенда). Один источник правды.
-- Env: `NEXT_PUBLIC_NARRA_API_URL`, `NARRA_API_URL` (серверный), `NEXT_PUBLIC_SITE_URL`.
-- Без аналитики, без cookies кроме холдер-токена, без внешних шрифтов кроме одного моноширинного с локальным фолбэком.
+The `15m` and `4h` windows, flow, wallets, history and the undelayed live stream are for holders. The `60m` window, the card and search are always free.
 
 ---
 
-## 3. Визуальный язык
+## 2. Stack
 
-Терминал, не дашборд. Один моноширинный шрифт для данных, один гротеск для заголовков и текста доков.
+- Next.js 16, App Router, TypeScript. Deployed on Vercel.
+- Tailwind CSS 4. No UI library: few components, a terminal style, kits only get in the way.
+- Data: `fetch` with `next: { revalidate: 15 }` for the board and cluster pages, server-rendered first screen, then live updates through SSE (`EventSource` on `/api/stream`) or polling every 30 s when SSE is unavailable.
+- Response types imported from the shared `narra-cli` zod schemas. One source of truth.
+- Env: `NEXT_PUBLIC_NARRA_API_URL`, `NARRA_API_URL` (server), `NEXT_PUBLIC_SITE_URL`.
+- No analytics, no cookies except the holder token, no external fonts except one monospace face with a local fallback.
 
-Палитра (тёмная по умолчанию, светлая тема не нужна на день 0):
+---
 
-| Токен | Значение | Где |
+## 3. Visual language
+
+A terminal, not a dashboard. One monospace font for data, one grotesk for headings and docs.
+
+Palette (dark by default; a light theme is not needed on day 0):
+
+| Token | Value | Where |
 |---|---|---|
-| `bg` | `#0B0C0E` | фон |
-| `panel` | `#131519` | панели |
-| `line` | `#23262D` | границы |
-| `fg` | `#E6E7EA` | текст |
-| `dim` | `#8A8F99` | вторичный текст |
+| `bg` | `#0B0C0E` | background |
+| `panel` | `#131519` | panels |
+| `line` | `#23262D` | borders |
+| `fg` | `#E6E7EA` | text |
+| `dim` | `#8A8F99` | secondary text |
 | `hot` | `#FF5A36` | `HOT`, `ROTATING IN` |
 | `warm` | `#FFB020` | `EMERGING` |
 | `cool` | `#4F8CFF` | `COOLING` |
@@ -65,189 +66,194 @@
 | `out` | `#B66CFF` | `ROTATING OUT`, `OUT` |
 | `ok` | `#3DDC97` | `IN` |
 
-Статус — всегда текст + цвет, никогда только цвет. Иконок нет. Логотипы токенов не показываются на доске (IPFS медленный и шумит кадр), только на карточке токена, лениво.
+A status is always text plus colour, never colour alone. No icons. Token logos are not shown on the board (IPFS is slow and noisy), only on the card, lazily.
 
-Плотность: на десктопе 1280 px доска показывает 8–10 кластеров без скролла. Строка кластера — одна строка текста, как в CLI.
+Density: at 1280 px the board shows 8–10 metas without scrolling. A cluster row is one line of text, like the CLI.
 
 ---
 
-## 4. Экраны
+## 4. Screens
 
-### 4.1 `/` — доска
+### 4.1 `/` — the board
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────────┐
-│ META   what's printing on Pons right now        [ paste CA ________ ] [→]    │
-│ 12:04:11 UTC · window [15m] [60m] [4h] · pair [all] [eth] [usdg] [stock]     │
-│ lag 2 blocks · indexer ok                                                    │
+│ NARRA   what's printing on Pons right now       [ paste CA ________ ] [→]    │
+│ 12:04:11 UTC · window [15m] [60m] [4h] · pair [all] [eth] [stable] [stock]   │
+│ hottest ponsora-cult 231 ETH · draining fort-sol → 20 metas · chinese 25%    │
 ├──────────────────────────────────────────────────────────────────────────────┤
-│ HOT          stock-hood     18 CA   2.41 ETH   3 grad   31% pool  ← agent-grok│
-│ EMERGING     astra-hands     7 CA   0.83 ETH   0 grad    0% pool             │
-│ COOLING      frog-exit      22 CA   0.19 ETH   0 grad    5% pool  → stock-hood│
-│ DEAD         office-bot     11 CA   0.00 ETH   0 grad    0% pool             │
+│ 1 ROTATING IN  ponsora-cult   mixed        7 CA  231.4 ETH  1 grad  1985 b ⇦21│
+│ 2 ROTATING IN  cat-fart       animals     36 CA   93.9 ETH  1 grad  1005 b ⇦51│
+│ 3 HOT          ponsorian      mixed       13 CA   36.8 ETH  1 grad   462 b    │
+│ 4 EMERGING     cheese-rotat.  mixed       44 CA   66.2 ETH  0 grad  1046 b ⇦46│
 ├──────────────────────────────────────────────────────────────────────────────┤
-│ stock-hood  ·  HOT  ·  tags: hood 0.9  stock 0.7  pair:eth 0.6              │
-│   0xabc…  $HOODRAT   curve 1.9/4.2   IN   0.81   14 buyers overlap          │
-│   0xdef…  $HOODAI    curve 0.4/4.2   EDGE 0.31   weak overlap               │
-│   0x111…  $NVDAX     pool  +0.6 ETH  OUT  0.22   wallets left → astra-hands │
-│                                                       open cluster → │
+│ cat-fart  ·  ROTATING IN  ·  animals  ·  tags cat fart cheese                │
+│   0xabc…  $cheese     curve 0.81   IN   14 buyers overlap                    │
+│   0xdef…  $FARTCAT    curve 0.35   EDGE weak overlap                         │
+│                                                       open meta → │
 └──────────────────────────────────────────────────────────────────────────────┘
 ```
 
-Поведение:
+Behaviour:
 
-- Первый рендер серверный с данными окна `60m`. Клик по строке кластера раскрывает панель членов под таблицей (не переход), URL получает `?c=stock-hood`, чтобы ссылка открывала то же состояние.
-- Переключение окна `15m`/`4h` без холда показывает панель «за холд» с кнопкой на `/holders`, данные окна `60m` остаются на экране.
-- Фильтр пары — клиентский, по `pair_mix` кластера.
-- Стрелки `←`/`→` — рёбра потока: `← agent-grok (11 w)` значит «11 кошельков пришли из agent-grok». Наведение показывает тултип с числом кошельков и объёмом.
-- Каждые 30 с (или по SSE-событию `cluster_status`) строки обновляются на месте. Смена статуса подсвечивает строку на 2 с. Строки не прыгают: сортировка пересчитывается только при смене статуса, не при смене чисел.
-- Поле «вставь CA»: валидация `0x` + 40 hex на клиенте, `Enter` → `/coin/[ca]`. Вставка адреса с пробелами и переносом строк чистится.
-- Баннер над таблицей, если `health.lag > 300` или снимок старше 3 минут: `data is N min old — indexer catching up`. Данные при этом остаются.
+- Server-rendered with the `60m` window. Clicking a row expands the member panel below the table (no navigation); the URL gets `?c=cat-fart` so a link opens the same state.
+- Switching to `15m`/`4h` without the gate shows a "for holders" panel with a link to `/holders`; the `60m` data stays on screen.
+- The pair filter is client-side, on `pair_mix`.
+- Arrows `⇦`/`⇨` are flow: wallets that arrived and left; hover shows counts and ETH.
+- Every 30 s (or on an SSE `STATUS` event) rows update in place. A status change highlights the row for 2 s. Rows do not jump: sorting is recomputed only on a status change.
+- The summary line (hottest, draining, narrative shares) is the same block the CLI prints first.
+- The CA field validates `0x` + 40 hex on the client; `Enter` → `/coin/[ca]`. Pasted addresses with whitespace are cleaned.
+- A banner above the table when `health.lag > 300` or the snapshot is older than 3 minutes: `data is N min old — indexer catching up`. The data stays.
 
-Пустое состояние (кластеров нет, например ночью): «no live narra right now — N launches in the last hour, none clustered», плюс последние 5 запусков списком.
+Empty state: "no live meta right now — N launches in the last hour, none clustered", plus the last 5 launches.
 
-### 4.2 `/coin/[ca]` — карточка вердикта
+### 4.2 `/coin/[ca]` — the card
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
-│ $HOODRAT · HoodRat                          0xabc…def [copy] │
-│ phase: curve 1.9 / 4.2 ETH · launched 41m ago · pair ETH     │
+│ $Roblonks · Roblonks                          0xac4…8f [copy] │
+│ phase: curve 0.01 / 4.2 ETH · launched 11m ago · pair ETH     │
 │                                                              │
-│ IN  stock-hood  0.81                                  HOT    │
-│ alt: astra-hands 0.22                                        │
+│ OUT  cat-fart  0.52                             ROTATING IN  │
+│ popular  meta #2 of 107 · joins it by wallets · 814 buyers   │
+│ alt: cheese-rotating 0.51                                    │
 │                                                              │
 │ reasons                                                      │
-│  · ticker HOOD matches cluster tag hood                      │
-│  · 14/31 early buyers also bought $HOODAI, $HOODX in 40m     │
-│  · cluster stock-hood is HOT: 18 CA, 2.4 ETH in, 3 grad/60m  │
-│                                                              │
+│  · 74/100 early buyers also bought $POWER, $cheese           │
+│  · 7 rotators and 71 early-in-hot wallets among early buyers │
+│  · cluster cat-fart is ROTATING IN: 36 CA, 94 ETH, 1 grad    │
 │ watch                                                        │
-│  · 6 early buyers bought $ASTRA* in last 10m → rotating out  │
+│  · 41 of 100 early buyers bought goatsen in the last 10m     │
 │                                                              │
-│ sources: launch tx ↗ · block 61 834 120 · computed 12:04:40  │
-│ [ open cluster ]  [ explorer ↗ ]  [ pons ↗ ]  [ share ]      │
+│ sources: launch tx ↗ · block 62 058 593 · computed 15:32     │
+│ [ open meta ]  [ explorer ↗ ]  [ pons ↗ ]  [ share ]         │
 └──────────────────────────────────────────────────────────────┘
 ```
 
-Поведение:
+Behaviour:
 
-- Серверный рендер по `GET /api/coin/:ca`. Кэш 30 с.
-- Состояния: `loading` (скелет карточки), `NOT_PONS` («this address is not a Pons v2 launch»), `ORPHAN` (карточка без кластера, с причинами «no live cluster matches»), ошибка API («couldn't compute — try again»).
-- Вердикт крупно, одним словом, в цвете. Рядом статус кластера. Ниже причины списком без сокращений.
-- Кнопка `share` копирует ссылку; OG-превью — серверный PNG из `/api/og/coin/:ca.png` с тем же содержимым в 1200×630. Это то, что увидят в X.
-- Фаза `pool`: вместо прогресса кривой показывается `pool · graduated 2h ago · 0.6 ETH volume / 60m`. Фаза `swept`: `swept — pool not open yet`.
-- Кнопка «обновить» перезапрашивает вердикт, минимум раз в 30 с.
+- Server-rendered from `GET /api/coin/:ca`. 30 s cache.
+- States: `loading` (a skeleton card), `NOT_PONS` ("this address is not a Pons v2 launch"), `ORPHAN` (a card without a cluster, with reasons "no live cluster matches"), API error ("couldn't compute — try again").
+- The verdict large, one word, in colour. Next to it the cluster status. Below, the reasons as a list, unabridged.
+- `share` copies the link; the OG preview is a server PNG from `/api/og/coin/:ca.png` with the same content at 1200×630.
+- `pool` phase shows `pool · graduated 2h ago · 0.6 ETH volume / 60m` instead of curve progress. `swept` phase: `swept — pool not open yet`.
+- A refresh button re-requests the verdict, at most once per 30 s.
 
 ### 4.3 `/cluster/[slug]`
 
-Три блока: шапка со статусом и числами за выбранное окно; таблица членов (те же колонки, что в панели на доске, плюс `last trade`); теги с весами и «почему назван так» (топ-5 токенов по каждому тегу). Ниже рёбра `in`/`out` списком. За холд — график истории 7 дней: `quote_norm_in` и статус по 15-минутным снапшотам, простая линия + полоса статусов, без легенды на 8 серий.
+Three blocks: the header with status and numbers for the chosen window; the member table (the same columns as the board panel plus `last trade`); tags with weights and "why it is named so" (top-5 tokens per tag). Below, `in`/`out` edges as a list. For holders a 7-day history chart: `quote_norm_in` and the status strip in 15-minute snapshots, a single line and a status band, no eight-series legend.
 
 ### 4.4 `/flow`
 
-Список рёбер таблицей: `from → to · wallets · ETH · deployers · window`. Граф рисовать не нужно на день 0; таблица честнее и читается на телефоне. Если позже делать граф — только как дополнение к таблице.
+Edges as a table: `from → to · wallets · ETH · deployers · window`. No graph on day 0; a table is more honest and reads on a phone. A graph, if ever, only as an addition to the table.
 
-### 4.5 `/holders`
+### 4.5 `/wallets`
 
-Одно поле «public address», кнопка `check`. `POST /api/holders/check`. Успех: «N $META · threshold M · extended mode on», ставится cookie с токеном на 24 ч, в шапке появляется метка `holder`. Неуспех: баланс и порог, ссылка на Pons-страницу токена. Текст на странице: «we read a public balance, we never ask for a signature».
+The cohort table from the CLI: wallet, buys/sells, tokens, ETH in/out, net, wins, entry delay, cohorts, metas. Filters by cohort. The note "net ignores what is still held; cohorts are arithmetic labels, not a signal".
 
-До запуска токена (`NARRA_TOKEN_ADDRESS` пуст) страница показывает «holder mode opens after launch», все гейты открыты.
+### 4.6 `/holders`
 
-### 4.6 `/docs`
+One "public address" field, a `check` button. `POST /api/holders/check`. Success: "N $NARRA · threshold M · extended mode on", a 24 h cookie is set, a `holder` mark appears in the header. Failure: the balance and the threshold, a link to the Pons page of the token. Copy: "we read a public balance, we never ask for a signature".
 
-Статический MDX: как считаются теги, кластеры, статусы, поток, вердикт; что сайт не делает; источники; ограничения (§8 и §16 BACKEND в человеческом виде). Одна страница, оглавление слева на десктопе.
+Before the token launch (`NARRA_TOKEN_ADDRESS` empty) the page says "holder mode opens after launch" and every gate is open.
+
+### 4.7 `/docs`
+
+Static MDX: how tags, clusters, statuses, flow and the verdict are computed; what the site does not do; sources; limitations. One page with a table of contents on desktop.
 
 ---
 
-## 5. Компоненты
+## 5. Components
 
-| Компонент | Где | Props |
+| Component | Where | Props |
 |---|---|---|
 | `Board` | `/` | `clusters`, `window`, `pair`, `selected` |
+| `SummaryLine` | Board, header | `hottest`, `draining`, `narratives` |
 | `ClusterRow` | Board | `Cluster` |
-| `StatusTag` | везде | `status` |
+| `StatusTag` | everywhere | `status` |
 | `MemberTable` | Board, Cluster | `members` |
 | `VerdictCard` | `/coin` | `Verdict` |
 | `ReasonList` | VerdictCard, Cluster | `reasons`, `watch` |
-| `FlowArrows` | ClusterRow | `rotating_from`, `rotating_to` |
-| `CaInput` | шапка | — |
-| `WindowSwitch`, `PairSwitch` | шапка | `value`, `gated` |
+| `FlowArrows` | ClusterRow | `flow`, `rotating_from`, `rotating_to` |
+| `CaInput` | header | — |
+| `WindowSwitch`, `PairSwitch` | header | `value`, `gated` |
 | `StaleBanner` | layout | `health` |
-| `GateWall` | окна, flow, история | `feature` |
+| `GateWall` | windows, flow, wallets, history | `feature` |
 | `HistoryChart` | Cluster | `snapshots` |
-| `OgCard` | серверный роут | `Cluster \| Verdict` |
+| `OgCard` | server route | `Cluster \| Verdict` |
 
-Хук `useLiveBoard(window)`: SSE с ре-коннектом, фолбэк на поллинг, возвращает `clusters`, `health`, `lastUpdate`.
-
----
-
-## 6. Данные и состояния
-
-- Все запросы к API типизированы через `@narra/schemas`; ответ, не прошедший `zod`, считается ошибкой, а не рендерится частично.
-- Числа форматируются одним хелпером: ETH до 2 знаков, проценты целые, время «41m ago» / «2h ago», далее дата.
-- Адреса: `0xabc…def`, клик копирует полный, тултип не нужен.
-- Никаких оптимистичных обновлений: экран показывает только то, что вернул API.
-- Ошибка API на доске → последний удачный ответ + `StaleBanner`. Ошибка на карточке токена → сообщение и кнопка повторить.
+Hook `useLiveBoard(window)`: SSE with reconnect, polling fallback, returns `clusters`, `health`, `lastUpdate`.
 
 ---
 
-## 7. Холдер-режим
+## 6. Data and states
 
-- Токен из `POST /api/holders/check` хранится в httpOnly cookie `narra_holder`, отправляется бэкенду заголовком через серверный прокси-роут Next.js, чтобы клиент не знал секрета.
-- Гейт на клиенте — только скрытие/показ; настоящая проверка на бэкенде.
-- Метка `holder` в шапке, кнопка «forget» удаляет cookie.
-
----
-
-## 8. OG-карточки и «кадр для видео»
-
-- `/api/og/cluster/[slug]` и `/api/og/coin/[ca]` — PNG 1200×630, тот же моноширинный шрифт, чёрный фон, статус цветом, 3–5 строк данных, время UTC внизу. Генерируются на бэкенде (см. BACKEND §9), фронт проксирует и кэширует 60 с.
-- Режим `?frame=1` на `/` и `/coin/[ca]`: убирает шапку и фильтры, увеличивает шрифт на 25%, фиксирует ширину 1080 px. Это для записи вертикальных роликов: один экран = один кадр.
+- Every API request is typed through the shared schemas; a response that fails `zod` is an error, not partially rendered.
+- Numbers are formatted by one helper: ETH to 1 decimal above 10, 2 below; whole percentages; time as "41m ago" / "2h ago", then a date.
+- Addresses: `0xabc…def`, click copies the full one, no tooltip.
+- No optimistic updates: the screen shows only what the API returned.
+- API error on the board → last successful answer + `StaleBanner`. Error on the card → a message and a retry button.
 
 ---
 
-## 9. Мобильная версия
+## 7. Holder mode
 
-- Доска на 400 px: строка кластера переносится в две строки — статус + имя, ниже числа. Панель членов открывается на всю ширину.
-- Карточка токена на телефоне — основной сценарий (вставил CA из ленты X). Поле ввода в шапке остаётся первым элементом.
-- Таблицы шире экрана — горизонтальный скролл внутри таблицы, страница не скроллится вбок.
-
----
-
-## 10. Доступность и производительность
-
-- Контраст статусов на тёмном фоне ≥ 4.5:1 (проверить `dead` и `dim`).
-- Всё управление с клавиатуры: `/` фокус на поле CA, `Esc` закрывает панель, стрелки по строкам.
-- Первый экран доски ≤ 60 КБ JS сверх фреймворка. Без графиков на `/`.
-- LCP < 1.5 с на 4G для `/coin/[ca]` (серверный рендер, без ожидания клиентских запросов).
+- The token from `POST /api/holders/check` is stored in an httpOnly cookie `narra_holder` and sent to the backend as a header through a Next.js proxy route, so the client never sees the secret.
+- The client-side gate only hides and shows; the real check is on the backend.
+- A `holder` mark in the header; a "forget" button removes the cookie.
 
 ---
 
-## 11. Тексты
+## 8. OG cards and the "video frame"
 
-- Язык сайта английский, как у аккаунта.
-- Заголовок доски: `what's printing on Pons right now`.
-- Подпись под вердиктом: `IN means this token belongs to a live meta. It is not a buy signal.`
-- Футер: `open source · MIT · no wallet connect · runs on your machine: github.com/…`
-- Слова `buy`, `signal`, `alpha`, `guaranteed` на сайте не используются.
+- `/api/og/cluster/[slug]` and `/api/og/coin/[ca]` — PNG 1200×630, the same monospace font, black background, the status in colour, 3–5 lines of data, UTC time at the bottom. Rendered on the backend, proxied and cached 60 s by the frontend.
+- `?frame=1` on `/` and `/coin/[ca]`: hides the header and filters, enlarges the font by 25 %, fixes the width at 1080 px. For vertical video: one screen = one frame.
 
 ---
 
-## 12. Деплой
+## 9. Mobile
 
-- Vercel, production на домене продукта, preview на PR.
-- `NARRA_API_URL` указывает на VPS с бэкендом; прокси-роуты `/api/*` в Next.js пробрасывают запросы, чтобы CORS и cookie были одного origin.
-- Заголовки кэша: `/` и `/cluster/*` — `s-maxage=15, stale-while-revalidate=60`; `/coin/*` — `s-maxage=30`; OG — `s-maxage=60`.
-- Vercel Firewall: базовый rate-limit на `/api/*` 120 запросов/мин на IP.
+- The board at 400 px: a cluster row wraps to two lines, status + name, then numbers. The member panel opens full width.
+- The card on a phone is the main scenario (a CA pasted from the X feed). The input stays the first element in the header.
+- Tables wider than the screen scroll horizontally inside the table; the page never scrolls sideways.
 
 ---
 
-## 13. Приёмка (день 0)
+## 10. Accessibility and performance
 
-1. Открыть `/` на телефоне и десктопе: доска с окном 60m, строки обновляются без перезагрузки.
-2. Вставить любой живой CA с Pons: карточка с вердиктом и минимум тремя причинами за < 2 с.
-3. Вставить не-Pons адрес: понятное сообщение, не ошибка 500.
-4. Остановить бэкенд: доска показывает последний снимок и баннер, карточка — сообщение с повтором.
-5. Клик по кластеру раскрывает членов; ссылка с `?c=` открывает то же.
-6. `/holders` до запуска токена показывает «opens after launch»; после — реальную проверку баланса без подписи.
-7. OG-превью ссылки на `/coin/[ca]` в X показывает вердикт и причины.
-8. Нигде на сайте нет кнопки подключения кошелька.
+- Status contrast on the dark background ≥ 4.5:1 (check `dead` and `dim`).
+- Full keyboard control: `/` focuses the CA field, `Esc` closes the panel, arrows move between rows.
+- The first board screen ≤ 60 KB of JS beyond the framework. No charts on `/`.
+- LCP < 1.5 s on 4G for `/coin/[ca]` (server-rendered, no waiting on client requests).
+
+---
+
+## 11. Copy
+
+- The site's language is English, like the account.
+- Board title: `what's printing on Pons right now`.
+- Under the verdict: `IN means this token belongs to a live meta. It is not a buy signal.`
+- Footer: `open source · MIT · no wallet connect · runs on your machine: github.com/…`
+- The words `buy`, `signal`, `alpha`, `guaranteed` do not appear on the site.
+
+---
+
+## 12. Deployment
+
+- Vercel, production on the product domain, previews on PRs.
+- `NARRA_API_URL` points at the VPS with the backend; `/api/*` proxy routes in Next.js forward requests so CORS and cookies stay on one origin.
+- Cache headers: `/` and `/cluster/*` — `s-maxage=15, stale-while-revalidate=60`; `/coin/*` — `s-maxage=30`; OG — `s-maxage=60`.
+- Vercel Firewall: a basic rate limit on `/api/*`, 120 requests/min per IP.
+
+---
+
+## 13. Acceptance (day 0)
+
+1. Open `/` on a phone and a desktop: the board with the 60m window, rows update without reload.
+2. Paste any live Pons CA: a card with a verdict and at least three reasons in under 2 s.
+3. Paste a non-Pons address: a clear message, not a 500.
+4. Stop the backend: the board shows the last snapshot and a banner, the card a message with a retry.
+5. Click a cluster to expand members; a link with `?c=` opens the same state.
+6. `/holders` before the token launch says "opens after launch"; after it, a real balance check without a signature.
+7. An OG preview of a `/coin/[ca]` link in X shows the verdict and reasons.
+8. Nowhere on the site is there a wallet-connect button.
