@@ -57,7 +57,7 @@ Rules live in two open files: `src/analyze/dictionary.json` (stop words, aliases
 | Docs | README, GUIDE (user guide), STRATEGY (formulas), PONS (what is read from the chain), SAFETY, ARCHITECTURE, OSS (phase-1 spec), product/ (phase-2 specs) | `README.md`, `docs/` |
 | Dictionary with a model in the loop | `narra dictionary suggest`: the words carrying the most ETH that no narrative family knows, sorted into families by the configured chat model (Ollama, Groq, OpenRouter, Anthropic); prints a JSON patch, `--write` merges it for review; a `chinese` word family added | `src/cli/dictionary.ts` |
 | Frontend handoff | `docs/product/HANDOFF-FRONTEND.md`: a self-contained brief for the site developer with the API contract, shapes, pages, look and acceptance | `docs/product/` |
-| Hosted service (phase 2) | `service/`: Hono HTTP + SSE over the same engine, one cached analysis per window (60m every tick, 4h every 5 min), holder gate (public balance → HMAC cookie, no signature), token-bucket rate limits, SSE delayed 5 min for anonymous viewers, SVG share cards, `/api/find`, `/api/history/*`, `/api/trend`, Docker image + compose with an hourly backup sidecar, PNG share cards via resvg, Telegram alerts (dedupe, cap, delay), Caddy + VPS deploy notes, CI. Probed live: every route answers | `service/` |
+| Hosted service (phase 2) | `service/`: Hono HTTP + SSE over the same engine, one cached analysis per window (60m every tick, 4h every 5 min), holder gate (public balance → HMAC cookie, no signature), token-bucket rate limits, SSE delayed 5 min for anonymous viewers, SVG share cards, `/api/find`, `/api/history/*`, `/api/trend`, Docker image + compose with an hourly backup sidecar, PNG share cards via resvg, Telegram alerts (dedupe, cap, delay), a community bot (digest + /meta /coin /find /flow /trend), Caddy + VPS deploy notes, CI. Probed live: every route answers | `service/` |
 | Config | `.env` in the project or `~/.narra/.env`: RPC, WSS, DB, retention, semantic layer | `src/env.ts`, `.env.example` |
 
 ---
@@ -84,7 +84,8 @@ Done: terminal verified at 80 and 140 columns with the analysis in a child proce
 - Alerts: `narra watch --telegram`, "tell me when meta X turns HOT".
 - Prices for stock-token pairs (today stock metas rank by buyers only).
 - A real reorg has not been observed; the rewind logic is untested live.
-- Phase 2: deploy `service/` on a VPS (`service/deploy/VPS.md`), per-holder Telegram subscriptions, the site (`docs/product/HANDOFF-FRONTEND.md`).
+- Phase 2: deploy `service/` on a VPS (`service/deploy/VPS.md`), the site on Cloudflare Pages (`docs/product/HANDOFF-FRONTEND.md`).
+- Post-launch backlog (`docs/product/HANDOFF-BACKEND.md` §8): personal watchlists, frozen snapshots, one-call home summary, per-holder Telegram subscriptions.
 
 ---
 

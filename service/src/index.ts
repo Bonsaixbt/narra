@@ -16,6 +16,7 @@ import { RateLimiter } from "./ratelimit.js";
 import { StreamHub } from "./stream.js";
 import { clusterCard, coinCard, toPng } from "./og.js";
 import { Alerter, alertConfig } from "./alerts.js";
+import { CommunityBot, botConfig } from "./bot.js";
 
 const hub = new StreamHub(CONFIG.publicStreamDelaySec);
 const alertCfg = alertConfig();
@@ -43,7 +44,17 @@ const gated = createMiddleware<Env>(async (c, next) => {
   await next();
 });
 
-app.get("/api/health", (c) => { const h = engine.health(); return c.json({ ...h, narra: "service 0.1.0", gate: gateEnabled(), stream_clients: hub.size, alerts: alerter ? { sent: alerter.sent, dropped: alerter.dropped, errors: alerter.errors } : null }, h.ok ? 200 : 503); });
+// community bot: answers from the same cached analyses as the routes
+const botCfg = botConfig();
+const bot = botCfg ? new CommunityBot(botCfg, {
+  now: async (w) => { const cached = ready(w); return cached ? engine.n.now({ analysis: cached, window: w }) : null; },
+  coin: async (a) => { const cached = ready("60m"); return cached ? engine.n.coin(a, { analysis: cached, window: "60m" }) : null; },
+  find: async (q) => { const cached = ready("60m"); return cached ? engine.n.find(q, { analysis: cached, window: "60m" }) : null; },
+  flow: async () => { const cached = ready("60m"); return cached ? engine.n.flow({ analysis: cached, window: "60m" }) : null; },
+  trend: async () => engine.n.trend(48, 4),
+}) : null;
+
+app.get("/api/health", (c) => { const h = engine.health(); return c.json({ ...h, narra: "service 0.1.0", gate: gateEnabled(), stream_clients: hub.size, alerts: alerter ? { sent: alerter.sent, dropped: alerter.dropped, errors: alerter.errors } : null, bot: bot ? { sent: bot.sent, errors: bot.errors } : null }, h.ok ? 200 : 503); });
 
 app.get("/api/board", async (c) => {
   const w = windowOf(c.req.query("window"));
@@ -99,6 +110,7 @@ app.notFound((c) => { const e = err("NOT_FOUND", "see /api/health", 404); return
 app.onError((ex, c) => { const e = err("INTERNAL", ex.message.split("\n")[0], 500); return c.json(e.body, e.status); });
 
 engine.start();
+bot?.start();
 serve({ fetch: app.fetch, port: CONFIG.port, hostname: CONFIG.host }, (info) => console.error(`narra service · http://${info.address}:${info.port}/api · windows ${CONFIG.windows.join(",")} · gate ${gateEnabled() ? "on" : "off (no token yet)"} · public stream delay ${CONFIG.publicStreamDelaySec}s`));
-process.on("SIGINT", () => { engine.close(); hub.stop(); alerter?.stop(); process.exit(0); });
-process.on("SIGTERM", () => { engine.close(); hub.stop(); alerter?.stop(); process.exit(0); });
+process.on("SIGINT", () => { engine.close(); hub.stop(); alerter?.stop(); bot?.stop(); process.exit(0); });
+process.on("SIGTERM", () => { engine.close(); hub.stop(); alerter?.stop(); bot?.stop(); process.exit(0); });

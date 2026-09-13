@@ -39,6 +39,7 @@ service/src/
   stream.ts     SSE hub: holders immediately, anonymous after NARRA_PUBLIC_STREAM_DELAY_S; SYNC heartbeats are never delayed
   og.ts         SVG share cards (1200×630) for a meta and a token; PNG through @resvg/resvg-js (optional dependency)
   alerts.ts     Telegram: STATUS→HOT/ROTATING, EDGE ≥ 8 wallets, GRAD; dedupe per key, per-minute cap, optional delay
+  bot.ts        community bot: digest every N minutes to the community chats; /meta /coin /find /flow /trend /help answered from the cached analyses; per-user rate limit; long polling
 test/           gate round-trip and tampering, limiter refill, stream delay
 ```
 
@@ -67,6 +68,7 @@ Library entry points the service relies on (all exported from `narra-cli`): `Nar
 | `NARRA_STALE_AFTER_S` / `NARRA_MAX_LAG_BLOCKS` | 180 / 300 | health thresholds |
 | `NARRA_SEMANTIC*` | off | the semantic layer, see the root `.env.example`; naming needs a model key (OpenRouter free models work) |
 | `NARRA_TG_BOT_TOKEN`, `NARRA_TG_CHAT_IDS`, `NARRA_TG_EVENTS`, `NARRA_TG_DEDUPE_S`, `NARRA_TG_PER_MINUTE`, `NARRA_TG_DELAY_S` | off | Telegram alerts to fixed chats |
+| `NARRA_TG_COMMUNITY_CHAT_IDS`, `NARRA_TG_ALLOWED_CHAT_IDS`, `NARRA_TG_DIGEST_EVERY_S`, `NARRA_TG_COMMANDS` | off | the community bot (digest + commands) |
 
 ## 5. Turning the gate on (launch day)
 
@@ -95,11 +97,19 @@ The response shapes are the zod schemas in `narra-cli` (`src/schemas.ts`, genera
 - New endpoints go under `/api` and answer JSON with the same `{ error: { code, message } }` shape on failure.
 - Anything the site needs derived from the data belongs in the library, not in the site: add a method on `Narra`, expose it in `src/lib.ts`, add a route.
 
-## 8. What is left
+## 8. Post-launch backlog (agreed 2026-09-13, build after the token launch)
+
+| Feature | Shape |
+|---|---|
+| Personal watchlist | per holder address (from the cookie): metas and tokens to follow; status changes surface in the stream and, per user, in Telegram |
+| Frozen snapshots | `POST /api/snapshot` → `/api/snapshot/:id`: a board or a card frozen at that moment, for posts that must not drift |
+| Home summary in one call | `/api/summary`: hottest, draining, narratives, top 5, latest events — one request for the first paint |
+| Per-holder Telegram subscriptions | a bot conversation that checks an address and subscribes the user to their watchlist |
+
+## 9. What is left
 
 | Task | Notes |
 |---|---|
 | Deploy | `service/deploy/VPS.md` and `deploy/Caddyfile`: docker compose, Caddy TLS, `NARRA_API_ORIGIN`, uptime ping on `/api/health` |
-| Telegram per-holder subscriptions | today alerts go to configured chats (`NARRA_TG_*`); a per-user subscription needs a bot conversation and an address check |
 | Threshold calibration | needs days of snapshots; the tool exists |
 | Multi-process | one process is enough today; if a second writer is ever needed, move the cache to Postgres — the store layer is the only place that knows SQLite |
