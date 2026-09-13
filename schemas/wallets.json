@@ -1,0 +1,210 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "1.0.0"
+    },
+    "computed_at": {
+      "type": "string"
+    },
+    "window": {
+      "type": "string",
+      "enum": [
+        "15m",
+        "60m",
+        "4h"
+      ]
+    },
+    "window_from": {
+      "type": "number"
+    },
+    "window_to": {
+      "type": "number"
+    },
+    "head_block": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "lag_blocks": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "source": {
+      "type": "object",
+      "properties": {
+        "rpc": {
+          "type": "string"
+        },
+        "mode": {
+          "type": "string",
+          "enum": [
+            "cold",
+            "cache",
+            "live"
+          ]
+        }
+      },
+      "required": [
+        "rpc",
+        "mode"
+      ],
+      "additionalProperties": false
+    },
+    "cohort": {
+      "anyOf": [
+        {
+          "type": "string",
+          "enum": [
+            "sniper",
+            "sprayer",
+            "rotator",
+            "early-in-hot"
+          ]
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "sort": {
+      "type": "string",
+      "enum": [
+        "net_eth",
+        "tokens",
+        "buys",
+        "quote_in"
+      ]
+    },
+    "wallets": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "wallet": {
+            "type": "string"
+          },
+          "buys": {
+            "type": "number"
+          },
+          "sells": {
+            "type": "number"
+          },
+          "tokens": {
+            "type": "number"
+          },
+          "quote_in": {
+            "type": "number"
+          },
+          "quote_out": {
+            "type": "number"
+          },
+          "net_eth": {
+            "type": "number"
+          },
+          "closed_tokens": {
+            "type": "number"
+          },
+          "wins": {
+            "type": "number"
+          },
+          "fast_share": {
+            "type": "number"
+          },
+          "median_entry_sec": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "clusters": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "cohorts": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "sniper",
+                "sprayer",
+                "rotator",
+                "early-in-hot"
+              ]
+            }
+          },
+          "last_ts": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "wallet",
+          "buys",
+          "sells",
+          "tokens",
+          "quote_in",
+          "quote_out",
+          "net_eth",
+          "closed_tokens",
+          "wins",
+          "fast_share",
+          "median_entry_sec",
+          "clusters",
+          "cohorts",
+          "last_ts"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "counts": {
+      "type": "object",
+      "properties": {
+        "wallets": {
+          "type": "number"
+        },
+        "sniper": {
+          "type": "number"
+        },
+        "sprayer": {
+          "type": "number"
+        },
+        "rotator": {
+          "type": "number"
+        },
+        "early-in-hot": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "wallets",
+        "sniper",
+        "sprayer",
+        "rotator",
+        "early-in-hot"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "schema_version",
+    "computed_at",
+    "window",
+    "window_from",
+    "window_to",
+    "head_block",
+    "lag_blocks",
+    "source",
+    "cohort",
+    "sort",
+    "wallets",
+    "counts"
+  ],
+  "additionalProperties": false
+}

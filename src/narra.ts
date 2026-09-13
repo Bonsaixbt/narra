@@ -107,7 +107,8 @@ import type { Address } from "viem";
 import type { RawLog } from "./ingest/decode.js";
 import { decodeLaunch } from "./ingest/decode.js";
 import { TOPICS } from "./chain/topics.js";
-import { initSemantic, ensureEmbeddings, semanticPairs, nameCluster, type SemanticState } from "./semantic/index.js";
+import { initSemantic, ensureEmbeddings, semanticPairs, nameCluster, categorize, type SemanticState } from "./semantic/index.js";
+import { applyCategories } from "./semantic/taxonomy.js";
 import { createHash } from "node:crypto";
 
 export interface QueryOptions { window?: WindowKey; pair?: "all" | "eth" | "stable" | "stock"; members?: boolean; top?: number; onProgress?: (p: SyncProgress) => void; noSync?: boolean; noSemantic?: boolean }
@@ -147,7 +148,11 @@ Narra.prototype.prepare = async function (this: Narra, opts: QueryOptions) {
     const rows = this.store.launchesFor([...traded]); const pairs = this.store.pairs(); const meta = this.store.tokensFor(rows.map((l) => l.token));
     const infos = rows.map((l) => toTokenInfo(l, meta.get(l.token), pairs.get(l.pair)?.kind ?? "other", pairs.get(l.pair)?.symbol ?? "?"));
     await ensureEmbeddings(this.store, sem, infos);
-    extras = { semantic: (tokens) => semanticPairs(this.store, sem, tokens) };
+    await categorize(this.store, sem, []); // embeds the anchors once
+    extras = {
+      categorize: (tokens) => { if (sem.anchors && sem.embedder) applyCategories(this.store, sem.embedder.model, sem.anchors, tokens); },
+      semantic: (tokens) => semanticPairs(this.store, sem, tokens),
+    };
   }
   const a = analyze(this.store, window, WINDOWS[window], nowTs, undefined, extras);
   if (sem.namer) {

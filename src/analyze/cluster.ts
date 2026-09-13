@@ -2,7 +2,7 @@
  * Tokens → clusters. Two tokens are linked when their tags are close, or they share buyers, or they share a deployer
  * and at least one content tag. Connected components of that graph are the metas.
  */
-import { similarity, isContentTag, type Tags } from "./tokenize.js";
+import { similarity, isContentTag, isCategoryTag, type Tags } from "./tokenize.js";
 import type { TokenInfo } from "./types.js";
 
 export interface ClusterOptions {
@@ -110,7 +110,7 @@ function buildClustersOnce(tokens: TokenInfo[], buyers: Map<string, Set<string>>
 
   // 1. text: inverted index on content tags with enough support
   const byTag = new Map<string, number[]>();
-  tokens.forEach((t, i) => { for (const tag of t.tags.keys()) if (isContentTag(tag)) { let l = byTag.get(tag); if (!l) { l = []; byTag.set(tag, l); } l.push(i); } });
+  tokens.forEach((t, i) => { for (const tag of t.tags.keys()) if (isContentTag(tag) && !isCategoryTag(tag)) { let l = byTag.get(tag); if (!l) { l = []; byTag.set(tag, l); } l.push(i); } });
   for (const [, list] of byTag) {
     if (list.length < opts.minTagSupport || list.length > 400) continue;
     for (let x = 0; x < list.length; x++) for (let y = x + 1; y < list.length; y++) {

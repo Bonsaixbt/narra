@@ -10,6 +10,7 @@ const HELP = `narra — which meta is printing on Pons v2 / Robinhood Chain righ
   narra wallets    [--cohort sniper|sprayer|rotator|early-in-hot] [--sort net_eth|tokens|buys] [--top 25]
   narra wallet     <0xADDRESS>                          one wallet: cohorts, positions, entries after launch
   narra watch      [--jsonl] [--only LAUNCH,STATUS,EDGE,GRAD,JOIN]
+  narra calibrate  [--window 60m] [--hours 168] [--hot-share 0.1] [--write]   propose thresholds from stored snapshots
   narra doctor     [--json]
   narra backfill   [--window 60m | --hours 24]          deep backfill (raise retention automatically)
   narra history    <slug | 0xTOKEN> [--hours 24]       status timeline of a meta, or hourly activity of a token
@@ -27,7 +28,7 @@ read-only · no key · IN means membership in a live meta, not a recommendation`
 export async function run(args: Args): Promise<number> {
   if (args.flags["no-color"]) globalThis.__narraNoColor = true;
   if (args.cmd === "help" || args.flags.help) { console.log(HELP); return 0; }
-  if (args.cmd === "version" || args.flags.version) { console.log("narra 0.1.0"); return 0; }
+  if (args.cmd === "version" || args.flags.version) { console.log("narra 0.2.0"); return 0; }
   switch (args.cmd) {
     case "doctor": return (await import("./doctor.js")).doctor(args);
     case "backfill": return (await import("./backfill.js")).backfill(args);
@@ -39,6 +40,7 @@ export async function run(args: Args): Promise<number> {
     case "schema": return (await import("./schema.js")).schema(args);
     case "cache": return (await import("./cache.js")).cache(args);
     case "history": return (await import("./history.js")).history(args);
+    case "calibrate": return (await import("./calibrate.js")).calibrate(args);
     case "wallets": return (await import("./wallets.js")).wallets(args);
     case "wallet": return (await import("./wallets.js")).wallet(args);
     case "mcp": return (await import("../mcp/server.js")).serveMcp(args);

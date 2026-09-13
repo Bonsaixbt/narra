@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "1.0.0"
+    },
+    "ts": {
+      "type": "string"
+    },
+    "type": {
+      "type": "string",
+      "enum": [
+        "LAUNCH",
+        "STATUS",
+        "EDGE",
+        "GRAD",
+        "JOIN",
+        "SYNC"
+      ]
+    },
+    "slug": {
+      "type": "string"
+    },
+    "from": {
+      "type": "string"
+    },
+    "to": {
+      "type": "string"
+    },
+    "token": {
+      "type": "string"
+    },
+    "symbol": {
+      "type": "string"
+    },
+    "wallets": {
+      "type": "number"
+    },
+    "note": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema_version",
+    "ts",
+    "type"
+  ],
+  "additionalProperties": false
+}

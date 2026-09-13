@@ -2,6 +2,8 @@
 
 **Which meta is printing on Pons v2 / Robinhood Chain right now, and is this token in it?**
 
+`v0.2.0` · not yet on npm (see Install for the checkout)
+
 A terminal tool. Read-only, zero config, runs on your machine, made for agents as much as for people.
 
 ```
@@ -66,6 +68,7 @@ First run reads the last hour from the public RPCs (about two minutes) into `~/.
 | `narra serve [--port 4663]` | the same answers as JSON over local HTTP + SSE | runs |
 | `narra mcp` | MCP server over stdio for Claude, Cursor, Codex and friends | runs |
 | `narra schema [now\|coin\|flow\|why\|watch]` | JSON Schema of every output | 0 |
+| `narra calibrate [--window 60m] [--hours 168] [--write]` | propose status thresholds from the snapshots the cache collected | 0 / 3 |
 | `narra backfill --hours 24` · `narra cache [path\|stats\|clear]` | deep backfill (raises retention; older rows fold into hourly aggregates) · maintenance | 0 |
 
 Every command takes `--json` (streams take `--jsonl`), `--rpc <url,url#nologs>`, `--db <path>`, `--no-color`, `--offline` (analyse the cache without syncing). Addresses can come from stdin: `echo 0x… | narra coin -`.
@@ -127,6 +130,8 @@ Off by default; the deterministic core never depends on it. `NARRA_SEMANTIC=on` 
 - **Embeddings → semantic links.** Every token's name, ticker and first description sentence are embedded once (cached in SQLite). Two tokens link when their vectors are close in three senses at once: above an absolute floor, ≥ 2.5 standard deviations above each token's mean similarity to everything else (embedding models squeeze unrelated meme names into a narrow band), and mutually in each other's top-3. Default model is `Xenova/multilingual-e5-small` through transformers.js: local, CPU, ~120 MB downloaded once, ~1 500 names in a few seconds. `NARRA_SEMANTIC_EMBED=openai` points at any OpenAI-compatible `/v1/embeddings` instead (OpenAI, Ollama, LM Studio, OpenRouter).
 - **Cluster naming.** `NARRA_SEMANTIC_NAME=openai|anthropic` asks a chat model for a label and a one-line summary per published cluster (≤ 30 per tick, cached by member set, capped by `NARRA_SEMANTIC_BUDGET_PER_DAY`). The Anthropic provider uses the official SDK and `claude-opus-5` by default; set `NARRA_SEMANTIC_MODEL=claude-haiku-4-5` for the cheap option. Labels are display only and never influence clustering.
 
+Categories come free with the embeddings: nine taxonomy buckets (animal, stock, ai-agent, politics, chinese-culture, crypto-meta, tool, celebrity, finance) are embedded as anchor phrases and a token gets `cat:<bucket>` as a tag when it sits clearly closest to one. Category tags can name a cluster but never link two tokens on their own.
+
 `--no-semantic` produces the same numbers without semantic links; `narra why` shows how many links of each kind hold a cluster, `narra doctor` shows the provider and the embedding cache. Measured on 2026-09-13: with the layer on, a 60 m board gained 192 semantic links next to 1 015 name links, and the first run cost 12 s (model load + 1 559 embeddings), later runs 5 s.
 
 ## Wallets
@@ -152,16 +157,29 @@ The file is gitignored and never leaves the machine. `narra doctor` shows which 
 
 | | |
 |---|---|
-| cold start, 60 m window | ~134 s · 1 508 launches · 44 910 trades |
-| cold start, 15 m window | ~35 s |
-| incremental sync | 3–10 s |
+| cold start, 60 m window, public RPC | ~134 s · 1 508 launches · 44 910 trades |
+| cold start, 15 m window, public RPC | ~35 s |
+| 6 h backfill, private node, 6 chunks in flight | ~232 s · 3 758 launches · 268 k trades · 38 k pool swaps |
+| incremental sync, private node | ~7 s |
+| `watch` tick with the websocket trigger | every ~9 s, woken by swaps |
 | `narra coin` from a warm cache | < 2 s |
 | chain-wide curve buys | ~8 per second |
+
+## Calibration
+
+Status thresholds start as opinions (`src/analyze/thresholds.json`, `calibrated_on: null`). Every tick stores each cluster's heat in `cluster_snapshots`; leave `narra serve` or `narra watch` running for a few days, then:
+
+```sh
+narra calibrate --window 60m --hours 168            # distribution + proposal
+narra calibrate --window 60m --hours 168 --write    # store it with today's date
+```
+
+The proposal picks the HOT floor so that about 10 % of published clusters qualify at any time (`--hot-share`). It prints its evidence; nothing changes until `--write`.
 
 ## Tests
 
 ```sh
-npm test        # 35 checks, no network: tokenizer, clustering, thresholds, flow, verdict, log decoding on recorded fixtures
+npm test        # 45 checks, no network: tokenizer, clustering, thresholds, flow, verdict, wallets, semantic (fake provider), log decoding and a full replay on recorded fixtures
 npm run build   # tsc → dist
 ```
 

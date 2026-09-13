@@ -37,7 +37,7 @@ export function toTokenInfo(l: LaunchRow, t: TokenRow | undefined, pairKind: Tok
   return info;
 }
 
-export interface AnalyzeExtras { semantic?: (tokens: TokenInfo[]) => SemanticPair[] }
+export interface AnalyzeExtras { semantic?: (tokens: TokenInfo[]) => SemanticPair[]; categorize?: (tokens: TokenInfo[]) => void }
 
 export function analyze(store: Store, windowKey: string, windowSec: number, nowTs: number, opts: ClusterOptions = DEFAULT_CLUSTER_OPTIONS, extras: AnalyzeExtras = {}): Analysis {
   const to = nowTs, from = nowTs - windowSec;
@@ -68,6 +68,7 @@ export function analyze(store: Store, windowKey: string, windowSec: number, nowT
   const { buyers, dropped } = dropSprayers(rawBuyers, sprayerCap);
 
   const tokenList = [...tokens.values()];
+  extras.categorize?.(tokenList);
   const semantic = extras.semantic ? extras.semantic(tokenList) : [];
   const raw = buildClusters(tokenList, buyers, { ...opts, maxTokensPerWallet: sprayerCap }, 4, semantic);
   const prev = store.latestSnapshots(windowKey).map((s) => ({ slug: s.slug, members: (JSON.parse(s.payload) as { members: string[] }).members ?? [] }));

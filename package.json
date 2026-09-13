@@ -1,7 +1,7 @@
 {
   "name": "narra-cli",
-  "version": "0.1.0",
-  "description": "narra — which meta is printing on Pons v2 / Robinhood Chain right now, and whether a token belongs to it. Terminal-first, read-only, agent-friendly.",
+  "version": "0.2.0",
+  "description": "narra \u2014 which meta is printing on Pons v2 / Robinhood Chain right now, and whether a token belongs to it. Terminal-first, read-only, agent-friendly.",
   "license": "MIT",
   "type": "module",
   "engines": {
@@ -26,13 +26,14 @@
     "LICENSE"
   ],
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "tsc -p tsconfig.json && tsx scripts/gen-schemas.ts",
     "dev": "tsx bin/narra.ts",
     "now": "tsx bin/narra.ts now",
     "doctor": "tsx bin/narra.ts doctor",
     "test": "node --import tsx --test test/*.test.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "prepublishOnly": "npm run build"
+    "prepublishOnly": "npm run build",
+    "schemas": "tsx scripts/gen-schemas.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.20.0",
@@ -49,5 +50,17 @@
   "optionalDependencies": {
     "@anthropic-ai/sdk": "^0.125.0",
     "@huggingface/transformers": "^4.2.0"
-  }
+  },
+  "keywords": [
+    "robinhood-chain",
+    "pons",
+    "memecoin",
+    "meta",
+    "terminal",
+    "cli",
+    "mcp",
+    "agents",
+    "onchain",
+    "analytics"
+  ]
 }

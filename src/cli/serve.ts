@@ -29,7 +29,7 @@ export async function serve(args: Args): Promise<number> {
     const w = windowOf(url.searchParams.get("window") ?? undefined, defaultWindow);
     const p = url.pathname.replace(/\/+$/, "") || "/";
     try {
-      if (p === "/" || p === "/health") { const s = n.store.stats(); return json(res, 200, { ok: true, narra: "0.1.0", cursor: n.store.getCursor("main")?.last_block ?? null, ...s, routes: ["/now", "/coin/:ca", "/flow", "/why/:slug", "/stream", "/schema/:name", "/health"] }); }
+      if (p === "/" || p === "/health") { const s = n.store.stats(); return json(res, 200, { ok: true, narra: "0.2.0", cursor: n.store.getCursor("main")?.last_block ?? null, ...s, routes: ["/now", "/coin/:ca", "/flow", "/why/:slug", "/stream", "/schema/:name", "/health"] }); }
       if (p === "/now") { await sync(w); return json(res, 200, await n.now({ window: w, noSync: true, members: url.searchParams.get("members") === "1", pair: (url.searchParams.get("pair") ?? "all") as "all" })); }
       if (p === "/flow") { await sync(w); return json(res, 200, await n.flow({ window: w, noSync: true })); }
       if (p.startsWith("/coin/")) { const ca = p.slice(6); if (!/^0x[0-9a-fA-F]{40}$/.test(ca)) return json(res, 400, { error: { code: "BAD_ADDRESS", message: "expected 0x + 40 hex" } }); await sync(w); return json(res, 200, await n.coin(ca, { window: w, noSync: true })); }

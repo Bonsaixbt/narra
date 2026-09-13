@@ -1,0 +1,433 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "1.0.0"
+    },
+    "computed_at": {
+      "type": "string"
+    },
+    "window": {
+      "type": "string",
+      "enum": [
+        "15m",
+        "60m",
+        "4h"
+      ]
+    },
+    "window_from": {
+      "type": "number"
+    },
+    "window_to": {
+      "type": "number"
+    },
+    "head_block": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "lag_blocks": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "source": {
+      "type": "object",
+      "properties": {
+        "rpc": {
+          "type": "string"
+        },
+        "mode": {
+          "type": "string",
+          "enum": [
+            "cold",
+            "cache",
+            "live"
+          ]
+        }
+      },
+      "required": [
+        "rpc",
+        "mode"
+      ],
+      "additionalProperties": false
+    },
+    "cluster": {
+      "type": "object",
+      "properties": {
+        "slug": {
+          "type": "string"
+        },
+        "label": {
+          "type": "string"
+        },
+        "status": {
+          "type": "string",
+          "enum": [
+            "HOT",
+            "EMERGING",
+            "ROTATING IN",
+            "ROTATING OUT",
+            "COOLING",
+            "DEAD"
+          ]
+        },
+        "top_tags": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "tag": {
+                "type": "string"
+              },
+              "weight": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "tag",
+              "weight"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "n_members": {
+          "type": "number"
+        },
+        "heat": {
+          "type": "object",
+          "properties": {
+            "n_launches": {
+              "type": "number"
+            },
+            "n_members": {
+              "type": "number"
+            },
+            "n_alive": {
+              "type": "number"
+            },
+            "quote_norm_in": {
+              "type": "number"
+            },
+            "unique_buyers": {
+              "type": "number"
+            },
+            "n_graduated": {
+              "type": "number"
+            },
+            "graduated_share": {
+              "type": "number"
+            },
+            "taxed_ratio": {
+              "type": "number"
+            },
+            "pool_volume_norm": {
+              "type": "number"
+            },
+            "delta_pct": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "pair_mix": {
+              "type": "object",
+              "properties": {
+                "eth": {
+                  "type": "number"
+                },
+                "stable": {
+                  "type": "number"
+                },
+                "stock": {
+                  "type": "number"
+                },
+                "other": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "eth",
+                "stable",
+                "stock",
+                "other"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "required": [
+            "n_launches",
+            "n_members",
+            "n_alive",
+            "quote_norm_in",
+            "unique_buyers",
+            "n_graduated",
+            "graduated_share",
+            "taxed_ratio",
+            "pool_volume_norm",
+            "delta_pct",
+            "pair_mix"
+          ],
+          "additionalProperties": false
+        },
+        "links": {
+          "type": "object",
+          "properties": {
+            "text": {
+              "type": "number"
+            },
+            "wallet": {
+              "type": "number"
+            },
+            "deployer": {
+              "type": "number"
+            },
+            "semantic": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "text",
+            "wallet",
+            "deployer",
+            "semantic"
+          ],
+          "additionalProperties": false
+        },
+        "summary": {
+          "type": "string"
+        },
+        "label_source": {
+          "type": "string",
+          "enum": [
+            "tags",
+            "model",
+            "cache"
+          ]
+        },
+        "cohorts": {
+          "type": "object",
+          "properties": {
+            "sniper": {
+              "type": "number"
+            },
+            "sprayer": {
+              "type": "number"
+            },
+            "rotator": {
+              "type": "number"
+            },
+            "early-in-hot": {
+              "type": "number"
+            },
+            "total": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "sniper",
+            "sprayer",
+            "rotator",
+            "early-in-hot",
+            "total"
+          ],
+          "additionalProperties": false
+        },
+        "rotating_from": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "rotating_to": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "members": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "token": {
+                "type": "string"
+              },
+              "symbol": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "phase": {
+                "type": "string",
+                "enum": [
+                  "curve",
+                  "swept",
+                  "pool",
+                  "rescued"
+                ]
+              },
+              "curve_progress": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "membership": {
+                "type": "number"
+              },
+              "buyers_overlap": {
+                "type": "number"
+              },
+              "last_trade_ts": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "launched_ts": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "token",
+              "symbol",
+              "name",
+              "phase",
+              "curve_progress",
+              "membership",
+              "buyers_overlap",
+              "last_trade_ts",
+              "launched_ts"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "slug",
+        "label",
+        "status",
+        "top_tags",
+        "n_members",
+        "heat",
+        "links",
+        "rotating_from",
+        "rotating_to"
+      ],
+      "additionalProperties": false
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "tag": {
+            "type": "string"
+          },
+          "weight": {
+            "type": "number"
+          },
+          "examples": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "tag",
+          "weight",
+          "examples"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "edges_in": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "from": {
+            "type": "string"
+          },
+          "to": {
+            "type": "string"
+          },
+          "wallets": {
+            "type": "number"
+          },
+          "quote_norm": {
+            "type": "number"
+          },
+          "deployers": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "from",
+          "to",
+          "wallets",
+          "quote_norm",
+          "deployers"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "edges_out": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "from": {
+            "type": "string"
+          },
+          "to": {
+            "type": "string"
+          },
+          "wallets": {
+            "type": "number"
+          },
+          "quote_norm": {
+            "type": "number"
+          },
+          "deployers": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "from",
+          "to",
+          "wallets",
+          "quote_norm",
+          "deployers"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "rule": {
+      "type": "string"
+    }
+  },
+  "required": [
+    "schema_version",
+    "computed_at",
+    "window",
+    "window_from",
+    "window_to",
+    "head_block",
+    "lag_blocks",
+    "source",
+    "cluster",
+    "tags",
+    "edges_in",
+    "edges_out",
+    "rule"
+  ],
+  "additionalProperties": false
+}
