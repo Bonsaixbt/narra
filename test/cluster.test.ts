@@ -15,7 +15,7 @@ test("tokens sharing supported tags form one cluster; unrelated names stay apart
     tok(5, "Frog Exit", "FROGX"), tok(6, "Frog King", "FROGK"), tok(7, "Pepe Frog", "PEPE"),
     tok(8, "Lonely Whale", "WHALE"),
   ];
-  const cl = buildClusters(tokens, new Map(), { minTagSupport: 3, simThreshold: 0.3, minBuyerOverlap: 5, minBuyerShare: 0.15, minWalletPairsToMerge: 2, minSize: 3, maxTokensPerWallet: 60 });
+  const cl = buildClusters(tokens, new Map(), { minTagSupport: 3, simThreshold: 0.3, minBuyerOverlap: 5, minBuyerShare: 0.15, minWalletPairsToMerge: 2, minSize: 3, maxSize: 60, maxTokensPerWallet: 60 });
   assert.equal(cl.length, 2);
   const slugs = cl.map((c) => c.slug).sort();
   assert.ok(slugs[0].includes("frog") && slugs[1].includes("hood"), slugs.join(","));
@@ -56,4 +56,15 @@ test("sprayer wallets are dropped before overlap linking", async () => {
   const { buyers: clean, dropped } = dropSprayers(buyers, 8);
   assert.equal(dropped, 1);
   for (const s of clean.values()) assert.ok(!s.has("bot"));
+});
+
+
+test("an oversized chained component is split with stricter thresholds", () => {
+  // a chain: hood-a … hood-z share 'hood' weakly; two tight groups inside share stronger words
+  const tokens: TokenInfo[] = [];
+  for (let i = 0; i < 40; i++) tokens.push(tok(i, `Hood Alpha ${i}`, `HALPHA${i}`));
+  for (let i = 40; i < 80; i++) tokens.push(tok(i, `Hood Beta ${i}`, `HBETA${i}`));
+  const cl = buildClusters(tokens, new Map(), { minTagSupport: 3, simThreshold: 0.3, minBuyerOverlap: 5, minBuyerShare: 0.2, minWalletPairsToMerge: 2, minSize: 3, maxSize: 60, maxTokensPerWallet: 60 });
+  assert.ok(cl.length >= 2, `expected a split, got ${cl.length} clusters of ${cl.map((c) => c.members.length).join(",")}`);
+  assert.ok(cl.every((c) => c.members.length <= 60));
 });

@@ -18,11 +18,13 @@ export interface ClusterOptions {
   minWalletPairsToMerge: number;
   /** Components smaller than this are not published. */
   minSize: number;
+  /** A component larger than this is re-clustered with stricter thresholds; single-linkage otherwise chains a whole chain into one blob. */
+  maxSize: number;
   /** Wallets that bought more than this many tokens are bots/routers and do not vote. */
   maxTokensPerWallet: number;
 }
 
-export const DEFAULT_CLUSTER_OPTIONS: ClusterOptions = { minTagSupport: 3, simThreshold: 0.35, minBuyerOverlap: 5, minBuyerShare: 0.2, minWalletPairsToMerge: 2, minSize: 3, maxTokensPerWallet: 60 };
+export const DEFAULT_CLUSTER_OPTIONS: ClusterOptions = { minTagSupport: 3, simThreshold: 0.35, minBuyerOverlap: 5, minBuyerShare: 0.2, minWalletPairsToMerge: 2, minSize: 3, maxSize: 60, maxTokensPerWallet: 60 };
 
 export interface RawCluster {
   id: number;
@@ -65,7 +67,26 @@ export function dropSprayers(buyers: Map<string, Set<string>>, maxTokens: number
   return { buyers: out, dropped: bad.size };
 }
 
-export function buildClusters(tokens: TokenInfo[], buyers: Map<string, Set<string>>, opts: ClusterOptions = DEFAULT_CLUSTER_OPTIONS): RawCluster[] {
+/**
+ * Clusters with a size guard: any component above `maxSize` is re-clustered on its own members with a stricter
+ * similarity threshold and a higher buyer-share floor, up to `depth` times. What still will not split is kept as is.
+ */
+export function buildClusters(tokens: TokenInfo[], buyers: Map<string, Set<string>>, opts: ClusterOptions = DEFAULT_CLUSTER_OPTIONS, depth = 4): RawCluster[] {
+  const first = buildClustersOnce(tokens, buyers, opts);
+  if (depth <= 0) return first;
+  const byToken = new Map(tokens.map((t) => [t.token, t]));
+  const out: RawCluster[] = [];
+  for (const c of first) {
+    if (c.members.length <= opts.maxSize) { out.push(c); continue; }
+    const stricter: ClusterOptions = { ...opts, simThreshold: Math.min(0.9, opts.simThreshold + 0.12), minBuyerShare: Math.min(0.8, opts.minBuyerShare + 0.15), minBuyerOverlap: opts.minBuyerOverlap + 3, minTagSupport: opts.minTagSupport + 1 };
+    const sub = buildClusters(c.members.map((m) => byToken.get(m)!), buyers, stricter, depth - 1);
+    if (sub.length === 1 && sub[0].members.length === c.members.length) { out.push(c); continue; }
+    out.push(...sub);
+  }
+  return out.sort((a, b) => b.members.length - a.members.length).map((c, i) => ({ ...c, id: i }));
+}
+
+function buildClustersOnce(tokens: TokenInfo[], buyers: Map<string, Set<string>>, opts: ClusterOptions): RawCluster[] {
   const idx = new Map(tokens.map((t, i) => [t.token, i]));
   const uf = new UnionFind(tokens.length);
   const degree = new Map<string, number>();
