@@ -15,7 +15,7 @@ test("tokens sharing supported tags form one cluster; unrelated names stay apart
     tok(5, "Frog Exit", "FROGX"), tok(6, "Frog King", "FROGK"), tok(7, "Pepe Frog", "PEPE"),
     tok(8, "Lonely Whale", "WHALE"),
   ];
-  const cl = buildClusters(tokens, new Map(), { minTagSupport: 3, simThreshold: 0.3, minBuyerOverlap: 5, minBuyerShare: 0.15, minWalletPairsToMerge: 2, minSize: 3, maxSize: 60, semanticSplitFloor: 0.9, maxTokensPerWallet: 60 });
+  const cl = buildClusters(tokens, new Map(), { minTagSupport: 3, simThreshold: 0.3, minBuyerOverlap: 5, minBuyerShare: 0.15, minWalletPairsToMerge: 2, minSize: 3, maxSize: 60, semanticSplitFloor: 0.9, maxDeployerFan: 8, maxTokensPerWallet: 60 });
   assert.equal(cl.length, 2);
   const slugs = cl.map((c) => c.slug).sort();
   assert.ok(slugs[0].includes("frog") && slugs[1].includes("hood"), slugs.join(","));
@@ -64,7 +64,17 @@ test("an oversized chained component is split with stricter thresholds", () => {
   const tokens: TokenInfo[] = [];
   for (let i = 0; i < 40; i++) tokens.push(tok(i, `Hood Alpha ${i}`, `HALPHA${i}`));
   for (let i = 40; i < 80; i++) tokens.push(tok(i, `Hood Beta ${i}`, `HBETA${i}`));
-  const cl = buildClusters(tokens, new Map(), { minTagSupport: 3, simThreshold: 0.3, minBuyerOverlap: 5, minBuyerShare: 0.2, minWalletPairsToMerge: 2, minSize: 3, maxSize: 60, semanticSplitFloor: 0.9, maxTokensPerWallet: 60 });
+  const cl = buildClusters(tokens, new Map(), { minTagSupport: 3, simThreshold: 0.3, minBuyerOverlap: 5, minBuyerShare: 0.2, minWalletPairsToMerge: 2, minSize: 3, maxSize: 60, semanticSplitFloor: 0.9, maxDeployerFan: 8, maxTokensPerWallet: 60 });
   assert.ok(cl.length >= 2, `expected a split, got ${cl.length} clusters of ${cl.map((c) => c.members.length).join(",")}`);
   assert.ok(cl.every((c) => c.members.length <= 60));
+});
+
+
+test("a launch farm's tokens do not link through the deployer", () => {
+  const tokens: TokenInfo[] = [];
+  const words = ["apple", "bridge", "candle", "desert", "engine", "falcon", "garden", "harbor", "island", "jungle", "kettle", "lantern"];
+  for (let i = 0; i < 12; i++) tokens.push(tok(i, `Thing ${words[i]}`, `SYM${words[i].toUpperCase()}`, "0xfarm"));
+  const cl = buildClusters(tokens, new Map());
+  // shared tag "thing" + same deployer would chain all 12; the farm rule leaves only name links, which stay under 0.35
+  assert.equal(cl.length, 0, `expected no cluster from a farm, got ${cl.map((c) => c.members.length).join(",")}`);
 });

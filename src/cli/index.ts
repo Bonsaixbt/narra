@@ -14,6 +14,7 @@ const HELP = `narra — which meta is printing on Pons v2 / Robinhood Chain righ
   narra calibrate  [--window 60m] [--hours 168] [--hot-share 0.1] [--write]   propose thresholds from stored snapshots
   narra doctor     [--json]
   narra backfill   [--window 60m | --hours 24]          deep backfill (raise retention automatically)
+  narra trend      [--hours 48] [--step 4]                 ETH per step split by narrative over the collected history
   narra history    <slug | 0xTOKEN> [--hours 24]       status timeline of a meta, or hourly activity of a token
   narra schema     [now|coin|flow|why|watch]
   narra cache      [clear|path]
@@ -42,6 +43,7 @@ export async function run(args: Args): Promise<number> {
     case "schema": return (await import("./schema.js")).schema(args);
     case "cache": return (await import("./cache.js")).cache(args);
     case "history": return (await import("./history.js")).history(args);
+    case "trend": return (await import("./trend.js")).trend(args);
     case "calibrate": return (await import("./calibrate.js")).calibrate(args);
     case "wallets": return (await import("./wallets.js")).wallets(args);
     case "wallet": return (await import("./wallets.js")).wallet(args);

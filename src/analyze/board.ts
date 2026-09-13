@@ -26,6 +26,8 @@ export interface Analysis {
   launches: LaunchRow[];
   wallets: Map<string, WalletStat>;
   sprayerCap: number;
+  /** deployer → launches in window */
+  deployerFan: Map<string, number>;
   counts: { candidates: number; clustered: number; trades: number; launches: number; sprayers: number };
 }
 
@@ -72,6 +74,8 @@ export function analyze(store: Store, windowKey: string, windowSec: number, nowT
   const sprayerCap = (THRESHOLDS.sprayer_max_tokens as Record<string, number>)[windowKey] ?? 20;
   const { buyers, dropped } = dropSprayers(rawBuyers, sprayerCap);
 
+  const deployerFan = new Map<string, number>();
+  for (const l of launchedInWindow) deployerFan.set(l.deployer, (deployerFan.get(l.deployer) ?? 0) + 1);
   const tokenList = [...tokens.values()];
   extras.categorize?.(tokenList);
   const semantic = extras.semantic ? extras.semantic(tokenList) : [];
@@ -112,7 +116,7 @@ export function analyze(store: Store, windowKey: string, windowSec: number, nowT
   store.saveSnapshots(clusters.map((c) => ({ slug: c.slug, window: windowKey, ts: to, status: c.status, payload: JSON.stringify({ members: c.members, heat: c.heat, top_tags: c.top_tags }) })));
 
   return {
-    window: { key: windowKey, from, to, sec: windowSec }, clusters, edges, centroids, membership, memberScore, tokens, buyers, recentBuyers, trades, launches: allLaunches, wallets, sprayerCap,
+    window: { key: windowKey, from, to, sec: windowSec }, clusters, edges, centroids, membership, memberScore, tokens, buyers, recentBuyers, trades, launches: allLaunches, wallets, sprayerCap, deployerFan,
     counts: { candidates: tokens.size, clustered: membership.size, trades: windowTrades.length, launches: launchedInWindow.length, sprayers: dropped },
   };
 }

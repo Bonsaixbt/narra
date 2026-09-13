@@ -22,11 +22,13 @@ export interface ClusterOptions {
   maxSize: number;
   /** When splitting an oversized component, only semantic pairs at or above this cosine survive. */
   semanticSplitFloor: number;
+  /** A deployer with more launches than this in the window is a farm: a printer, not a meta. Its tokens get no deployer links. */
+  maxDeployerFan: number;
   /** Wallets that bought more than this many tokens are bots/routers and do not vote. */
   maxTokensPerWallet: number;
 }
 
-export const DEFAULT_CLUSTER_OPTIONS: ClusterOptions = { minTagSupport: 3, simThreshold: 0.35, minBuyerOverlap: 5, minBuyerShare: 0.2, minWalletPairsToMerge: 2, minSize: 3, maxSize: 60, semanticSplitFloor: 0.9, maxTokensPerWallet: 60 };
+export const DEFAULT_CLUSTER_OPTIONS: ClusterOptions = { minTagSupport: 3, simThreshold: 0.35, minBuyerOverlap: 5, minBuyerShare: 0.2, minWalletPairsToMerge: 2, minSize: 3, maxSize: 60, semanticSplitFloor: 0.9, maxDeployerFan: 8, maxTokensPerWallet: 60 };
 
 export interface RawCluster {
   id: number;
@@ -108,6 +110,11 @@ function buildClustersOnce(tokens: TokenInfo[], buyers: Map<string, Set<string>>
   const linked = new Set<string>();
   const key = (a: number, b: number) => (a < b ? `${a}:${b}` : `${b}:${a}`);
 
+  // launch farms: deployers printing more than maxDeployerFan tokens in the window do not glue anything
+  const fan = new Map<string, number>();
+  for (const t of tokens) fan.set(t.deployer, (fan.get(t.deployer) ?? 0) + 1);
+  const isFarm = (d: string) => (fan.get(d) ?? 0) > opts.maxDeployerFan;
+
   // 1. text: inverted index on content tags with enough support
   const byTag = new Map<string, number[]>();
   tokens.forEach((t, i) => { for (const tag of t.tags.keys()) if (isContentTag(tag) && !isCategoryTag(tag)) { let l = byTag.get(tag); if (!l) { l = []; byTag.set(tag, l); } l.push(i); } });
@@ -118,7 +125,7 @@ function buildClustersOnce(tokens: TokenInfo[], buyers: Map<string, Set<string>>
       if (linked.has(k)) continue;
       const ta = tokens[a], tb = tokens[b];
       if (similarity(ta.tags, tb.tags) >= opts.simThreshold) { linked.add(k); link(a, b, "text"); }
-      else if (ta.deployer === tb.deployer) { linked.add(k); link(a, b, "deployer"); }
+      else if (ta.deployer === tb.deployer && !isFarm(ta.deployer)) { linked.add(k); link(a, b, "deployer"); }
     }
   }
 
