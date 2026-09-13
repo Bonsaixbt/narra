@@ -3,7 +3,16 @@ import type { Store } from "../store/db.js";
 import type { TokenInfo } from "../analyze/types.js";
 import { cosine, createEmbedder, createNamer, embedText, semanticConfig, type ClusterNamingInput, type Embedder, type Namer, type SemanticConfig } from "./provider.js";
 
-export interface SemanticState { cfg: SemanticConfig; embedder: Embedder | null; namer: Namer | null; errors: string[] }
+import { categoryAnchors, applyCategories } from "./taxonomy.js";
+
+export interface SemanticState { cfg: SemanticConfig; embedder: Embedder | null; namer: Namer | null; errors: string[]; anchors?: Map<string, Float32Array[]> }
+
+/** Category tags for a token list (needs cached embeddings). Anchors are embedded once per process. */
+export async function categorize(store: Store, st: SemanticState, tokens: TokenInfo[]): Promise<number> {
+  if (!st.embedder || process.env.NARRA_SEMANTIC_CATEGORIES === "off") return 0;
+  if (!st.anchors) st.anchors = await categoryAnchors(st.embedder);
+  return applyCategories(store, st.embedder.model, st.anchors, tokens);
+}
 
 export async function initSemantic(override?: { off?: boolean }): Promise<SemanticState> {
   const cfg = semanticConfig(process.env, override);

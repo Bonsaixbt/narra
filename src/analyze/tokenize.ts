@@ -115,3 +115,5 @@ export function similarity(a: Tags, b: Tags): number {
 
 /** Tags that carry meaning for clustering: pair tags alone must not glue every ETH launch together. */
 export const isContentTag = (t: string) => !t.startsWith("pair:");
+/** Category tags (cat:animal …) come from the semantic layer; they may name a cluster but must not be its only glue. */
+export const isCategoryTag = (t: string) => t.startsWith("cat:");

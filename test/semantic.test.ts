@@ -56,3 +56,17 @@ test("naming output is parsed defensively", () => {
   assert.equal(semanticConfig({}).enabled, false);
   assert.equal(semanticConfig({ NARRA_SEMANTIC: "on" }).embed, "local");
 });
+
+test("categories come from the nearest anchor with a margin and never link tokens on their own", async () => {
+  const { applyCategories } = await import("../src/semantic/taxonomy.ts");
+  const store = new Store(":memory:");
+  const anchors = new Map<string, Float32Array[]>([["animal", [Float32Array.from([1, 0, 0])]], ["stock", [Float32Array.from([0, 1, 0])]]]);
+  const a = tok(1, "Alpha", "AAA"), b = tok(2, "Beta", "BBB"), c = tok(3, "Gamma", "CCC");
+  store.putEmbeddings([{ token: a.token, model: "m", vec: Float32Array.from([0.9, 0.1, 0]) }, { token: b.token, model: "m", vec: Float32Array.from([0.1, 0.9, 0]) }, { token: c.token, model: "m", vec: Float32Array.from([0.5, 0.5, 0]) }]);
+  assert.equal(applyCategories(store, "m", anchors, [a, b, c]), 2);
+  assert.equal(a.tags.get("cat:animal"), 0.8); assert.equal(b.tags.get("cat:stock"), 0.8); assert.equal(c.tags.has("cat:animal") || c.tags.has("cat:stock"), false);
+  const d = tok(4, "Delta", "DDD"), e = tok(5, "Epsilon", "EEE"), f = tok(6, "Zeta", "ZZZ");
+  for (const t of [d, e, f]) t.tags.set("cat:animal", 0.8);
+  const cl = buildClusters([d, e, f], new Map(), { minTagSupport: 2, simThreshold: 0.3, minBuyerOverlap: 5, minBuyerShare: 0.2, minWalletPairsToMerge: 2, minSize: 2, maxSize: 60, semanticSplitFloor: 0.9, maxTokensPerWallet: 60 });
+  assert.equal(cl.length, 0, "a shared category alone must not form a cluster");
+});

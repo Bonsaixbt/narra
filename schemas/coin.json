@@ -1,0 +1,311 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "1.0.0"
+    },
+    "computed_at": {
+      "type": "string"
+    },
+    "window": {
+      "type": "string",
+      "enum": [
+        "15m",
+        "60m",
+        "4h"
+      ]
+    },
+    "window_from": {
+      "type": "number"
+    },
+    "window_to": {
+      "type": "number"
+    },
+    "head_block": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "lag_blocks": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "source": {
+      "type": "object",
+      "properties": {
+        "rpc": {
+          "type": "string"
+        },
+        "mode": {
+          "type": "string",
+          "enum": [
+            "cold",
+            "cache",
+            "live"
+          ]
+        }
+      },
+      "required": [
+        "rpc",
+        "mode"
+      ],
+      "additionalProperties": false
+    },
+    "token": {
+      "type": "string"
+    },
+    "symbol": {
+      "type": "string"
+    },
+    "name": {
+      "type": "string"
+    },
+    "phase": {
+      "type": "string",
+      "enum": [
+        "curve",
+        "swept",
+        "pool",
+        "rescued"
+      ]
+    },
+    "curve": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "real_quote_eth": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "threshold_eth": {
+              "type": "number"
+            },
+            "progress": {
+              "type": [
+                "number",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "real_quote_eth",
+            "threshold_eth",
+            "progress"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "pool": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "graduated_at": {
+              "type": "number"
+            },
+            "volume_eth_window": {
+              "type": "number"
+            },
+            "swaps_window": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "graduated_at",
+            "volume_eth_window",
+            "swaps_window"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "pair": {
+      "type": "object",
+      "properties": {
+        "address": {
+          "type": "string"
+        },
+        "symbol": {
+          "type": "string"
+        },
+        "kind": {
+          "type": "string",
+          "enum": [
+            "eth",
+            "stable",
+            "stock",
+            "other"
+          ]
+        }
+      },
+      "required": [
+        "address",
+        "symbol",
+        "kind"
+      ],
+      "additionalProperties": false
+    },
+    "launched_at": {
+      "type": "number"
+    },
+    "deployer": {
+      "type": "string"
+    },
+    "verdict": {
+      "type": "string",
+      "enum": [
+        "IN",
+        "EDGE",
+        "OUT",
+        "ORPHAN",
+        "NOISE",
+        "NOT_PONS"
+      ]
+    },
+    "cluster": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "slug": {
+              "type": "string"
+            },
+            "status": {
+              "type": "string",
+              "enum": [
+                "HOT",
+                "EMERGING",
+                "ROTATING IN",
+                "ROTATING OUT",
+                "COOLING",
+                "DEAD"
+              ]
+            },
+            "membership": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "slug",
+            "status",
+            "membership"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "alternatives": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "slug": {
+            "type": "string"
+          },
+          "membership": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "slug",
+          "membership"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "reasons": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "watch": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "evidence": {
+      "type": "object",
+      "properties": {
+        "early_buyers": {
+          "type": "number"
+        },
+        "overlap_buyers": {
+          "type": "number"
+        },
+        "text_score": {
+          "type": "number"
+        },
+        "wallet_score": {
+          "type": "number"
+        },
+        "launch_tx": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "launch_block": {
+          "type": [
+            "number",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "early_buyers",
+        "overlap_buyers",
+        "text_score",
+        "wallet_score",
+        "launch_tx",
+        "launch_block"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "schema_version",
+    "computed_at",
+    "window",
+    "window_from",
+    "window_to",
+    "head_block",
+    "lag_blocks",
+    "source",
+    "token",
+    "symbol",
+    "name",
+    "phase",
+    "curve",
+    "pool",
+    "pair",
+    "launched_at",
+    "deployer",
+    "verdict",
+    "cluster",
+    "alternatives",
+    "reasons",
+    "watch",
+    "evidence"
+  ],
+  "additionalProperties": false
+}

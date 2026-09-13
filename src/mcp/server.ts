@@ -10,7 +10,7 @@ const Window = z.enum(["15m", "60m", "4h"]).optional().describe("lookback window
 const text = (v: unknown) => ({ content: [{ type: "text" as const, text: JSON.stringify(v, null, 2) }] });
 
 export function buildServer(n: Narra): McpServer {
-  const server = new McpServer({ name: "narra", version: "0.1.0" }, { instructions: "narra reads Pons v2 launches on Robinhood Chain and clusters them into metas. When a user brings a contract address, call narra_coin first. Quote the reasons verbatim. IN means the token belongs to a live meta; it is not a buy signal. Do not recommend entering tokens whose verdict is OUT, ORPHAN or whose cluster is DEAD." });
+  const server = new McpServer({ name: "narra", version: "0.2.0" }, { instructions: "narra reads Pons v2 launches on Robinhood Chain and clusters them into metas. When a user brings a contract address, call narra_coin first. Quote the reasons verbatim. IN means the token belongs to a live meta; it is not a buy signal. Do not recommend entering tokens whose verdict is OUT, ORPHAN or whose cluster is DEAD." });
   let lastSync = 0;
   const sync = async (w: "15m" | "60m" | "4h") => { if (Date.now() - lastSync > 10_000) { await n.sync(w); lastSync = Date.now(); } };
 
