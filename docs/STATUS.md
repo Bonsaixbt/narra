@@ -84,7 +84,7 @@ Done: terminal verified at 80 and 140 columns with the analysis in a child proce
 - Alerts: `narra watch --telegram`, "tell me when meta X turns HOT".
 - Prices for stock-token pairs (today stock metas rank by buyers only).
 - A real reorg has not been observed; the rewind logic is untested live.
-- Phase 2: deploy `service/` on a VPS (`service/deploy/VPS.md`), the site on Cloudflare Pages (`docs/product/HANDOFF-FRONTEND.md`).
+- Phase 2: the service runs on a Google Cloud VM (`narra-1`, europe-west3-a) with the 48 h cache seeded; TLS + domain pending; the site on Cloudflare Pages (`docs/product/HANDOFF-FRONTEND.md`).
 - Post-launch backlog (`docs/product/HANDOFF-BACKEND.md` §8): personal watchlists, frozen snapshots, one-call home summary, per-holder Telegram subscriptions.
 
 ---

@@ -22,3 +22,17 @@ apt install -y caddy && cp deploy/Caddyfile /etc/caddy/Caddyfile && sed -i 's/ap
 Upgrade: `git pull && docker compose up -d --build`. The cache and backups live in `./data` and `./backups`; the container never needs to be rebuilt to keep them.
 
 Watch `/api/health` from an external uptime monitor every minute; `ok:false` is the alarm.
+
+## Google Cloud (what we run)
+
+```sh
+gcloud compute instances create narra-1 --zone europe-west3-a --machine-type e2-standard-2 \
+  --image-family ubuntu-2404-lts-amd64 --image-project ubuntu-os-cloud --boot-disk-size 60GB --boot-disk-type pd-ssd \
+  --tags http-server,https-server
+gcloud compute firewall-rules create narra-allow-web --network default --allow tcp:80,tcp:443 --target-tags http-server,https-server
+gcloud compute ssh narra-1 --zone europe-west3-a      # then the steps above; docker via get.docker.com
+```
+
+`service/.env` on the box must not carry inline `# comments` — docker compose interpolates `$` inside them. Seed the cache by uploading a `sqlite3 .backup` of a machine that already has history (`gzip -1`, `gcloud compute scp`, stop the container, replace `data/narra.db`, start).
+
+Update: `gcloud compute ssh narra-1 --zone europe-west3-a --command "cd ~/narra && git pull && cd service && sudo docker compose up -d --build"`.
