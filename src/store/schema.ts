@@ -113,6 +113,20 @@ CREATE TABLE IF NOT EXISTS cluster_snapshots (
   PRIMARY KEY (slug, window, ts)
 );
 
+CREATE TABLE IF NOT EXISTS hourly (
+  token TEXT NOT NULL,
+  hour_ts INTEGER NOT NULL,
+  venue TEXT NOT NULL,              -- curve | pool
+  buys INTEGER NOT NULL,
+  sells INTEGER NOT NULL,
+  quote_in REAL NOT NULL,           -- normalised, ETH
+  quote_out REAL NOT NULL,
+  unique_buyers INTEGER NOT NULL,
+  taxed INTEGER NOT NULL,
+  PRIMARY KEY (token, hour_ts, venue)
+);
+CREATE INDEX IF NOT EXISTS hourly_ts ON hourly(hour_ts);
+
 CREATE TABLE IF NOT EXISTS kv (
   key TEXT PRIMARY KEY,
   value TEXT NOT NULL

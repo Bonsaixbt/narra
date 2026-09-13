@@ -45,9 +45,13 @@ export class Narra {
     this.retentionHours = opts.retentionHours ?? Number(process.env.NARRA_RETENTION_H ?? 48);
   }
 
-  async sync(window: WindowKey = "60m", onProgress?: (p: SyncProgress) => void): Promise<SyncProgress> {
-    const p = await sync({ store: this.store, gate: this.clients.gate, http: this.clients.http, clock: this.clock }, { windowSec: WINDOWS[window], onProgress });
-    this.store.prune(this.retentionHours);
+  async sync(window: WindowKey | number = "60m", onProgress?: (p: SyncProgress) => void): Promise<SyncProgress> {
+    const windowSec = typeof window === "number" ? window : WINDOWS[window];
+    const p = await sync({ store: this.store, gate: this.clients.gate, http: this.clients.http, clock: this.clock }, { windowSec, onProgress });
+    // A deep backfill raises the retention so it is not pruned away on the next tick.
+    const kept = Math.max(this.retentionHours, Number(this.store.get("retention_h") ?? 0), Math.ceil(windowSec / 3600));
+    if (kept > Number(this.store.get("retention_h") ?? 0)) this.store.set("retention_h", String(kept));
+    this.store.prune(kept);
     return p;
   }
 

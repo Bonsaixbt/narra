@@ -29,9 +29,10 @@ interface EndpointState extends EndpointSpec {
 }
 
 export interface GateStats {
+  maxLogRange: number;
   calls: number;
   refusals: number;
-  endpoints: { label: string; logs: boolean; benched: boolean; calls: number; refusals: number }[];
+  endpoints: { label: string; logs: boolean; benched: boolean; calls: number; refusals: number; concurrency: number }[];
 }
 
 export class RpcError extends Error {
@@ -77,7 +78,38 @@ export function createGate(specs: EndpointSpec[] = DEFAULT_ENDPOINTS, opts: Gate
   };
   const release = (e: EndpointState) => { e.active--; e.queue.shift()?.(); };
 
+  // Providers cap the block span of eth_getLogs (Chainstack, Alchemy, QuickNode all differently). The first refusal
+  // teaches the gate the cap; later calls are pre-split instead of failing first.
+  let learnedMaxRange = Infinity;
   const request = async (method: string, params: unknown[] = []): Promise<unknown> => {
+    const f = params[0] as { fromBlock?: string; toBlock?: string } | undefined;
+    const split = async (from: number, to: number) => {
+      const mid = from + Math.floor((to - from) / 2);
+      const [a, b] = await Promise.all([
+        request(method, [{ ...f, fromBlock: "0x" + from.toString(16), toBlock: "0x" + mid.toString(16) }]),
+        request(method, [{ ...f, fromBlock: "0x" + (mid + 1).toString(16), toBlock: "0x" + to.toString(16) }]),
+      ]);
+      return [...(a as unknown[]), ...(b as unknown[])];
+    };
+    if (method === "eth_getLogs" && f?.fromBlock && f?.toBlock && /^0x/.test(f.fromBlock) && /^0x/.test(f.toBlock)) {
+      const from = Number(BigInt(f.fromBlock)), to = Number(BigInt(f.toBlock));
+      if (to - from + 1 > learnedMaxRange && to > from) return split(from, to);
+    }
+    try {
+      return await requestOnce(method, params);
+    } catch (err) {
+      if (method === "eth_getLogs" && f?.fromBlock && f?.toBlock && /range|too many|exceed|limit|span/i.test((err as Error).message)) {
+        const from = Number(BigInt(f.fromBlock)), to = Number(BigInt(f.toBlock));
+        if (to > from) {
+          learnedMaxRange = Math.min(learnedMaxRange, Math.max(1, Math.floor((to - from + 1) / 2)));
+          return split(from, to);
+        }
+      }
+      throw err;
+    }
+  };
+
+  const requestOnce = async (method: string, params: unknown[] = []): Promise<unknown> => {
     const body = JSON.stringify({ jsonrpc: "2.0", id: nextId++, method, params });
     let lastErr = "";
     for (let attempt = 0; attempt <= retries; attempt++) {
@@ -120,7 +152,7 @@ export function createGate(specs: EndpointSpec[] = DEFAULT_ENDPOINTS, opts: Gate
         continue;
       }
       if (json.error) {
-        if (json.error.code === 429 || /rate|limit|too many/i.test(json.error.message)) {
+        if (json.error.code === 429 || (/rate|too many requests/i.test(json.error.message) && !/range/i.test(json.error.message))) {
           ep.refusals++; totalRefusals++;
           ep.benchedUntil = now() + 5_000;
           lastErr = `${ep.label}: ${json.error.message}`;
@@ -137,9 +169,10 @@ export function createGate(specs: EndpointSpec[] = DEFAULT_ENDPOINTS, opts: Gate
   return {
     request,
     stats: () => ({
+      maxLogRange: learnedMaxRange,
       calls: totalCalls,
       refusals: totalRefusals,
-      endpoints: eps.map((e) => ({ label: e.label, logs: e.logs, benched: e.benchedUntil > now(), calls: e.calls, refusals: e.refusals })),
+      endpoints: eps.map((e) => ({ label: e.label, logs: e.logs, benched: e.benchedUntil > now(), calls: e.calls, refusals: e.refusals, concurrency: e.concurrency })),
     }),
     labels: () => eps.map((e) => e.label).join("+"),
   };
