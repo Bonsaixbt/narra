@@ -14,7 +14,7 @@ import { factoryAbi } from "../chain/abi.js";
 import { TOPICS } from "../chain/topics.js";
 import { decodePoolInit, decodePoolSwap, interpolator, type RawLog } from "./decode.js";
 import { normalizeQuote } from "./enrich.js";
-import type { SyncContext } from "./sync.js";
+import { runChunks, type SyncContext } from "./sync.js";
 import type { PoolRow, SwapRow } from "../store/db.js";
 
 const hex = (n: number) => "0x" + n.toString(16);
@@ -34,7 +34,7 @@ export async function memeHook(ctx: SyncContext): Promise<string> {
 
 export interface PoolsProgress { pools: number; swaps: number; unattributed: number }
 
-export async function syncPools(ctx: SyncContext, opts: { head: number; nowTs: number; windowSec: number; initLookbackSec?: number; onProgress?: (p: PoolsProgress) => void }): Promise<PoolsProgress> {
+export async function syncPools(ctx: SyncContext, opts: { head: number; nowTs: number; windowSec: number; initLookbackSec?: number; concurrency?: number; onProgress?: (p: PoolsProgress) => void }): Promise<PoolsProgress> {
   const { store, gate, clock } = ctx;
   const hook = await memeHook(ctx);
   const p: PoolsProgress = { pools: 0, swaps: 0, unattributed: 0 };
@@ -70,10 +70,13 @@ export async function syncPools(ctx: SyncContext, opts: { head: number; nowTs: n
   // 2. Swaps + Transfers in window chunks.
   const swapCursor = store.getCursor(POOLS_SWAP_CURSOR);
   const windowStart = await clock.blockAt(opts.nowTs - opts.windowSec, opts.head);
-  let from = swapCursor && swapCursor.last_block + 1 >= windowStart ? swapCursor.last_block + 1 : windowStart;
+  const oldest = Number(store.get("pools_oldest_block") ?? store.minBlock("pool_swaps") ?? 0);
+  const stale = !!swapCursor && swapCursor.last_block + 1 < windowStart;
+  const from = swapCursor && !stale ? swapCursor.last_block + 1 : windowStart;
+  const backRange = swapCursor && !stale && oldest > windowStart ? [windowStart, oldest - 1] : null;
+  if (!swapCursor || stale || backRange) store.set("pools_oldest_block", String(backRange ? backRange[0] : from));
   const chunk = 2_000;
-  for (let a = from; a <= opts.head; a += chunk) {
-    const b = Math.min(a + chunk - 1, opts.head);
+  const body = async (a: number, b: number) => {
     const [aTs, bTs] = await Promise.all([clock.timestamp(a), clock.timestamp(b)]);
     const tsOf = interpolator(a, aTs, b, bTs);
     // Swaps on the PoolManager plus every Transfer of a graduated Pons token in the same blocks (tokens in batches of 60).
@@ -84,51 +87,58 @@ export async function syncPools(ctx: SyncContext, opts: { head: number; nowTs: n
       gate.request("eth_getLogs", [{ address: ADDR.v4PoolManager, topics: [TOPICS.poolSwap], fromBlock: hex(a), toBlock: hex(b) }]) as Promise<RawLog[]>,
       ...transferQueries,
     ]);
-    // tx|token → transfers in log order; a buy walks PoolManager → router → … → wallet along equal values,
-    // a sell walks backwards from the PoolManager to the first sender.
-    const trBy = new Map<string, { from: string; to: string; value: bigint }[]>();
-    for (const l of transferChunks.flat()) {
-      const k = `${l.transactionHash}|${l.address.toLowerCase()}`;
-      let arr = trBy.get(k); if (!arr) { arr = []; trBy.set(k, arr); }
-      arr.push({ from: "0x" + l.topics[1].slice(-40), to: "0x" + l.topics[2].slice(-40), value: BigInt(l.data) });
-    }
-    const PM = ADDR.v4PoolManager.toLowerCase();
-    // On a buy the PoolManager pays the hook its fee share and the rest to the recipient, sometimes through a chain of
-    // routers. Take the largest leg that is not the hook and follow it (same value first, otherwise any onward leg).
-    const walletFor = (tx: string, token: string, side: "buy" | "sell"): string | null => {
-      const trs = trBy.get(`${tx}|${token}`); if (!trs) return null;
-      if (side === "buy") {
-        const legs = trs.filter((t) => t.from === PM && t.to !== hook);
-        if (!legs.length) return null;
-        let hop = legs.reduce((a, b) => (b.value > a.value ? b : a));
-        for (let i = 0; i < 6; i++) { const next = trs.find((t) => t.from === hop.to && t.value === hop.value) ?? trs.find((t) => t.from === hop.to && t.to !== hook); if (!next) break; hop = next; }
-        return hop.to === hook ? null : hop.to;
-      }
-      const legs = trs.filter((t) => t.to === PM && t.from !== hook);
+    const rows = attributeSwaps({ swapLogs, transferLogs: transferChunks.flat(), pools, hook, launchPair, pairs, ethUsd, tsOf });
+    p.unattributed += rows.filter((r) => r.wallet === r.sender).length;
+    p.swaps += store.insertSwaps(rows.map(({ sender: _s, ...r }) => r));
+  };
+  if (backRange && backRange[1] >= backRange[0]) await runChunks(backRange[0], backRange[1], chunk, opts.concurrency ?? 2, body, () => opts.onProgress?.(p));
+  await runChunks(from, opts.head, chunk, opts.concurrency ?? 2, body, (b) => { store.setCursor(POOLS_SWAP_CURSOR, b); opts.onProgress?.(p); });
+  return p;
+}
+
+export interface AttributeInput {
+  swapLogs: RawLog[]; transferLogs: RawLog[]; pools: Map<string, PoolRow>; hook: string;
+  launchPair: Map<string, string>; pairs: Map<string, { kind: "eth" | "stable" | "stock" | "other"; decimals: number }>; ethUsd: number | null; tsOf: (block: number) => number;
+}
+
+/** Pure: Swap logs + token Transfer logs → swap rows with the wallet behind each trade. `sender` is kept for the unattributed count. */
+export function attributeSwaps(i: AttributeInput): (SwapRow & { sender: string })[] {
+  const PM = ADDR.v4PoolManager.toLowerCase();
+  const hook = i.hook.toLowerCase();
+  const trBy = new Map<string, { from: string; to: string; value: bigint }[]>();
+  for (const l of i.transferLogs) {
+    const k = `${l.transactionHash}|${l.address.toLowerCase()}`;
+    let arr = trBy.get(k); if (!arr) { arr = []; trBy.set(k, arr); }
+    arr.push({ from: "0x" + l.topics[1].slice(-40), to: "0x" + l.topics[2].slice(-40), value: BigInt(l.data) });
+  }
+  const walletFor = (tx: string, token: string, side: "buy" | "sell"): string | null => {
+    const trs = trBy.get(`${tx}|${token}`); if (!trs) return null;
+    if (side === "buy") {
+      const legs = trs.filter((t) => t.from === PM && t.to !== hook);
       if (!legs.length) return null;
       let hop = legs.reduce((a, b) => (b.value > a.value ? b : a));
-      for (let i = 0; i < 6; i++) { const prev = trs.find((t) => t.to === hop.from && t.value === hop.value) ?? trs.find((t) => t.to === hop.from && t.from !== hook); if (!prev) break; hop = prev; }
-      return hop.from === hook ? null : hop.from;
-    };
-    const rows: SwapRow[] = [];
-    for (const l of swapLogs) {
-      const s = decodePoolSwap(l); if (!s) continue;
-      const pool = pools.get(s.poolId); if (!pool) continue;
-      const tokenIs0 = pool.currency0 === pool.token;
-      const tokenAmt = tokenIs0 ? s.amount0 : s.amount1;
-      const quoteAmt = tokenIs0 ? s.amount1 : s.amount0;
-      const side = tokenAmt > 0n ? "buy" : "sell";
-      const absTok = tokenAmt < 0n ? -tokenAmt : tokenAmt;
-      const absQ = quoteAmt < 0n ? -quoteAmt : quoteAmt;
-      const attributed = walletFor(l.transactionHash, pool.token, side);
-      const wallet = attributed ?? s.sender; // fall back to the router when attribution is ambiguous
-      if (!attributed) p.unattributed++;
-      const pairAddr = launchPair.get(pool.token) ?? ADDR.zero;
-      rows.push({ tx_hash: s.tx_hash, log_index: s.log_index, block: s.block, ts: tsOf(s.block), pool_id: s.poolId, token: pool.token, wallet, side, quote_raw: absQ.toString(), tokens_raw: absTok.toString(), quote_norm: normalizeQuote(absQ.toString(), pairs.get(pairAddr), ethUsd) });
+      for (let n = 0; n < 6; n++) { const next = trs.find((t) => t.from === hop.to && t.value === hop.value) ?? trs.find((t) => t.from === hop.to && t.to !== hook); if (!next) break; hop = next; }
+      return hop.to === hook ? null : hop.to;
     }
-    p.swaps += store.insertSwaps(rows);
-    store.setCursor(POOLS_SWAP_CURSOR, b);
-    opts.onProgress?.(p);
+    const legs = trs.filter((t) => t.to === PM && t.from !== hook);
+    if (!legs.length) return null;
+    let hop = legs.reduce((a, b) => (b.value > a.value ? b : a));
+    for (let n = 0; n < 6; n++) { const prev = trs.find((t) => t.to === hop.from && t.value === hop.value) ?? trs.find((t) => t.to === hop.from && t.from !== hook); if (!prev) break; hop = prev; }
+    return hop.from === hook ? null : hop.from;
+  };
+  const rows: (SwapRow & { sender: string })[] = [];
+  for (const l of i.swapLogs) {
+    const s = decodePoolSwap(l); if (!s) continue;
+    const pool = i.pools.get(s.poolId); if (!pool) continue;
+    const tokenIs0 = pool.currency0 === pool.token;
+    const tokenAmt = tokenIs0 ? s.amount0 : s.amount1;
+    const quoteAmt = tokenIs0 ? s.amount1 : s.amount0;
+    const side = tokenAmt > 0n ? "buy" : "sell";
+    const absTok = tokenAmt < 0n ? -tokenAmt : tokenAmt;
+    const absQ = quoteAmt < 0n ? -quoteAmt : quoteAmt;
+    const wallet = walletFor(l.transactionHash, pool.token, side) ?? s.sender;
+    const pairAddr = i.launchPair.get(pool.token) ?? ADDR.zero;
+    rows.push({ tx_hash: s.tx_hash, log_index: s.log_index, block: s.block, ts: i.tsOf(s.block), pool_id: s.poolId, token: pool.token, wallet, side, quote_raw: absQ.toString(), tokens_raw: absTok.toString(), quote_norm: normalizeQuote(absQ.toString(), i.pairs.get(pairAddr), i.ethUsd), sender: s.sender });
   }
-  return p;
+  return rows;
 }

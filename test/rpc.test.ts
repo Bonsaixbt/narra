@@ -65,3 +65,18 @@ test("parseEndpoints understands #nologs and falls back to defaults", () => {
   const e = parseEndpoints("https://x.example/k1,https://y.example/k2#nologs");
   assert.deepEqual(e.map((x) => [x.label, x.logs]), [["x.example", true], ["y.example", false]]);
 });
+
+test("eth_getLogs is split in halves when the provider rejects the block range", async () => {
+  const calls: [number, number][] = [];
+  const { fetch } = fakeFetch((_u, b) => {
+    const p = (b as unknown as { params: [{ fromBlock: string; toBlock: string }] }).params[0];
+    const from = Number(BigInt(p.fromBlock)), to = Number(BigInt(p.toBlock));
+    calls.push([from, to]);
+    if (to - from > 100) return { text: JSON.stringify({ jsonrpc: "2.0", id: b.id, error: { code: -32000, message: "Block range limit exceeded." } }) };
+    return { body: [{ blockNumber: p.fromBlock }] };
+  });
+  const gate = createGate([specs[1]], { fetchFn: fetch, ...noSleep });
+  const r = (await gate.request("eth_getLogs", [{ fromBlock: "0x0", toBlock: "0x190" }])) as unknown[];
+  assert.equal(r.length, 4);
+  assert.ok(calls.every(([a, b]) => b - a <= 400));
+});

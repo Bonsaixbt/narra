@@ -27,8 +27,9 @@ export function syncReporter(label: string): { onProgress: (p: SyncProgress) => 
 
 export async function backfill(args: Args): Promise<number> {
   const n = new Narra({ rpc: str(args.flags.rpc), db: str(args.flags.db) });
-  const w = windowOf(args.flags.window);
-  const rep = syncReporter(`backfill ${w}`);
+  const hours = Number(str(args.flags.hours) ?? 0);
+  const w = hours > 0 ? hours * 3600 : windowOf(args.flags.window);
+  const rep = syncReporter(`backfill ${hours > 0 ? hours + "h" : w}`);
   const t0 = Date.now();
   try {
     const p = await n.sync(w, rep.onProgress);

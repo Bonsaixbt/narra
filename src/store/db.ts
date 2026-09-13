@@ -29,6 +29,7 @@ export interface SwapRow {
   side: Side; quote_raw: string; tokens_raw: string; quote_norm: number | null;
 }
 export interface SnapshotRow { slug: string; window: string; ts: number; status: string; payload: string }
+export interface HourlyRow { token: string; hour_ts: number; venue: "curve" | "pool"; buys: number; sells: number; quote_in: number; quote_out: number; unique_buyers: number; taxed: number }
 
 export const DEFAULT_DB_PATH = join(homedir(), ".narra", "narra.db");
 
@@ -165,19 +166,41 @@ export class Store {
   latestSnapshots(window: string): SnapshotRow[] {
     return this.db.prepare(`SELECT s.* FROM cluster_snapshots s JOIN (SELECT slug, MAX(ts) ts FROM cluster_snapshots WHERE window = ? GROUP BY slug) m ON m.slug = s.slug AND m.ts = s.ts WHERE s.window = ?`).all(window, window) as SnapshotRow[];
   }
+  minBlock(table: "curve_trades" | "pool_swaps"): number | null { return (this.db.prepare(`SELECT MIN(block) b FROM ${table}`).get() as { b: number | null }).b; }
   get(key: string): string | undefined { return (this.db.prepare(`SELECT value FROM kv WHERE key = ?`).get(key) as { value: string } | undefined)?.value; }
   set(key: string, value: string): void { this.db.prepare(`INSERT OR REPLACE INTO kv (key, value) VALUES (?, ?)`).run(key, value); }
 
   // --- housekeeping --------------------------------------------------------------------------------
-  prune(retentionHours: number, now = Math.floor(Date.now() / 1000)): { trades: number; swaps: number } {
+  /** Rows older than the retention are folded into per-token hourly aggregates before they are deleted, so history survives. */
+  prune(retentionHours: number, now = Math.floor(Date.now() / 1000)): { trades: number; swaps: number; hours: number } {
     const cutoff = now - retentionHours * 3600;
+    const hours = this.compact(cutoff);
     const trades = this.db.prepare(`DELETE FROM curve_trades WHERE ts < ?`).run(cutoff).changes;
     const swaps = this.db.prepare(`DELETE FROM pool_swaps WHERE ts < ?`).run(cutoff).changes;
-    return { trades, swaps };
+    return { trades, swaps, hours };
   }
-  stats(): { launches: number; tokens: number; trades: number; swaps: number; pools: number; snapshots: number; oldest_trade_ts: number | null; newest_trade_ts: number | null } {
+  compact(beforeTs: number): number {
+    const hourOf = "(ts / 3600) * 3600";
+    const curve = this.db.prepare(`INSERT OR REPLACE INTO hourly (token, hour_ts, venue, buys, sells, quote_in, quote_out, unique_buyers, taxed)
+      SELECT token, ${hourOf}, 'curve', SUM(side = 'buy'), SUM(side = 'sell'), COALESCE(SUM(CASE WHEN side = 'buy' THEN quote_norm END), 0), COALESCE(SUM(CASE WHEN side = 'sell' THEN quote_norm END), 0),
+             COUNT(DISTINCT CASE WHEN side = 'buy' THEN recipient END), SUM(side = 'buy' AND CAST(tax_raw AS INTEGER) > 0)
+      FROM curve_trades WHERE token IS NOT NULL AND ts < ? GROUP BY token, ${hourOf}`).run(beforeTs).changes;
+    const pool = this.db.prepare(`INSERT OR REPLACE INTO hourly (token, hour_ts, venue, buys, sells, quote_in, quote_out, unique_buyers, taxed)
+      SELECT token, ${hourOf}, 'pool', SUM(side = 'buy'), SUM(side = 'sell'), COALESCE(SUM(CASE WHEN side = 'buy' THEN quote_norm END), 0), COALESCE(SUM(CASE WHEN side = 'sell' THEN quote_norm END), 0),
+             COUNT(DISTINCT CASE WHEN side = 'buy' THEN wallet END), 0
+      FROM pool_swaps WHERE ts < ? GROUP BY token, ${hourOf}`).run(beforeTs).changes;
+    return curve + pool;
+  }
+  hourlyFor(tokens: string[], sinceTs: number): HourlyRow[] {
+    if (!tokens.length) return [];
+    return this.db.prepare(`SELECT * FROM hourly WHERE hour_ts >= ? AND token IN (${tokens.map(() => "?").join(",")}) ORDER BY hour_ts`).all(sinceTs, ...tokens.map(lower)) as HourlyRow[];
+  }
+  snapshotHistory(slug: string, sinceTs: number): SnapshotRow[] {
+    return this.db.prepare(`SELECT * FROM cluster_snapshots WHERE slug = ? AND ts >= ? ORDER BY ts`).all(slug, sinceTs) as SnapshotRow[];
+  }
+  stats(): { launches: number; tokens: number; trades: number; swaps: number; pools: number; snapshots: number; hourly: number; oldest_trade_ts: number | null; newest_trade_ts: number | null } {
     const c = (t: string) => (this.db.prepare(`SELECT COUNT(*) n FROM ${t}`).get() as { n: number }).n;
     const r = this.db.prepare(`SELECT MIN(ts) a, MAX(ts) b FROM curve_trades`).get() as { a: number | null; b: number | null };
-    return { launches: c("launches"), tokens: c("tokens"), trades: c("curve_trades"), swaps: c("pool_swaps"), pools: c("pools"), snapshots: c("cluster_snapshots"), oldest_trade_ts: r.a, newest_trade_ts: r.b };
+    return { launches: c("launches"), tokens: c("tokens"), trades: c("curve_trades"), swaps: c("pool_swaps"), pools: c("pools"), snapshots: c("cluster_snapshots"), hourly: c("hourly"), oldest_trade_ts: r.a, newest_trade_ts: r.b };
   }
 }

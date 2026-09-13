@@ -41,7 +41,7 @@ test("cursors, kv, lifecycle and prune", () => {
   s.setLifecycle(launch(1, 10).token, { phase: 2, graduated_at: 99 });
   assert.equal(s.launch(launch(1, 10).token)?.phase, 2);
   s.insertTrades([trade("0xa", 0, "0xc", 1000), trade("0xb", 0, "0xc", 5000)]);
-  assert.deepEqual(s.prune(1, 5000 + 3600 - 1), { trades: 1, swaps: 0 });
+  assert.deepEqual(s.prune(1, 5000 + 3600 - 1), { trades: 1, swaps: 0, hours: 0 }); // rows without a resolved token are not aggregated
   assert.equal(s.stats().trades, 1);
 });
 

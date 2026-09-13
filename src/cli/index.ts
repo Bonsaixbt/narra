@@ -9,7 +9,8 @@ const HELP = `narra — which meta is printing on Pons v2 / Robinhood Chain righ
   narra why <slug> [--window 60m] [--json]
   narra watch      [--jsonl] [--only LAUNCH,STATUS,EDGE,GRAD,JOIN]
   narra doctor     [--json]
-  narra backfill   [--window 60m]
+  narra backfill   [--window 60m | --hours 24]          deep backfill (raise retention automatically)
+  narra history    <slug | 0xTOKEN> [--hours 24]       status timeline of a meta, or hourly activity of a token
   narra schema     [now|coin|flow|why|watch]
   narra cache      [clear|path]
   narra mcp                                     MCP server over stdio
@@ -34,6 +35,7 @@ export async function run(args: Args): Promise<number> {
     case "watch": return (await import("./watch.js")).watch(args);
     case "schema": return (await import("./schema.js")).schema(args);
     case "cache": return (await import("./cache.js")).cache(args);
+    case "history": return (await import("./history.js")).history(args);
     case "mcp": return (await import("../mcp/server.js")).serveMcp(args);
     case "serve": return (await import("./serve.js")).serve(args);
     default:

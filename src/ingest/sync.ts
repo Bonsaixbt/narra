@@ -30,6 +30,29 @@ export interface SyncOptions {
   onProgress?: (p: SyncProgress) => void;
   /** Stay this many blocks behind head so a late block never leaves a hole. */
   headLag?: number;
+  /** Chunks fetched at once. Default: the first endpoint's concurrency (6 on a private node, 2 on public). */
+  concurrency?: number;
+}
+
+/**
+ * Runs `fn` over [from, to] in chunks with bounded concurrency and calls `advance(b)` only for the highest block up to
+ * which every chunk has completed, so a cursor never skips over a chunk that is still in flight.
+ */
+export async function runChunks(from: number, to: number, chunk: number, concurrency: number, fn: (a: number, b: number) => Promise<void>, advance: (b: number) => void): Promise<void> {
+  const starts: number[] = [];
+  for (let a = from; a <= to; a += chunk) starts.push(a);
+  const done = new Set<number>();
+  let next = 0, contiguous = 0;
+  const worker = async () => {
+    while (next < starts.length) {
+      const i = next++;
+      const a = starts[i], b = Math.min(a + chunk - 1, to);
+      await fn(a, b);
+      done.add(i);
+      while (contiguous < starts.length && done.has(contiguous)) { advance(Math.min(starts[contiguous] + chunk - 1, to)); contiguous++; }
+    }
+  };
+  await Promise.all(Array.from({ length: Math.max(1, Math.min(concurrency, starts.length)) }, worker));
 }
 
 export async function sync(ctx: SyncContext, opts: SyncOptions): Promise<SyncProgress> {
@@ -40,15 +63,20 @@ export async function sync(ctx: SyncContext, opts: SyncOptions): Promise<SyncPro
   const nowTs = await clock.timestamp(head);
   const windowStart = await clock.blockAt(nowTs - opts.windowSec, head);
   const cursor = store.getCursor(CURSOR);
-  // A cursor behind the window start means the cache has a hole outside the window; that is fine for the window itself.
-  const from = cursor && cursor.last_block + 1 >= windowStart ? cursor.last_block + 1 : windowStart;
-  const p: SyncProgress = { stage: "plan", fromBlock: from, toBlock: head, doneBlock: from - 1, launches: 0, trades: 0, enriched: 0, pools: 0, swaps: 0 };
+  // Coverage is [oldest_block, cursor]. A window deeper than the coverage is filled backwards first; a cursor that fell
+  // behind the window start (the tool was not run for a while) restarts coverage at the window start.
+  const oldest = Number(store.get("oldest_block") ?? store.minBlock("curve_trades") ?? 0);
+  const stale = !!cursor && cursor.last_block + 1 < windowStart;
+  const from = cursor && !stale ? cursor.last_block + 1 : windowStart;
+  const backFrom = cursor && !stale && oldest > windowStart ? windowStart : null;
+  const backTo = backFrom !== null ? oldest - 1 : null;
+  const p: SyncProgress = { stage: "plan", fromBlock: backFrom ?? from, toBlock: head, doneBlock: (backFrom ?? from) - 1, launches: 0, trades: 0, enriched: 0, pools: 0, swaps: 0 };
   opts.onProgress?.(p);
-  if (cursor && cursor.last_block + 1 < windowStart) store.set("cache_gap_before", String(windowStart));
+  if (!cursor || stale || backFrom !== null) store.set("oldest_block", String(backFrom ?? from));
 
   const pairAddrs = new Set<string>();
-  for (let a = from; a <= head; a += chunk) {
-    const b = Math.min(a + chunk - 1, head);
+  const concurrency = opts.concurrency ?? gate.stats().endpoints[0]?.concurrency ?? 2;
+  const chunkBody = async (a: number, b: number) => {
     const [aTs, bTs] = await Promise.all([clock.timestamp(a), clock.timestamp(b)]);
     const tsOf = interpolator(a, aTs, b, bTs);
     const [factoryLogs, tradeLogs] = await Promise.all([
@@ -67,15 +95,19 @@ export async function sync(ctx: SyncContext, opts: SyncOptions): Promise<SyncPro
     const trades: TradeRow[] = [];
     for (const l of tradeLogs) { const t = decodeTrade(l, tsOf(Number(BigInt(l.blockNumber)))); if (t) trades.push(t); }
     p.trades += store.insertTrades(trades);
-    store.setCursor(CURSOR, b);
-    p.stage = "logs"; p.doneBlock = b;
-    opts.onProgress?.(p);
+    p.stage = "logs";
+  };
+  if (backFrom !== null && backTo !== null && backTo >= backFrom) {
+    await runChunks(backFrom, backTo, chunk, concurrency, chunkBody, (b) => { p.doneBlock = b; opts.onProgress?.(p); });
   }
+  await runChunks(from, head, chunk, concurrency, chunkBody, (b) => { store.setCursor(CURSOR, b); p.doneBlock = b; opts.onProgress?.(p); });
 
   // Trades on curves launched before the window: find their launches by curve address, walking back in big chunks.
   p.stage = "resolve"; opts.onProgress?.(p);
   store.resolveTradeTokens();
-  const unknown = store.unknownCurves(nowTs - opts.windowSec);
+  // Curves searched before are not walked again until the search horizon moves on by a full depth.
+  const searched: Record<string, number> = JSON.parse(store.get("unresolved_curves") ?? "{}");
+  const unknown = store.unknownCurves(nowTs - opts.windowSec).filter((c) => !(searched[c] && head - searched[c] < 600_000));
   if (unknown.length) {
     // Timestamps for old launches come from the measured block rate, not one block read per launch.
     const rate = (nowTs - (await clock.timestamp(Math.max(0, head - 50_000)))) / Math.min(head, 50_000);
@@ -83,6 +115,10 @@ export async function sync(ctx: SyncContext, opts: SyncOptions): Promise<SyncPro
     const found = await resolveCurves(ctx, unknown, from - 1, pairAddrs, tsOfOld);
     p.launches += found;
     store.resolveTradeTokens();
+    const still = new Set(store.unknownCurves(nowTs - opts.windowSec));
+    for (const c of unknown) if (still.has(c)) searched[c] = head;
+    for (const c of Object.keys(searched)) if (head - searched[c] > 2_000_000) delete searched[c];
+    store.set("unresolved_curves", JSON.stringify(searched));
   }
 
   // Pair symbols, ETH/USD for stable pairs, then quote normalisation for the rows still missing it.
@@ -100,7 +136,7 @@ export async function sync(ctx: SyncContext, opts: SyncOptions): Promise<SyncPro
   p.stage = "pools"; opts.onProgress?.(p);
   if (process.env.NARRA_NO_POOLS !== "1") {
     try {
-      const pp = await syncPools(ctx, { head, nowTs, windowSec: opts.windowSec, onProgress: (x) => { p.pools = x.pools; p.swaps = x.swaps; opts.onProgress?.(p); } });
+      const pp = await syncPools(ctx, { head, nowTs, windowSec: opts.windowSec, concurrency, onProgress: (x) => { p.pools = x.pools; p.swaps = x.swaps; opts.onProgress?.(p); } });
       p.pools = pp.pools; p.swaps = pp.swaps;
     } catch (e) { p.note = `pools: ${(e as Error).message.split("\n")[0]}`; }
   }
