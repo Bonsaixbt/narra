@@ -94,12 +94,24 @@ export async function terminal(args: Args): Promise<number> {
     } else if (view === "board" || view === "cluster") {
       const rightW = W >= 120 ? Math.floor(W * 0.42) : 0, leftW = W - rightW - (rightW ? 1 : 0);
       const maxEth = Math.max(0.001, ...clusters.map((k) => k.heat.quote_norm_in));
-      if (sel < scroll) scroll = sel; if (sel >= scroll + bodyH - 1) scroll = sel - bodyH + 2;
       // columns adapt to the pane: wide panes show narrative, bar and flow; narrow ones keep status, meta, CA, ETH, buyers
       const wide = leftW >= 100, mid = leftW >= 78;
       const head = wide ? ` #  status        meta                  narrative        CA   ETH in         buyers  flow` : mid ? ` #  status        meta                  narrative      CA   ETH in  buyers` : ` #  status        meta                CA   ETH in`;
-      const left: string[] = [fit(c.dim(head), leftW)];
-      for (let i = scroll; i < Math.min(clusters.length, scroll + bodyH - 1); i++) {
+      const left: string[] = [];
+      if (clusters.length) {
+        const hottest = [...clusters].sort((x, y) => y.heat.quote_norm_in - x.heat.quote_norm_in)[0];
+        const draining = [...clusters].sort((x, y) => y.flow.out_wallets - x.flow.out_wallets)[0];
+        const totalEth = clusters.reduce((s, k) => s + k.heat.quote_norm_in, 0);
+        const byNar = new Map<string, number>(); for (const k of clusters) byNar.set(k.narrative, (byNar.get(k.narrative) ?? 0) + k.heat.quote_norm_in);
+        const nar = [...byNar].sort((x, y) => y[1] - x[1]).slice(0, 3).map(([k, v]) => `${k} ${Math.round((v / (totalEth || 1)) * 100)}%`).join(" · ");
+        left.push(fit(` ${c.dim("hottest")} ${c.bold(hottest.slug)} ${hottest.heat.quote_norm_in.toFixed(1)} ETH · ${hottest.heat.unique_buyers} buyers${draining.flow.out_wallets >= 8 ? `   ${c.dim("draining")} ${c.bold(draining.slug)} ${draining.flow.out_wallets} wallets left` : ""}`, leftW));
+        left.push(fit(` ${c.dim("narratives")} ${c.cyan(nar)}   ${c.dim(`${clusters.length} metas · ${totalEth.toFixed(0)} ETH`)}`, leftW));
+        left.push(fit("", leftW));
+      }
+      left.push(fit(c.dim(head), leftW));
+      const listH = bodyH - left.length;
+      if (sel < scroll) scroll = sel; if (sel >= scroll + listH) scroll = sel - listH + 1;
+      for (let i = scroll; i < Math.min(clusters.length, scroll + listH); i++) {
         const k = clusters[i]; const h = k.heat;
         const nar = k.narrative + (k.narrative_sub ? "·" + k.narrative_sub : "");
         const parts = [`${i === sel ? "›" : " "}${String(k.rank).padStart(2)}`, STATUS_COLOR[k.status]?.(k.status.padEnd(12)) ?? k.status.padEnd(12), fit(k.slug, 20)];

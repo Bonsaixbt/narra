@@ -7,34 +7,46 @@
 A terminal tool. Read-only, zero config, runs on your machine, made for agents as much as for people.
 
 ```
-$ npx narra-cli now --window 60m
+$ narra now --window 60m
 
-NARRA  11:32:12 UTC   window 60m   pair all   head 61922411   lag 0   publicnode+robinhood · cold
+NARRA 15:30 UTC  window 60m  head 62064460 · chainstack · cache
+106 metas · 1 HOT · 5 ROTATING IN · 26 EMERGING · 4 ROTATING OUT · 34 COOLING · 36 DEAD · 1058.6 ETH · 16,215 buyers · 1,278 launches
 
-HOT          hood                   81 CA   164.42 ETH 2 grad  4% pool   1834 buyers ← hood-discord
-EMERGING     hood-discord           68 CA   76.17 ETH  0 grad  1% pool   786 buyers  → 中国股票指数-csi
-EMERGING     尴尬狗-dog             3 CA    15.19 ETH  0 grad  0% pool   85 buyers
-EMERGING     cat-icat               13 CA   14.14 ETH  0 grad  0% pool   374 buyers
-EMERGING     memfun-mem             2 CA    10.26 ETH  0 grad  0% pool   79 buyers
-EMERGING     family-hood            4 CA     7.97 ETH  0 grad  0% pool   49 buyers
-…
-538/1508 tokens clustered · 681 launches · 44910 trades · 42 sprayer wallets ignored
+  hottest    ponsora-cult  ROTATING IN  231.4 ETH · 1,985 buyers · 7 CA  mixed
+  draining   fort-sol  ROTATING OUT  225 wallets left → 20 metas  (narra flow)
+  narratives mixed 52% · animals 22% · chinese 10% · robinhood 7%
+
+  #  status        meta                      narrative             CA    ETH in  grad   buyers  flow
+  1  ROTATING IN   ponsora-cult              mixed                  7     231.4     1    1,985  ⇦21
+  2  ROTATING IN   cat-fart                  animals               36      93.9     1    1,005  ⇦51
+  3  ROTATING IN   rat-rotating              animals                4      52.3     1      628  ⇦15
+  4  ROTATING IN   四小龙-dragon             chinese·animals        7      20.8     0      537  ⇦15 ⇨49    → cat-fart
+  5  ROTATING IN   goatsen                   mixed                 11      13.6     1    1,038  ⇦16
+  6  HOT           ponsorian                 mixed                 13      36.8     1      462  ⇦5
+  7  EMERGING      cheese-rotating           mixed                 44      66.2     0    1,046  ⇦46
+  …
+  … 55 more (narra now --top 70 or --all; 36 DEAD hidden)
 ```
 
 ```
-$ narra coin 0x2f817ab90dbfd772dfb0c2039ef8f53126441f7b
+$ narra coin 0xac426033294e03005bc20bdc5469bd9ed115ee8f
 
-$icat · iPhone cat · 0x2f817ab90dbfd772dfb0c2039ef8f53126441f7b
-phase curve 0.00/4.2 ETH · launched 16m ago · pair ETH
+$Roblonks · Roblonks · 0xac426033294e03005bc20bdc5469bd9ed115ee8f
+phase curve 0.01/4.2 ETH · launched 11m ago · pair ETH
 
-EDGE    cat-icat   0.50   (cluster EMERGING)
+OUT     cat-fart   0.52   (cluster ROTATING IN)
+alt     cheese-rotating   0.51
+popular meta #2 of 107 on the board · joins it by wallets · 814 buyers, more than 99% of tokens
 
 reasons
-  $icat matches cluster tags icat, cat
-  words fit but only 1 early buyer overlaps with the cluster (IN needs 2)
-  cluster cat-icat is EMERGING: 13 CA, 14.14 ETH in, 0 graduations in window
+  74/100 early buyers also bought $POWER, $cheese in this window
+  7 rotators and 71 early-in-hot wallets among its 100 early buyers
+  cluster cat-fart is ROTATING IN: 36 CA, 94.02 ETH in, 1 graduations in window
+  41% of early buyers already moved to goatsen
+watch
+  41 of 100 early buyers bought goatsen in the last 10m → rotating out risk
 
-sources  launch tx 0xed98…54f7e  block 61908877  early buyers 1  overlap 1
+sources  launch tx 0x44c2…7897  block 62058593  early buyers 100  overlap 74
 IN means membership in a live meta. It is not a recommendation.
 ```
 
@@ -79,10 +91,11 @@ First run reads the last hour from the public RPCs (about two minutes) into `~/.
 
 | Command | Answers | Exit code |
 |---|---|---|
-| `narra now [--window 15m\|60m\|4h] [--pair eth\|stable\|stock] [--members] [--top N]` | which metas are HOT / EMERGING / ROTATING / COOLING / DEAD | 0 |
+| `narra now [--window 15m\|60m\|4h] [--top 15\|--all] [--pair eth\|stable\|stock] [--members]` | the answer first (hottest meta, where capital drains, narrative shares), then the top metas; DEAD hidden unless `--all` | 0 |
+| `narra find <word\|ticker\|0xprefix>` | search metas and tokens in the window by any word | 0 / 3 |
 | `narra coin <CA…>` | IN / EDGE / OUT / ORPHAN / NOT_PONS for a token, with reasons | `--quiet`: 0 IN · 1 EDGE · 2 OUT · 3 ORPHAN · 4 NOT_PONS |
 | `narra flow` | which wallets and deployers moved from meta A to meta B | 0 |
-| `narra why <slug>` | why a cluster is named and grouped that way, members, links | 0 (3 if no such cluster) |
+| `narra why <meta>` | why a cluster is named and grouped that way, members, links; takes the slug or any word from its name, tags or tickers | 0 (3 if nothing matches) |
 | `narra wallets [--cohort sniper\|sprayer\|rotator\|early-in-hot] [--sort net_eth]` | which wallets carry capital between metas, with cohort labels | 0 |
 | `narra wallet <0x…>` | one wallet: cohorts, positions, entry delay after launch, ETH in/out | 0 |
 | `narra history <slug\|0x…> [--hours 24]` | status timeline of a meta, or hourly activity of a token | 0 / 3 |

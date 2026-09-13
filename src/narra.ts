@@ -112,7 +112,7 @@ import { applyCategories } from "./semantic/taxonomy.js";
 import { tokenNarratives } from "./analyze/narrative.js";
 import { createHash } from "node:crypto";
 
-export interface QueryOptions { window?: WindowKey; pair?: "all" | "eth" | "stable" | "stock"; members?: boolean; top?: number; onProgress?: (p: SyncProgress) => void; noSync?: boolean; noSemantic?: boolean }
+export interface QueryOptions { window?: WindowKey; pair?: "all" | "eth" | "stable" | "stock"; members?: boolean; top?: number; all?: boolean; onProgress?: (p: SyncProgress) => void; noSync?: boolean; noSemantic?: boolean }
 
 declare module "./narra.js" {
   interface Narra {
@@ -223,8 +223,8 @@ Narra.prototype.coin = async function (this: Narra, address: string, opts: Query
   const below = allBuyerCounts.filter((x) => x < myBuyers).length;
   const cl = v.cluster ? a.clusters.find((c) => c.slug === v.cluster!.slug) : undefined;
   const inCluster = cl ? [...cl.members].sort((x, y) => (a.buyers.get(y)?.size ?? 0) - (a.buyers.get(x)?.size ?? 0)) : [];
-  const popularity = { cluster_rank: cl?.rank ?? null, clusters_total: a.clusters.length, rank_in_cluster: cl ? (inCluster.indexOf(token) >= 0 ? inCluster.indexOf(token) + 1 : null) : null, cluster_size: cl?.members.length ?? null, buyers: myBuyers, buyers_percentile: allBuyerCounts.length ? Math.round((below / allBuyerCounts.length) * 100) : 0 };
-  if (cl) v.reasons.push(`popularity: meta #${cl.rank} of ${a.clusters.length} on the board (${cl.narrative}${cl.narrative_sub ? " · " + cl.narrative_sub : ""}); ${popularity.rank_in_cluster ? `token #${popularity.rank_in_cluster} of ${cl.members.length} inside it by buyers` : `not among its ${cl.members.length} members`}; more buyers than ${popularity.buyers_percentile}% of tokens in the window`);
+  const popularity = { cluster_rank: cl?.rank ?? null, clusters_total: a.clusters.length, rank_in_cluster: cl ? (inCluster.indexOf(token) >= 0 ? inCluster.indexOf(token) + 1 : null) : null, cluster_size: cl?.members.length ?? null, buyers: myBuyers, buyers_percentile: allBuyerCounts.length ? Math.min(99, Math.round((below / allBuyerCounts.length) * 100)) : 0 };
+  if (cl) v.reasons.push(`popularity: meta #${cl.rank} of ${a.clusters.length} on the board (${cl.narrative}${cl.narrative_sub ? " · " + cl.narrative_sub : ""}); ${popularity.rank_in_cluster ? `token #${popularity.rank_in_cluster} of ${cl.members.length} inside it by buyers` : `joins it by wallets, not a member by name`}; more buyers than ${popularity.buyers_percentile}% of tokens in the window`);
   return {
     ...meta, token, symbol: info.symbol, name: info.name, phase: info.phase, curve, pool,
     pair: { address: launch.pair, symbol: pairRow?.symbol ?? "?", kind: pairRow?.kind ?? "other" },
@@ -238,11 +238,27 @@ Narra.prototype.flow = async function (this: Narra, opts: QueryOptions = {}): Pr
   return { ...meta, nodes: a.clusters.map((c) => ({ slug: c.slug, status: c.status })), edges: a.edges };
 };
 
+/** Exact slug, else the single cluster whose slug, label, tags or member tickers contain the text; several matches → an error listing them. */
+export function resolveCluster(a: Analysis, text: string): { cluster: ClusterOutLike | null; candidates: string[] } {
+  const q = text.toLowerCase();
+  const exact = a.clusters.find((x) => x.slug === q);
+  if (exact) return { cluster: exact, candidates: [] };
+  const hits = a.clusters.filter((x) => x.slug.includes(q) || x.label.toLowerCase().includes(q) || x.top_tags.some((t) => t.tag.includes(q)) || x.members.some((m) => { const t = a.tokens.get(m); return !!t && (t.symbol.toLowerCase().includes(q) || t.name.toLowerCase().includes(q)); }));
+  if (hits.length === 1) return { cluster: hits[0], candidates: [] };
+  return { cluster: null, candidates: hits.map((h) => h.slug) };
+}
+type ClusterOutLike = Analysis["clusters"][number];
+
 Narra.prototype.why = async function (this: Narra, slug: string, opts: QueryOptions = {}): Promise<WhyOut | null> {
   const { a, meta } = await this.prepare(opts);
-  const c = a.clusters.find((x) => x.slug === slug);
-  if (!c) return null;
-  const tags = c.top_tags.map((t) => ({ ...t, examples: c.members.filter((m) => a.tokens.get(m)?.tags.has(t.tag)).slice(0, 5).map((m) => a.tokens.get(m)?.symbol || m.slice(0, 10)) }));
+  const res = resolveCluster(a, slug);
+  if (!res.cluster) { if (res.candidates.length) throw new Error(`"${slug}" matches ${res.candidates.length} metas: ${res.candidates.slice(0, 8).join(", ")}${res.candidates.length > 8 ? ", …" : ""}`); return null; }
+  const c = res.cluster;
+  const tags = c.top_tags.map((t) => {
+    const counts = new Map<string, number>();
+    for (const m of c.members) if (a.tokens.get(m)?.tags.has(t.tag)) { const sym = a.tokens.get(m)?.symbol || m.slice(0, 10); counts.set(sym, (counts.get(sym) ?? 0) + 1); }
+    return { ...t, examples: [...counts].sort((x, y) => y[1] - x[1]).slice(0, 5).map(([sym, n]) => (n > 1 ? `${sym} ×${n}` : sym)) };
+  });
   return {
     ...meta,
     cluster: { slug: c.slug, label: c.label, status: c.status, top_tags: c.top_tags, n_members: c.members.length, heat: c.heat, links: c.links, summary: c.summary, label_source: c.label_source, narrative: c.narrative, narrative_sub: c.narrative_sub, narrative_mix: c.narrative_mix, flow: c.flow, rank: c.rank, cohorts: c.cohorts, rotating_from: c.rotating_from, rotating_to: c.rotating_to, members: membersOf(a, c, this.store) },
@@ -258,6 +274,7 @@ Narra.prototype.wallets = async function (this: Narra, opts: QueryOptions & { co
   const counts = { wallets: list.length, sniper: 0, sprayer: 0, rotator: 0, "early-in-hot": 0 };
   for (const w of list) for (const c of w.cohorts) counts[c]++;
   if (opts.cohort) list = list.filter((w) => w.cohorts.includes(opts.cohort!));
+  if (!opts.all) list = list.filter((w) => w.buys > 0); // sellers of old bags have no entry in the window; --all shows them
   list.sort((x, y) => (y[sort] as number) - (x[sort] as number));
   return { ...meta, cohort: opts.cohort ?? null, sort, wallets: list.slice(0, opts.top ?? 25), counts };
 };
@@ -277,4 +294,20 @@ Narra.prototype.wallet = async function (this: Narra, address: string, opts: Que
   for (const s of swaps) { const p = get(s.token); p.venue = p.buys + p.sells ? "both" : "pool"; if (s.side === "buy") { p.buys++; p.quote_in += s.quote_norm ?? 0; } else { p.sells++; p.quote_out += s.quote_norm ?? 0; } p.last_ts = Math.max(p.last_ts, s.ts); }
   const positions = [...pos.values()].map((p) => ({ ...p, quote_in: Math.round(p.quote_in * 1000) / 1000, quote_out: Math.round(p.quote_out * 1000) / 1000 })).sort((x, y) => y.last_ts - x.last_ts);
   return { ...meta, wallet: w, stat: a.wallets.get(w) ?? null, positions, note: "public on-chain activity over the cache; net flow ignores what the wallet still holds and is not a P&L claim" };
+};
+
+export interface FindOut { schema_version: typeof SCHEMA_VERSION; query: string; window: WindowKey; clusters: { slug: string; status: string; narrative: string; rank: number; eth: number; buyers: number; why: string }[]; tokens: { token: string; symbol: string; name: string; cluster: string | null; status: string | null; buyers: number; launched_at: number; phase: string }[] }
+declare module "./narra.js" { interface Narra { find(text: string, opts?: QueryOptions): Promise<FindOut> } }
+Narra.prototype.find = async function (this: Narra, text: string, opts: QueryOptions = {}): Promise<FindOut> {
+  const { a } = await this.prepare(opts);
+  const q = text.toLowerCase();
+  const statuses = new Map(a.clusters.map((c) => [c.slug, c.status]));
+  const clusters = a.clusters.flatMap((x) => {
+    const why = x.slug.includes(q) ? "slug" : x.label.toLowerCase().includes(q) ? "label" : x.top_tags.some((t) => t.tag.includes(q)) ? "tag" : x.narrative.includes(q) ? "narrative" : "";
+    return why ? [{ slug: x.slug, status: x.status, narrative: x.narrative, rank: x.rank, eth: x.heat.quote_norm_in, buyers: x.heat.unique_buyers, why }] : [];
+  });
+  const tokens = [...a.tokens.values()].filter((t) => t.symbol.toLowerCase().includes(q) || t.name.toLowerCase().includes(q) || t.token.startsWith(q))
+    .map((t) => { const slug = a.membership.get(t.token) ?? null; return { token: t.token, symbol: t.symbol, name: t.name, cluster: slug, status: slug ? statuses.get(slug) ?? null : null, buyers: a.buyers.get(t.token)?.size ?? 0, launched_at: t.launchedTs, phase: t.phase }; })
+    .sort((x, y) => y.buyers - x.buyers).slice(0, opts.top ?? 25);
+  return { schema_version: SCHEMA_VERSION, query: text, window: opts.window ?? "60m", clusters, tokens };
 };

@@ -4,10 +4,11 @@ import { c } from "./render.js";
 const HELP = `narra — which meta is printing on Pons v2 / Robinhood Chain right now
 
   narra terminal   [--window 60m] [--every 20]         full-screen: board, meta details, live feed, paste a CA
-  narra now        [--window 15m|60m|4h] [--pair all|eth|stable|stock] [--members] [--top N] [--json]
+  narra now        [--window 15m|60m|4h] [--pair all|eth|stable|stock] [--top 15|--all] [--members] [--json]
   narra coin <CA…> [--json] [--quiet]           exit code: 0 IN · 1 EDGE · 2 OUT · 3 ORPHAN · 4 NOT_PONS
   narra flow       [--window 60m] [--json]
-  narra why <slug> [--window 60m] [--json]
+  narra why <meta>  [--window 60m] [--json]           exact slug or any word from its name, tags or tickers
+  narra find <word> [--window 60m] [--json]           search metas and tokens by word, ticker or 0x prefix
   narra wallets    [--cohort sniper|sprayer|rotator|early-in-hot] [--sort net_eth|tokens|buys] [--top 25]
   narra wallet     <0xADDRESS>                          one wallet: cohorts, positions, entries after launch
   narra watch      [--jsonl] [--only LAUNCH,STATUS,EDGE,GRAD,JOIN]
@@ -38,6 +39,7 @@ export async function run(args: Args): Promise<number> {
     case "coin": return (await import("./coin.js")).coin(args);
     case "flow": return (await import("./flow.js")).flow(args);
     case "why": return (await import("./why.js")).why(args);
+    case "find": return (await import("./find.js")).find(args);
     case "watch": return (await import("./watch.js")).watch(args);
     case "terminal": case "tui": return (await import("./terminal.js")).terminal(args);
     case "schema": return (await import("./schema.js")).schema(args);
