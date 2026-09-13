@@ -40,6 +40,29 @@ IN means membership in a live meta. It is not a recommendation.
 
 Twenty-four thousand tokens launch on Pons every day. People do not lose on the opening tax; they lose by buying into yesterday's meta after the crowd has moved. narra clusters launches into metas by name, shared buyers and shared deployers, measures how much ETH and how many wallets each meta is pulling, follows repeat buyers from one meta to the next, and tells you whether a contract address belongs to a live one — with the numbers behind every sentence.
 
+## The terminal
+
+```sh
+narra terminal          # full screen; q quits
+```
+
+```
+ NARRA terminal  13:37 UTC  window 15m  ok · head 61980826 · 10 metas · 153 launches · 13638 trades  websocket
+ ─────────────────────────────────────────────────────────────────────────────────────────────────────────────
+ #  status        meta                  narrative        CA   ETH in         buyers  flow │market-hood  EMERGING  mixed
+› 1 EMERGING     market-hood           mixed              6   50.54 ██████    301  ⇦49 ⇨0 │6 CA · 9 members · 9 alive · 50.54 ETH · 301 buyers
+  2 EMERGING     众人拾柴火焰高-fire   chinese           10   28.14 ███░░░    288  ⇦28 ⇨0 │links name 0 · semantic 0 · wallet 10 · deployer 0
+  3 EMERGING     suica                 chinese·animals    8   20.64 ██░░░░    287  ⇦15 ⇨0 │cohorts snipers 10 · rotators 11 · early-in-hot 7
+  4 EMERGING     hood-piupiupiu        chinese·robinhood  1   11.14 █░░░░░    112  ⇦0 ⇨12 │tags market hood stock onchain
+  …                                                                                        │  0xefe9…52a4 $MATIUM   curve 0.52   7 ovl  26s ago
+ ─────────────────────────────────────────────────────────────────────────────────────────────────────────────
+ 13:37:33 LAUNCH  0x865012…8b44  $FLYNODE  unclustered  Flynode
+ 13:37:33 STATUS  suica  EMERGING → HOT  8 CA · 20.64 ETH · 287 buyers
+ ↑↓ move · enter open · c contract · f flow · W wallets · w window · r refresh · ? help · q quit
+```
+
+Left: the board, ranked. Right: the selected meta — numbers, what holds it together, cohorts, flow in and out, members. Bottom: the live feed. Press `c`, paste a contract address, and the card replaces the board: verdict, the meta it belongs to, **popularity** (meta rank on the board, the token's rank inside it by buyers, and the share of tokens it out-buys), reasons, watch-outs. `f` shows where repeat buyers and deployers moved between metas; `W` shows the wallet cohorts; `w` cycles the window. Everything on screen is the same data `--json` prints.
+
 ## Install
 
 Node 22 or newer.
@@ -133,6 +156,10 @@ Off by default; the deterministic core never depends on it. `NARRA_SEMANTIC=on` 
 Categories come free with the embeddings: nine taxonomy buckets (animal, stock, ai-agent, politics, chinese-culture, crypto-meta, tool, celebrity, finance) are embedded as anchor phrases and a token gets `cat:<bucket>` as a tag when it sits clearly closest to one. Category tags can name a cluster but never link two tokens on their own.
 
 `--no-semantic` produces the same numbers without semantic links; `narra why` shows how many links of each kind hold a cluster, `narra doctor` shows the provider and the embedding cache. Measured on 2026-09-13: with the layer on, a 60 m board gained 192 semantic links next to 1 015 name links, and the first run cost 12 s (model load + 1 559 embeddings), later runs 5 s.
+
+## Narratives
+
+Every cluster carries a narrative class next to its slug, decided by open rules in `dictionary.json`: **chinese** when at least half of the members have CJK names (with a sub-narrative from the tags, e.g. `chinese · animals`), otherwise the strongest tag family among **animals, stocks, robinhood, ai-agents, politics, crypto, tools, celebrities, money, culture**, or `mixed` when nothing dominates. A token's card lists the families its own name belongs to. Add words to a family and the class changes the next tick; no model involved.
 
 ## Wallets
 

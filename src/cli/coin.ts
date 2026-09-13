@@ -16,6 +16,8 @@ export function renderCoin(r: CoinOut | NotPonsOut): string {
   if (r.cluster) L.push(`${v} ${c.bold(r.cluster.slug)}   ${r.cluster.membership.toFixed(2)}   (cluster ${STATUS_COLOR[r.cluster.status]?.(r.cluster.status) ?? r.cluster.status})`);
   else L.push(`${v} ${c.dim("no cluster")}`);
   for (const a of r.alternatives) L.push(c.dim(`alt     ${a.slug}   ${a.membership.toFixed(2)}`));
+  if (r.popularity && r.popularity.cluster_rank !== null) L.push(`${c.cyan("meta")}    #${r.popularity.cluster_rank} of ${r.popularity.clusters_total} on the board · ${r.popularity.rank_in_cluster ? `token #${r.popularity.rank_in_cluster} of ${r.popularity.cluster_size} inside` : `not among its ${r.popularity.cluster_size} members`} · ${r.popularity.buyers} buyers (more than ${r.popularity.buyers_percentile}% of tokens)`);
+  if (r.narratives.length) L.push(c.dim(`narrative ${r.narratives.join(", ")}`));
   L.push("", "reasons");
   for (const s of r.reasons) L.push(`  ${s}`);
   if (r.watch.length) { L.push("watch"); for (const s of r.watch) L.push(`  ${c.yellow(s)}`); }

@@ -3,6 +3,7 @@ import { c } from "./render.js";
 
 const HELP = `narra — which meta is printing on Pons v2 / Robinhood Chain right now
 
+  narra terminal   [--window 60m] [--every 20]         full-screen: board, meta details, live feed, paste a CA
   narra now        [--window 15m|60m|4h] [--pair all|eth|stable|stock] [--members] [--top N] [--json]
   narra coin <CA…> [--json] [--quiet]           exit code: 0 IN · 1 EDGE · 2 OUT · 3 ORPHAN · 4 NOT_PONS
   narra flow       [--window 60m] [--json]
@@ -37,6 +38,7 @@ export async function run(args: Args): Promise<number> {
     case "flow": return (await import("./flow.js")).flow(args);
     case "why": return (await import("./why.js")).why(args);
     case "watch": return (await import("./watch.js")).watch(args);
+    case "terminal": case "tui": return (await import("./terminal.js")).terminal(args);
     case "schema": return (await import("./schema.js")).schema(args);
     case "cache": return (await import("./cache.js")).cache(args);
     case "history": return (await import("./history.js")).history(args);

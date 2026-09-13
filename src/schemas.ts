@@ -33,6 +33,8 @@ export const Cluster = z.object({
   slug: z.string(), label: z.string(), status: Status, top_tags: z.array(z.object({ tag: z.string(), weight: z.number() })),
   n_members: z.number(), heat: Heat, links: z.object({ text: z.number(), wallet: z.number(), deployer: z.number(), semantic: z.number() }),
   summary: z.string().optional(), label_source: z.enum(["tags", "model", "cache"]).optional(),
+  narrative: z.string(), narrative_sub: z.string().nullable(), narrative_mix: z.record(z.string(), z.number()),
+  flow: z.object({ in_wallets: z.number(), in_eth: z.number(), out_wallets: z.number(), out_eth: z.number() }), rank: z.number(),
   cohorts: z.object({ sniper: z.number(), sprayer: z.number(), rotator: z.number(), "early-in-hot": z.number(), total: z.number() }).optional(), rotating_from: z.string().nullable(), rotating_to: z.string().nullable(),
   members: z.array(Member).optional(),
 });
@@ -52,6 +54,8 @@ export const CoinOut = Meta.extend({
   cluster: z.object({ slug: z.string(), status: Status, membership: z.number() }).nullable(),
   alternatives: z.array(z.object({ slug: z.string(), membership: z.number() })),
   reasons: z.array(z.string()), watch: z.array(z.string()),
+  narratives: z.array(z.string()),
+  popularity: z.object({ cluster_rank: z.number().nullable(), clusters_total: z.number(), rank_in_cluster: z.number().nullable(), cluster_size: z.number().nullable(), buyers: z.number(), buyers_percentile: z.number() }).nullable(),
   evidence: z.object({ early_buyers: z.number(), overlap_buyers: z.number(), text_score: z.number(), wallet_score: z.number(), launch_tx: z.string().nullable(), launch_block: z.number().nullable() }),
 });
 export const NotPonsOut = Meta.extend({ token: z.string(), verdict: z.literal("NOT_PONS"), reasons: z.array(z.string()) });
