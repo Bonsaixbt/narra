@@ -31,7 +31,8 @@ export const Member = z.object({
 });
 export const Cluster = z.object({
   slug: z.string(), label: z.string(), status: Status, top_tags: z.array(z.object({ tag: z.string(), weight: z.number() })),
-  n_members: z.number(), heat: Heat, links: z.object({ text: z.number(), wallet: z.number(), deployer: z.number() }), rotating_from: z.string().nullable(), rotating_to: z.string().nullable(),
+  n_members: z.number(), heat: Heat, links: z.object({ text: z.number(), wallet: z.number(), deployer: z.number() }),
+  cohorts: z.object({ sniper: z.number(), sprayer: z.number(), rotator: z.number(), "early-in-hot": z.number(), total: z.number() }).optional(), rotating_from: z.string().nullable(), rotating_to: z.string().nullable(),
   members: z.array(Member).optional(),
 });
 
@@ -65,12 +66,25 @@ export const WatchEvent = z.object({
   token: z.string().optional(), symbol: z.string().optional(), wallets: z.number().optional(), note: z.string().optional(),
 });
 
-export const SCHEMAS = { now: NowOut, coin: CoinOut, flow: FlowOut, why: WhyOut, watch: WatchEvent } as const;
+export const Cohort = z.enum(["sniper", "sprayer", "rotator", "early-in-hot"]);
+export const WalletStat = z.object({
+  wallet: z.string(), buys: z.number(), sells: z.number(), tokens: z.number(), quote_in: z.number(), quote_out: z.number(), net_eth: z.number(),
+  closed_tokens: z.number(), wins: z.number(), fast_share: z.number(), median_entry_sec: z.number().nullable(), clusters: z.array(z.string()), cohorts: z.array(Cohort), last_ts: z.number(),
+});
+export const WalletsOut = Meta.extend({ cohort: Cohort.nullable(), sort: z.enum(["net_eth", "tokens", "buys", "quote_in"]), wallets: z.array(WalletStat), counts: z.object({ wallets: z.number(), sniper: z.number(), sprayer: z.number(), rotator: z.number(), "early-in-hot": z.number() }) });
+export const WalletOut = Meta.extend({
+  wallet: z.string(), stat: WalletStat.nullable(),
+  positions: z.array(z.object({ token: z.string(), symbol: z.string(), cluster: z.string().nullable(), status: Status.nullable(), venue: z.enum(["curve", "pool", "both"]), buys: z.number(), sells: z.number(), quote_in: z.number(), quote_out: z.number(), first_buy_after_launch_sec: z.number().nullable(), last_ts: z.number() })),
+  note: z.string(),
+});
+export const SCHEMAS = { now: NowOut, coin: CoinOut, flow: FlowOut, why: WhyOut, watch: WatchEvent, wallets: WalletsOut, wallet: WalletOut } as const;
 export type NowOut = z.infer<typeof NowOut>;
 export type CoinOut = z.infer<typeof CoinOut>;
 export type NotPonsOut = z.infer<typeof NotPonsOut>;
 export type FlowOut = z.infer<typeof FlowOut>;
 export type WhyOut = z.infer<typeof WhyOut>;
 export type WatchEvent = z.infer<typeof WatchEvent>;
+export type WalletsOut = z.infer<typeof WalletsOut>;
+export type WalletOut = z.infer<typeof WalletOut>;
 
 export function jsonSchema(name: keyof typeof SCHEMAS): unknown { return z.toJSONSchema(SCHEMAS[name]); }

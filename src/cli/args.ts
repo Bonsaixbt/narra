@@ -1,7 +1,7 @@
 /** Tiny argv parser: `narra <cmd> [positionals] [--flag value] [--bool]`. No dependency needed for eight commands. */
 export interface Args { cmd: string; pos: string[]; flags: Record<string, string | boolean> }
 
-const BOOL = new Set(["json", "jsonl", "quiet", "no-color", "members", "help", "version", "offline", "no-usd", "fire-only"]);
+const BOOL = new Set(["json", "jsonl", "quiet", "no-color", "members", "help", "version", "offline", "no-usd", "no-semantic"]);
 
 export function parseArgs(argv: string[]): Args {
   const [cmd = "help", ...rest] = argv;

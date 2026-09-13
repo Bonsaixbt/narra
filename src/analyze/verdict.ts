@@ -3,7 +3,10 @@ import { isLive } from "./status.js";
 import type { ClusterOut, TokenInfo, VerdictKind } from "./types.js";
 import type { TradeRow } from "../store/db.js";
 
+import type { WalletStat } from "./wallets.js";
+
 export interface VerdictContext {
+  wallets?: Map<string, WalletStat>;
   clusters: ClusterOut[];
   centroids: Map<string, Tags>;
   membership: Map<string, string>;           // token → slug
@@ -58,6 +61,12 @@ export function verdictFor(t: TokenInfo, tokenTrades: TradeRow[], ctx: VerdictCo
     const ex = c.members.filter((m) => m !== t.token).map((m) => ctx.tokens.get(m)?.symbol).filter(Boolean).slice(0, 2).map((s) => "$" + s).join(", ");
     reasons.push(`${best.overlap}/${early.size} early buyers also bought ${ex || "other members"} in this window`);
   } else if (early.size) reasons.push(`none of its ${early.size} early buyers bought other members`);
+  if (ctx.wallets && early.size) {
+    let rot = 0, hot = 0, snip = 0;
+    for (const w of early) { const st = ctx.wallets.get(w); if (!st) continue; if (st.cohorts.includes("rotator")) rot++; if (st.cohorts.includes("early-in-hot")) hot++; if (st.cohorts.includes("sniper")) snip++; }
+    if (rot + hot > 0) reasons.push(`${rot} rotator${rot === 1 ? "" : "s"} and ${hot} early-in-hot wallet${hot === 1 ? "" : "s"} among its ${early.size} early buyers`);
+    if (snip >= early.size * 0.5 && early.size >= 4) watch.push(`${snip} of ${early.size} early buyers are snipers (bought within 5 s of launch); expect a fast exit`);
+  }
   const h = c.heat;
   reasons.push(`cluster ${c.slug} is ${c.status}: ${h.n_launches} CA, ${h.quote_norm_in.toFixed(2)} ETH in, ${h.n_graduated} graduations in window`);
   if (h.graduated_share >= 0.3) watch.push(`${Math.round(h.graduated_share * 100)}% of the cluster already graduated; late launches into it tend to trail`);

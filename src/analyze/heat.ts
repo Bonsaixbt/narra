@@ -1,5 +1,6 @@
 import type { LaunchRow, SwapRow, TradeRow } from "../store/db.js";
 import type { Heat, TokenInfo } from "./types.js";
+import { FAST_SEC } from "./wallets.js";
 
 export interface Window { from: number; to: number }
 
@@ -17,7 +18,8 @@ export function heatOf(i: HeatInputs): Heat {
   const { from, to } = i.window;
   const W = to - from;
   const prevFrom = from - W;
-  let quoteNow = 0, quotePrev = 0, buys = 0, taxed = 0, poolNow = 0;
+  let quoteNow = 0, quotePrev = 0, buys = 0, fast = 0, poolNow = 0;
+  const launchTs = new Map(i.launches.map((l) => [l.token, l.ts]));
   const buyers = new Set<string>();
   const aliveTokens = new Set<string>();
   const aliveCutoff = to - i.aliveWindowSec;
@@ -25,7 +27,7 @@ export function heatOf(i: HeatInputs): Heat {
     if (!t.token || !i.members.has(t.token)) continue;
     if (t.side !== "buy") continue;
     if (t.ts >= from && t.ts < to) {
-      buys++; if (BigInt(t.tax_raw) > 0n) taxed++;
+      buys++; const lt = launchTs.get(t.token); if (lt !== undefined && t.ts - lt <= FAST_SEC) fast++;
       quoteNow += t.quote_norm ?? 0; buyers.add(t.recipient);
       if (t.ts >= aliveCutoff) aliveTokens.add(t.token);
     } else if (t.ts >= prevFrom && t.ts < from) quotePrev += t.quote_norm ?? 0;
@@ -59,7 +61,7 @@ export function heatOf(i: HeatInputs): Heat {
     unique_buyers: buyers.size,
     n_graduated: nGraduated,
     graduated_share: i.members.size ? round2(inPool / i.members.size) : 0,
-    taxed_ratio: buys ? round2(taxed / buys) : 0,
+    taxed_ratio: buys ? round2(fast / buys) : 0,
     pool_volume_norm: round3(poolNow),
     delta_pct: delta,
     pair_mix: mix,

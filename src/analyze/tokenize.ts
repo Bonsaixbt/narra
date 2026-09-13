@@ -12,6 +12,19 @@ export const WEIGHTS = { symbol: 1.2, name: 1.0, description: 0.4, pair: 0.6 } a
 const STOP = new Set<string>(dictionary.stop);
 const ALIAS = dictionary.alias as Record<string, string>;
 const PAIR = dictionary.pair_tags as Record<string, string>;
+const CJK: [string, string][] = Object.entries(dictionary.cjk as Record<string, string>).filter(([k]) => !k.startsWith("_")).sort((a, b) => b[0].length - a[0].length);
+
+/** A CJK run → English tags by longest dictionary match, left to right. Unknown characters are skipped. */
+export function cjkTags(run: string): string[] {
+  const out: string[] = [];
+  let i = 0;
+  while (i < run.length) {
+    let hit: [string, string] | undefined;
+    for (const e of CJK) if (run.startsWith(e[0], i)) { hit = e; break; }
+    if (hit) { out.push(hit[1]); i += hit[0].length; } else i++;
+  }
+  return out;
+}
 
 /** Split a string into candidate words: camelCase, digits, punctuation, emoji, CJK runs. */
 export function words(s: string): string[] {
@@ -66,6 +79,12 @@ function add(tags: Tags, w: string, weight: number): void {
 }
 
 function addWord(tags: Tags, w: string, weight: number): void {
+  if (/[\u4e00-\u9fff]/.test(w)) {
+    // keep the run itself (copycats share it exactly) and add the translated tags at full weight
+    add(tags, w, weight);
+    for (const t of cjkTags(w)) add(tags, t, weight);
+    return;
+  }
   const parts = splitCompound(w);
   if (!parts.length) { add(tags, w, weight); return; }
   for (const p of parts) add(tags, p, weight);

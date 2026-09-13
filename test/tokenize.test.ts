@@ -35,8 +35,13 @@ test("pair kind becomes a structural tag", () => {
   assert.ok(t.has("nvda") && t.has("rocket") && t.has("nvdax"));
 });
 
-test("CJK names survive tokenisation", () => {
-  assert.deepEqual(tags({ name: "金狗", symbol: "金狗" }), ["金狗"]);
+test("CJK names keep the run and gain translated tags", () => {
+  assert.deepEqual(tags({ name: "金狗", symbol: "金狗" }), ["dog", "金狗"]);
+  assert.deepEqual(tags({ name: "罗宾侠" }), ["hood", "罗宾侠"]);
+  assert.deepEqual(tags({ name: "中国股票指数" }), ["index", "stock", "中国股票指数"]);
+  // 金狗 and "Golden Dog" now share a tag
+  const a = tokenize({ name: "金狗", symbol: "金狗" }), b = tokenize({ name: "Golden Dog", symbol: "GDOG" });
+  assert.ok(a.has("dog") && b.has("dog"));
 });
 
 test("similarity is weighted Jaccard", () => {

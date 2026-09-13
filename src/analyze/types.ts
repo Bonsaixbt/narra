@@ -20,6 +20,7 @@ export interface Heat {
   unique_buyers: number;
   n_graduated: number;
   graduated_share: number;
+  /** share of buys inside the first 5 s after launch (bots) — the field keeps its name for schema stability */
   taxed_ratio: number;
   pool_volume_norm: number;
   delta_pct: number | null;
@@ -34,6 +35,7 @@ export interface ClusterOut {
   members: string[];
   heat: Heat;
   links: { text: number; wallet: number; deployer: number };
+  cohorts?: { sniper: number; sprayer: number; rotator: number; "early-in-hot": number; total: number };
   rotating_from: string | null; rotating_to: string | null;
 }
 

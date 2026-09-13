@@ -7,6 +7,8 @@ const HELP = `narra — which meta is printing on Pons v2 / Robinhood Chain righ
   narra coin <CA…> [--json] [--quiet]           exit code: 0 IN · 1 EDGE · 2 OUT · 3 ORPHAN · 4 NOT_PONS
   narra flow       [--window 60m] [--json]
   narra why <slug> [--window 60m] [--json]
+  narra wallets    [--cohort sniper|sprayer|rotator|early-in-hot] [--sort net_eth|tokens|buys] [--top 25]
+  narra wallet     <0xADDRESS>                          one wallet: cohorts, positions, entries after launch
   narra watch      [--jsonl] [--only LAUNCH,STATUS,EDGE,GRAD,JOIN]
   narra doctor     [--json]
   narra backfill   [--window 60m | --hours 24]          deep backfill (raise retention automatically)
@@ -36,6 +38,8 @@ export async function run(args: Args): Promise<number> {
     case "schema": return (await import("./schema.js")).schema(args);
     case "cache": return (await import("./cache.js")).cache(args);
     case "history": return (await import("./history.js")).history(args);
+    case "wallets": return (await import("./wallets.js")).wallets(args);
+    case "wallet": return (await import("./wallets.js")).wallet(args);
     case "mcp": return (await import("../mcp/server.js")).serveMcp(args);
     case "serve": return (await import("./serve.js")).serve(args);
     default:
