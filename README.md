@@ -82,7 +82,7 @@ Node 22 or newer.
 ```sh
 npx narra-cli now                 # no install
 npm i -g narra-cli && narra now   # global
-git clone <repo-url> narra && cd narra && npm i && npm run now
+git clone https://github.com/Bonsaixbt/narra && cd narra && npm i && npm run now
 ```
 
 First run reads the last hour from the public RPCs (about two minutes) into `~/.narra/narra.db`. After that every command is incremental and takes seconds. `--window 15m` for a faster first look.

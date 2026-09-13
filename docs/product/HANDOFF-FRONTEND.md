@@ -13,7 +13,7 @@ The engine exists and runs as a terminal tool (`narra-cli`, TypeScript, MIT). Th
 The backend is the same package run as a service: `narra serve`. It speaks plain JSON over HTTP plus one SSE stream. **You can run the real backend on your laptop today** — no mocks needed:
 
 ```sh
-git clone <repo-url> narra && cd narra
+git clone https://github.com/Bonsaixbt/narra && cd narra
 npm install && npm run build
 npx tsx bin/narra.ts serve --port 4663 --window 60m
 # first run fetches the last hour from public RPCs (~2 min), then it stays live
