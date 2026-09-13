@@ -70,3 +70,27 @@ test("categories come from the nearest anchor with a margin and never link token
   const cl = buildClusters([d, e, f], new Map(), { minTagSupport: 2, simThreshold: 0.3, minBuyerOverlap: 5, minBuyerShare: 0.2, minWalletPairsToMerge: 2, minSize: 2, maxSize: 60, semanticSplitFloor: 0.9, maxDeployerFan: 8, maxTokensPerWallet: 60 });
   assert.equal(cl.length, 0, "a shared category alone must not form a cluster");
 });
+
+test("extractJson finds the answer behind reasoning prose and modelList splits fallbacks", async () => {
+  const { extractJson, modelList, semanticConfig } = await import("../src/semantic/provider.ts");
+  assert.deepEqual(extractJson('We need {word: family} mapping... here: {"assignments": {"cheese": "animals", "king": "skip"}} done'), { assignments: { cheese: "animals", king: "skip" } });
+  assert.equal(extractJson("no json here"), null);
+  assert.deepEqual(modelList(semanticConfig({ NARRA_SEMANTIC_MODEL: " a:free, b:free " }), "x"), ["a:free", "b:free"]);
+  assert.deepEqual(modelList(semanticConfig({}), "x"), ["x"]);
+});
+
+test("chatWithFallback skips rate-limited and empty models", async () => {
+  const { chatWithFallback } = await import("../src/semantic/openai.ts");
+  const cfg = { ...semanticConfig({ NARRA_SEMANTIC: "on", NARRA_SEMANTIC_NAME: "openai" }), url: "https://x.test/v1", key: "k" };
+  const orig = globalThis.fetch;
+  globalThis.fetch = (async (_u: string, init: RequestInit) => {
+    const m = JSON.parse(String(init.body)).model as string;
+    const body = m === "a" ? { error: { message: "rate-limited" } } : m === "b" ? { choices: [{ message: { content: "" } }] } : { choices: [{ message: { content: '{"label":"ok"}' } }] };
+    return { ok: true, text: async () => JSON.stringify(body) } as Response;
+  }) as typeof fetch;
+  try {
+    const r = await chatWithFallback(cfg, ["a", "b", "c"], [{ role: "user", content: "hi" }], 10);
+    assert.deepEqual(r, { text: '{"label":"ok"}', model: "c" });
+    await assert.rejects(chatWithFallback(cfg, ["a", "b"], [{ role: "user", content: "hi" }], 10), /every model failed/);
+  } finally { globalThis.fetch = orig; }
+});
