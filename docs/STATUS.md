@@ -48,7 +48,7 @@ Rules live in two open files: `src/analyze/dictionary.json` (stop words, aliases
 | Semantic layer (optional, off by default) | local embeddings via transformers.js (`Xenova/multilingual-e5-small`), any OpenAI-compatible `/v1/embeddings` and `/v1/chat/completions`, Anthropic SDK for naming; cached embeddings and labels; semantic links with three gates (absolute floor, z-score ≥ 2.5, mutual top-3); zero-shot categories from taxonomy anchors; label + summary per cluster with a daily budget; `--no-semantic` | `src/semantic/*` |
 | Commands | `now`, `coin`, `find`, `why`, `flow`, `wallets`, `wallet`, `watch`, `terminal`, `history`, `trend`, `doctor`, `backfill`, `calibrate`, `schema`, `cache`, `serve`, `mcp` | `src/cli/*` |
 | Readability | the board opens with the answer (totals, hottest, draining, narrative shares), top 15 without DEAD, columns adapt to terminal width, right-aligned numbers; `find` and fuzzy `why`; card without duplicates; wallets without old-bag sellers by default | `src/cli/now.ts`, `find.ts`, `terminal.ts` |
-| Terminal | full-screen view without a TUI library: board, selected meta, live feed, contract lookup, flow, wallets; driven by the websocket trigger; verified with an expect run | `src/cli/terminal.ts` |
+| Terminal | full-screen view without a TUI library: board, selected meta (own full-width view), live feed, contract lookup, flow, wallets; the analysis runs in a forked child process so keys never wait; ticks at most every 10 s; verified with expect at 140 and 80 columns | `src/cli/terminal.ts`, `src/cli/worker.ts` |
 | Live | websocket subscription to the factory and PoolManager wakes `watch`/`serve` (debounced 5 s), watchdog re-subscribes after 45 s of silence | `src/ingest/live.ts` |
 | Reorgs | cursor stores the block hash; on mismatch the 200-block tail is dropped and re-read | `src/ingest/sync.ts` |
 | Integrations | MCP (7 tools + a guardrail prompt), local HTTP + SSE, `createNarra()` and pure functions, generated `schemas/*.json`, Claude Code skill, Cursor rule, AGENTS.md snippet, OpenAI tool schemas, LangChain wrapper, n8n, shell recipes, launchd and systemd units | `src/mcp/`, `src/cli/serve.ts`, `src/lib.ts`, `integrations/` |
@@ -72,9 +72,7 @@ Rules live in two open files: `src/analyze/dictionary.json` (stop words, aliases
 
 ### Before publishing
 
-- Verify the terminal at 80 columns and in light themes (tested at 140 columns).
-- Default retention for other people's machines: 24 h (48 h of raw trades is 1.5 GB).
-- Oversized metas on 4h windows: the largest is ~60 CA after the farm rule; re-check after calibration, maybe lower `maxSize`.
+Done: terminal verified at 80 and 140 columns with the analysis in a child process; default retention 24 h for fresh installs (a deep backfill raises it); CHANGELOG; README without placeholder URLs; `npm pack` checked. Remaining: oversized metas on 4h windows (~60 CA after the farm rule) are a calibration question, re-check after `narra calibrate`.
 
 ### Later
 

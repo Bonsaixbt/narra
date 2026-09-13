@@ -9,7 +9,7 @@
 
 ## What it stores
 
-`~/.narra/narra.db`: launches, token metadata, curve trades (48 h retention by default, `NARRA_RETENTION_H`), pool swaps, cluster snapshots. Delete it any time: `narra cache clear`.
+`~/.narra/narra.db`: launches, token metadata, curve trades (24 h retention by default, `NARRA_RETENTION_H`; a deeper backfill raises it), pool swaps, cluster snapshots. Delete it any time: `narra cache clear`.
 
 ## What the verdict means
 

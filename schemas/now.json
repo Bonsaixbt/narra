@@ -215,6 +215,51 @@
               "cache"
             ]
           },
+          "narrative": {
+            "type": "string"
+          },
+          "narrative_sub": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "narrative_mix": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {
+              "type": "number"
+            }
+          },
+          "flow": {
+            "type": "object",
+            "properties": {
+              "in_wallets": {
+                "type": "number"
+              },
+              "in_eth": {
+                "type": "number"
+              },
+              "out_wallets": {
+                "type": "number"
+              },
+              "out_eth": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "in_wallets",
+              "in_eth",
+              "out_wallets",
+              "out_eth"
+            ],
+            "additionalProperties": false
+          },
+          "rank": {
+            "type": "number"
+          },
           "cohorts": {
             "type": "object",
             "properties": {
@@ -323,6 +368,11 @@
           "n_members",
           "heat",
           "links",
+          "narrative",
+          "narrative_sub",
+          "narrative_mix",
+          "flow",
+          "rank",
           "rotating_from",
           "rotating_to"
         ],

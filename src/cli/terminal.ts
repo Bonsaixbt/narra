@@ -9,8 +9,9 @@ import type { Args } from "./args.js";
 import { str, windowOf, type WindowKey } from "./args.js";
 import { Narra } from "../narra.js";
 import { c, STATUS_COLOR, VERDICT_COLOR, visibleWidth, short, ago, utc } from "./render.js";
-import { membersOf, type Analysis } from "../analyze/board.js";
+import { fork, type ChildProcess } from "node:child_process";
 import { diffEvents, renderEvent, type WatchState } from "./watch.js";
+import type { Snapshot, WorkerReply, WorkerRequest } from "./worker.js";
 import { liveTrigger } from "../ingest/live.js";
 import { SCHEMA_VERSION, type WatchEvent, type CoinOut, type NotPonsOut } from "../schemas.js";
 import type { ClusterOut } from "../analyze/types.js";
@@ -44,7 +45,18 @@ export async function terminal(args: Args): Promise<number> {
   const everySec = Number(str(args.flags.every) ?? 20);
   const out = process.stdout;
   let view: View = "board", sel = 0, scroll = 0, input: string | null = null, status = "syncing…";
-  let a: Analysis | null = null, head: number | null = null, coin: CoinOut | NotPonsOut | null = null, coinBusy = false;
+  let a: Snapshot | null = null, head: number | null = null, coin: CoinOut | NotPonsOut | null = null, coinBusy = false;
+  // the analysis runs in a child process so the keys never wait for a clustering pass
+  const childArgs = ["__worker", ...(str(args.flags.db) ? ["--db", str(args.flags.db)!] : []), ...(str(args.flags.rpc) ? ["--rpc", str(args.flags.rpc)!] : [])];
+  const child: ChildProcess = fork(process.argv[1], childArgs, { execArgv: process.execArgv.filter((x) => x !== "--eval" && x !== "-e"), stdio: ["ignore", "ignore", "ignore", "ipc"] });
+  const pending = new Map<number, { resolve: (v: unknown) => void; reject: (e: Error) => void }>();
+  let nextId = 1;
+  child.on("message", (m: WorkerReply) => { const p = pending.get(m.id); if (!p) return; pending.delete(m.id); if (m.ok) p.resolve(m.result); else p.reject(new Error(m.error)); });
+  child.on("exit", (code) => { for (const p of pending.values()) p.reject(new Error(`analysis process exited (${code})`)); pending.clear(); });
+  type Req = WorkerRequest extends infer R ? (R extends { id: number } ? Omit<R, "id"> : never) : never;
+  const call = <T,>(req: Req): Promise<T> => new Promise((resolve, reject) => { const id = nextId++; pending.set(id, { resolve: resolve as (v: unknown) => void, reject }); child.send({ ...req, id }); });
+  const MIN_TICK_GAP_MS = 10_000;
+  let lastTickEnd = 0;
   const events: WatchEvent[] = [];
   const state: WatchState = { statuses: new Map(), edges: new Set(), members: new Map(), phases: new Map(), seenLaunch: new Set(), first: true };
   let busy = false, dirty = true, stop = false, wake: (() => void) | null = null;
@@ -53,19 +65,22 @@ export async function terminal(args: Args): Promise<number> {
   write("\x1b[?1049h\x1b[?25l"); // alt screen, hide cursor
   const cleanup = () => { write("\x1b[?25h\x1b[?1049l"); try { process.stdin.setRawMode(false); } catch { /* not raw */ } };
 
+  const dbg = (m: string) => { if (process.env.NARRA_TUI_LOG) appendFileSync(process.env.NARRA_TUI_LOG, `${new Date().toISOString()} ${m}\n`); };
   const tick = async (why: string) => {
-    if (busy) return; busy = true; status = `syncing (${why})…`; dirty = true;
+    if (busy) return; busy = true; status = `syncing (${why})…`; dirty = true; dbg(`tick start ${why}`);
     try {
-      const r = await n.prepare({ window, noSync: !!args.flags.offline });
-      a = r.a; head = r.meta.head_block;
-      for (const e of diffEvents(state, a, new Date().toISOString())) events.unshift(e);
+      const snap = await call<Snapshot>({ op: "prepare", window, offline: !!args.flags.offline });
+      a = snap; head = snap.head_block;
+      const source = { clusters: snap.clusters, edges: snap.edges, launches: snap.launches, tokens: new Map(snap.launches.map((l) => [l.token, l])), membership: new Map(snap.launches.filter((l) => l.slug).map((l) => [l.token, l.slug!])) };
+      for (const e of diffEvents(state, source, new Date().toISOString())) events.unshift(e);
       events.splice(60);
       status = `ok · head ${head} · ${a.clusters.length} metas · ${a.counts.launches} launches · ${a.counts.trades} trades`;
       if (sel >= a.clusters.length) sel = Math.max(0, a.clusters.length - 1);
+      lastTickEnd = Date.now();
     } catch (e) { status = `error: ${(e as Error).message.split("\n")[0].slice(0, 80)}`; events.unshift({ schema_version: SCHEMA_VERSION, ts: new Date().toISOString(), type: "SYNC", note: status }); }
-    busy = false; dirty = true;
+    busy = false; dirty = true; dbg("tick end");
   };
-  const live = liveTrigger(n.clients.ws, () => { wake?.(); });
+  const live = liveTrigger(n.clients.ws, () => { if (Date.now() - lastTickEnd >= MIN_TICK_GAP_MS) wake?.(); });
   const loop = (async () => {
     while (!stop) {
       await tick("timer");
@@ -75,13 +90,13 @@ export async function terminal(args: Args): Promise<number> {
 
   const lookup = async (ca: string) => {
     coinBusy = true; view = "coin"; coin = null; dirty = true;
-    try { coin = await n.coin(ca, { window, noSync: true }); } catch (e) { status = `coin: ${(e as Error).message.split("\n")[0]}`; }
+    try { coin = await call<CoinOut | NotPonsOut>({ op: "coin", address: ca, window }); } catch (e) { status = `coin: ${(e as Error).message.split("\n")[0]}`; }
     coinBusy = false; dirty = true;
   };
 
   // ---------------------------------------------------------------- drawing
   const draw = () => {
-    dirty = false;
+    dirty = false; dbg(`draw view=${view} busy=${busy}`);
     const W = out.columns || 120, H = out.rows || 40;
     const L: string[] = [];
     const wl = window;
@@ -91,7 +106,25 @@ export async function terminal(args: Args): Promise<number> {
     const clusters = a?.clusters ?? [];
     if (view === "help") {
       for (const l of ["", "  ↑/↓ or j/k  move          enter/l  open meta        b/esc  back", "  c  paste a contract address → card       f  capital flow      W  wallets", "  w  cycle window 15m/60m/4h              r  refresh now       q  quit", "", "  IN means membership in a live meta. It is not a recommendation.", "  Every number here is the same as narra now/coin/flow --json."]) L.push(fit(l, W));
-    } else if (view === "board" || view === "cluster") {
+    } else if (view === "cluster" && a && clusters[sel]) {
+      // one meta, full width: numbers, links, cohorts, flow, tags, then every member
+      const k = clusters[sel]; const h = k.heat;
+      const lines: string[] = [];
+      lines.push(` ${c.bold(k.slug)}  ${STATUS_COLOR[k.status]?.(k.status) ?? k.status}  ${c.cyan(k.narrative)}${k.narrative_sub ? c.dim(" · " + k.narrative_sub) : ""}  ${c.dim(`#${k.rank} of ${clusters.length}`)}`);
+      if (k.summary) lines.push(` ${c.dim(k.summary)}`);
+      lines.push(c.dim(` ${h.n_launches} CA · ${k.members.length} members · ${h.n_alive} alive · ${h.quote_norm_in.toFixed(2)} ETH in · ${h.unique_buyers} buyers · ${h.n_graduated} grad · ${Math.round(h.graduated_share * 100)}% in pool · fast buys ${Math.round(h.taxed_ratio * 100)}% · Δ ${h.delta_pct ?? "n/a"}%`));
+      lines.push(c.dim(` links name ${k.links.text} · semantic ${k.links.semantic} · wallet ${k.links.wallet} · deployer ${k.links.deployer}${k.cohorts ? ` · cohorts snipers ${k.cohorts.sniper} · rotators ${k.cohorts.rotator} · early-in-hot ${k.cohorts["early-in-hot"]} · sprayers ${k.cohorts.sprayer}` : ""}`));
+      const ein = a.edges.filter((e) => e.to === k.slug), eout = a.edges.filter((e) => e.from === k.slug);
+      for (const e of ein.slice(0, 3)) lines.push(`  ⇦ ${fit(e.from, 24)} ${String(e.wallets).padStart(4)} wallets  ${e.quote_norm.toFixed(2)} ETH  ${e.deployers} dev`);
+      for (const e of eout.slice(0, 3)) lines.push(`  ⇨ ${fit(e.to, 24)} ${String(e.wallets).padStart(4)} wallets  ${e.quote_norm.toFixed(2)} ETH  ${e.deployers} dev`);
+      lines.push(c.dim(` tags ${k.top_tags.map((t) => `${t.tag} ${t.weight}`).join("  ")}`));
+      lines.push("");
+      lines.push(c.dim(`  token          symbol          phase  member  overlap  launched     last trade`));
+      const members = k.members_out;
+      for (const m of members) lines.push(`  ${short(m.token)}  ${fit(m.symbol ? "$" + m.symbol : c.dim("(no symbol)"), 15)} ${m.phase.padEnd(6)} ${m.membership.toFixed(2).padStart(6)}  ${String(m.buyers_overlap).padStart(7)}  ${fit(ago(m.launched_ts), 12)} ${c.dim(m.last_trade_ts ? ago(m.last_trade_ts) : "no trades")}`);
+      lines.push("", c.dim(` b back · c contract · f flow`));
+      for (let i = 0; i < bodyH; i++) L.push(fit(lines[i] ?? "", W));
+    } else if (view === "board") {
       const rightW = W >= 120 ? Math.floor(W * 0.42) : 0, leftW = W - rightW - (rightW ? 1 : 0);
       const maxEth = Math.max(0.001, ...clusters.map((k) => k.heat.quote_norm_in));
       // columns adapt to the pane: wide panes show narrative, bar and flow; narrow ones keep status, meta, CA, ETH, buyers
@@ -136,7 +169,7 @@ export async function terminal(args: Args): Promise<number> {
         for (const e of eout.slice(0, 2)) right.push(fit(`  ⇨ ${e.to}  ${e.wallets} wallets  ${e.quote_norm.toFixed(2)} ETH`, rightW));
         right.push(fit(c.dim(`tags ${k.top_tags.map((t) => t.tag).join(" ")}`), rightW));
         right.push(fit("", rightW));
-        const members = membersOf(a, k, n.store);
+        const members = k.members_out;
         for (const m of members.slice(0, bodyH - right.length - 1)) right.push(fit(`  ${short(m.token)} ${fit(m.symbol ? "$" + m.symbol : c.dim("(no symbol)"), 13)} ${m.phase.padEnd(5)} ${m.membership.toFixed(2)} ${String(m.buyers_overlap).padStart(3)} ovl ${c.dim(m.last_trade_ts ? ago(m.last_trade_ts) : "no trades")}`, rightW));
         while (right.length < bodyH) right.push(fit("", rightW));
       }
@@ -165,7 +198,7 @@ export async function terminal(args: Args): Promise<number> {
       if ((a?.edges.length ?? 0) === 0) lines.push(c.dim("  no edges above threshold in this window"));
       for (let i = 0; i < bodyH; i++) L.push(fit(lines[i] ?? "", W));
     } else if (view === "wallets") {
-      const list = a ? [...a.wallets.values()].filter((w) => w.cohorts.length).sort((x, y) => y.net_eth - x.net_eth) : [];
+      const list = a ? a.wallets : [];
       const lines = [c.dim(`  wallet          buy/sell  tok   in ETH  out ETH     net  entry  cohorts                clusters`)];
       for (const w of list.slice(0, bodyH - 1)) lines.push(`  ${short(w.wallet, 8)}  ${fit(`${w.buys}/${w.sells}`, 8)} ${String(w.tokens).padStart(4)} ${w.quote_in.toFixed(2).padStart(8)} ${w.quote_out.toFixed(2).padStart(8)} ${(w.net_eth >= 0 ? c.green : c.red)(w.net_eth.toFixed(2).padStart(7))} ${fit(w.median_entry_sec === null ? "-" : w.median_entry_sec + "s", 6)} ${fit(w.cohorts.join(","), 22)} ${c.dim(w.clusters.slice(0, 3).join(" "))}`);
       for (let i = 0; i < bodyH; i++) L.push(fit(lines[i] ?? "", W));
@@ -190,7 +223,7 @@ export async function terminal(args: Args): Promise<number> {
       if (key.ctrl && key.name === "c") { stop = true; done(); return; }
       if (input !== null) {
         if (key.name === "escape") { input = null; return; }
-        if (key.name === "return") { const ca = input.trim(); input = null; if (/^0x[0-9a-fA-F]{40}$/.test(ca)) void lookup(ca); else status = "not an address (0x + 40 hex)"; return; }
+        if (key.name === "return" || key.name === "enter") { const ca = input.trim(); input = null; if (/^0x[0-9a-fA-F]{40}$/.test(ca)) void lookup(ca); else status = "not an address (0x + 40 hex)"; return; }
         if (key.name === "backspace") { input = input.slice(0, -1); return; }
         if (chr && !key.ctrl && chr.length === 1 && /[0-9a-zA-Zx]/.test(chr)) input += chr;
         else if (key.sequence && /^0x[0-9a-fA-F]{40}$/.test(key.sequence.trim())) input = key.sequence.trim(); // a paste arrives as one sequence
@@ -200,7 +233,7 @@ export async function terminal(args: Args): Promise<number> {
         case "q": stop = true; done(); break;
         case "up": case "k": sel = Math.max(0, sel - 1); break;
         case "down": case "j": sel = Math.min(Math.max(0, (a?.clusters.length ?? 1) - 1), sel + 1); break;
-        case "return": case "l": if (view === "board") view = "cluster"; break;
+        case "return": case "enter": case "l": if (view === "board") view = "cluster"; break;
         case "b": case "escape": view = "board"; break;
         case "c": input = ""; break;
         case "f": view = view === "flow" ? "board" : "flow"; break;
@@ -213,6 +246,7 @@ export async function terminal(args: Args): Promise<number> {
     });
   });
   clearInterval(painter); live.stop(); stop = true; (wake as (() => void) | null)?.();
+  try { child.disconnect(); } catch { /* already gone */ }
   await Promise.race([loop, new Promise((r) => setTimeout(r, 500))]);
   cleanup(); n.close();
   return 0;

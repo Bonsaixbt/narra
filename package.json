@@ -23,6 +23,7 @@
     "schemas",
     "integrations",
     "README.md",
+    "CHANGELOG.md",
     "LICENSE"
   ],
   "scripts": {

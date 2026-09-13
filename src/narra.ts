@@ -43,7 +43,7 @@ export class Narra {
     this.clients = createClients({ gate, ws: opts.ws ?? (process.env.NARRA_WS_URL as string | undefined) });
     this.store = new Store(resolveDbPath(opts.db ?? process.env.NARRA_DB));
     this.clock = new BlockClock(gate);
-    this.retentionHours = opts.retentionHours ?? Number(process.env.NARRA_RETENTION_H ?? 48);
+    this.retentionHours = opts.retentionHours ?? Number(process.env.NARRA_RETENTION_H ?? 24);
   }
 
   async sync(window: WindowKey | number = "60m", onProgress?: (p: SyncProgress) => void): Promise<SyncProgress> {
