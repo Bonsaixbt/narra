@@ -16,3 +16,5 @@ Errors: `{ "error": { "code", "message" } }` with `400 BAD_ADDRESS | BAD_QUERY |
 Production: `docker compose up -d` (image builds the library and the service; `./data` holds the cache; a sidecar backs the database up hourly and keeps 7 days). Put a TLS reverse proxy in front and set `NARRA_API_ORIGIN` to the site's origin.
 
 Telegram alerts: set `NARRA_TG_BOT_TOKEN` and `NARRA_TG_CHAT_IDS`; see `.env.example`. Deployment: `deploy/VPS.md`.
+
+Community bot (same token): `NARRA_TG_COMMUNITY_CHAT_IDS` gets a board digest every `NARRA_TG_DIGEST_EVERY_S`; in any chat the bot is in (or only `NARRA_TG_ALLOWED_CHAT_IDS`) it answers `/meta [15m|60m|4h]`, `/coin 0x…` (or a bare address), `/find word`, `/flow`, `/trend`, `/help`. Reduced views of the same cached analyses the site gets: no wallets, no history, no gate. Long polling, no webhook.
