@@ -13,7 +13,7 @@ export function open(args: Args): { n: Narra; q: QueryOptions; done: (p: import(
   const t0 = Date.now();
   const pair = (str(args.flags.pair) ?? "all") as QueryOptions["pair"];
   if (!["all", "eth", "stable", "stock"].includes(pair!)) throw new Error(`unknown pair "${pair}" (all, eth, stable, stock)`);
-  const q: QueryOptions = { window, pair, members: !!args.flags.members, top: Number(str(args.flags.top) ?? 0) || undefined, noSync: !!args.flags.offline, noSemantic: !!args.flags["no-semantic"], onProgress: rep?.onProgress };
+  const q: QueryOptions = { window, pair, members: !!args.flags.members, top: Number(str(args.flags.top) ?? 0) || undefined, noSync: !!args.flags.offline, noSemantic: !!args.flags["no-semantic"], all: !!args.flags.all, onProgress: rep?.onProgress };
   return { n, q, done: (p) => rep?.finish(p, Date.now() - t0) };
 }
 

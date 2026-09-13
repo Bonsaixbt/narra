@@ -28,7 +28,7 @@ export async function why(args: Args): Promise<number> {
   const { n, q, done } = open(args);
   try {
     const r = await n.why(slug, { ...q, onProgress: (p) => { q.onProgress?.(p); if (p.stage === "done") done(p); } });
-    if (!r) { console.error(`no cluster "${slug}" in window ${q.window}; see narra now`); return 3; }
+    if (!r) { console.error(`no meta matches "${slug}" in window ${q.window}; try narra find ${slug}`); return 3; }
     if (args.flags.json) printJson(r); else console.log(renderWhy(r));
     return 0;
   } finally { n.close(); }
