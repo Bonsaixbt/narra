@@ -1,0 +1,13 @@
+# Linux: systemctl --user enable --now narra-serve  (copy to ~/.config/systemd/user/)
+[Unit]
+Description=narra serve — local HTTP + snapshot collection for Pons metas
+After=network-online.target
+
+[Service]
+ExecStart=/usr/bin/env narra serve --port 4663 --window 60m
+Restart=always
+RestartSec=5
+EnvironmentFile=-%h/.narra/.env
+
+[Install]
+WantedBy=default.target

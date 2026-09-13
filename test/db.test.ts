@@ -51,3 +51,12 @@ test("pendingEnrich lists launches without token rows", () => {
   s.upsertTokens([{ token: launch(1, 10).token, name: "A", symbol: "A", description: "", logo: "", twitter: "", telegram: "", discord: "", website: "", farcaster: "", creator_fee_recipient: "", creator_tax_bps: 0, buyback_enabled: 0, enriched_at: 1, error: null }]);
   assert.deepEqual(s.pendingEnrich(10).map((l) => l.token), [launch(2, 20).token.toLowerCase()]);
 });
+
+test("dropFromBlock forgets the tail for a reorg rewind", () => {
+  const s = new Store(":memory:");
+  s.upsertLaunches([launch(1, 10), { ...launch(2, 20), block: 500 }]);
+  s.insertTrades([{ ...trade("0xa", 0, "0xc", 1), block: 100 }, { ...trade("0xb", 0, "0xc", 2), block: 600 }]);
+  assert.deepEqual(s.dropFromBlock(300), { trades: 1, swaps: 0 });
+  assert.equal(s.launchesSince(0).length, 1);
+  assert.equal(s.stats().trades, 1);
+});

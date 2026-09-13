@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- macOS: keep `narra serve` running so cluster snapshots accumulate for calibration.
+     cp integrations/launchd/com.narra.serve.plist ~/Library/LaunchAgents/ && launchctl load ~/Library/LaunchAgents/com.narra.serve.plist
+     Adjust ProgramArguments to your install (npx narra-cli serve, or the checkout's bin). Env comes from ~/.narra/.env. -->
+<plist version="1.0">
+<dict>
+  <key>Label</key><string>com.narra.serve</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/usr/local/bin/narra</string>
+    <string>serve</string>
+    <string>--port</string><string>4663</string>
+    <string>--window</string><string>60m</string>
+  </array>
+  <key>RunAtLoad</key><true/>
+  <key>KeepAlive</key><true/>
+  <key>StandardOutPath</key><string>/tmp/narra-serve.log</string>
+  <key>StandardErrorPath</key><string>/tmp/narra-serve.err</string>
+</dict>
+</plist>

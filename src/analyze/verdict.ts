@@ -7,6 +7,8 @@ import type { WalletStat } from "./wallets.js";
 
 export interface VerdictContext {
   wallets?: Map<string, WalletStat>;
+  /** token → buyers in the last 10 minutes; when present, rotation is measured on these instead of the whole window */
+  recentBuyers?: Map<string, Set<string>>;
   clusters: ClusterOut[];
   centroids: Map<string, Tags>;
   membership: Map<string, string>;           // token → slug
@@ -70,18 +72,18 @@ export function verdictFor(t: TokenInfo, tokenTrades: TradeRow[], ctx: VerdictCo
   const h = c.heat;
   reasons.push(`cluster ${c.slug} is ${c.status}: ${h.n_launches} CA, ${h.quote_norm_in.toFixed(2)} ETH in, ${h.n_graduated} graduations in window`);
   if (h.graduated_share >= 0.3) watch.push(`${Math.round(h.graduated_share * 100)}% of the cluster already graduated; late launches into it tend to trail`);
-  // rotation risk: early buyers active in a different cluster in the last 10 minutes
-  const recentCut = ctx.window.to - 600;
+  // rotation risk: early buyers who bought into a different cluster in the last 10 minutes (whole window as fallback)
+  const source = ctx.recentBuyers ?? ctx.buyers;
+  const span = ctx.recentBuyers ? "in the last 10m" : "in this window";
   let moved = 0; let dest: string | null = null;
-  const destCount = new Map<string, number>();
-  for (const [tok, set] of ctx.buyers) {
+  const destCount = new Map<string, Set<string>>();
+  for (const [tok, set] of source) {
     const slug = ctx.membership.get(tok); if (!slug || slug === c.slug) continue;
-    for (const w of early) if (set.has(w)) { destCount.set(slug, (destCount.get(slug) ?? 0) + 1); }
+    for (const w of early) if (set.has(w)) { let d = destCount.get(slug); if (!d) { d = new Set(); destCount.set(slug, d); } d.add(w); }
   }
-  for (const [slug, n] of destCount) if (n > moved) { moved = n; dest = slug; }
+  for (const [slug, ws] of destCount) if (ws.size > moved) { moved = ws.size; dest = slug; }
   const movedShare = early.size ? moved / early.size : 0;
-  void recentCut; // buyer sets are window-wide in v0.1; a 10-minute slice is a v0.2 refinement
-  if (dest && movedShare >= 0.3) watch.push(`${moved} of ${early.size} early buyers are also in ${dest} → rotating out risk`);
+  if (dest && movedShare >= 0.3) watch.push(`${moved} of ${early.size} early buyers bought ${dest} ${span} → rotating out risk`);
 
   let verdict: VerdictKind;
   if (!isLive(c.status)) { verdict = "OUT"; reasons.push(`cluster status ${c.status} — names still print, capital does not`); }

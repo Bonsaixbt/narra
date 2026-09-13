@@ -14,6 +14,8 @@ import { syncPools } from "./pools.js";
 
 const hex = (n: number) => "0x" + n.toString(16);
 export const CURSOR = "main";
+/** Blocks re-read after a detected reorg. Arbitrum-stack chains rarely reorg; 200 blocks is ~20 s of chain. */
+export const REORG_REWIND = 200;
 
 export interface SyncContext { store: Store; gate: Gate; http: PublicClient; clock: BlockClock }
 
@@ -62,7 +64,18 @@ export async function sync(ctx: SyncContext, opts: SyncOptions): Promise<SyncPro
   const head = (await clock.head()) - lag;
   const nowTs = await clock.timestamp(head);
   const windowStart = await clock.blockAt(nowTs - opts.windowSec, head);
-  const cursor = store.getCursor(CURSOR);
+  let cursor = store.getCursor(CURSOR);
+  // Reorg check: the block hash stored with the cursor must still be canonical. If not, drop the tail and re-read it.
+  if (cursor?.last_block_hash) {
+    const blk = (await gate.request("eth_getBlockByNumber", [hex(cursor.last_block), false])) as { hash?: string } | null;
+    if (blk && blk.hash && blk.hash.toLowerCase() !== cursor.last_block_hash.toLowerCase()) {
+      const rewindTo = Math.max(0, cursor.last_block - REORG_REWIND);
+      store.dropFromBlock(rewindTo + 1);
+      store.setCursor(CURSOR, rewindTo, null);
+      cursor = store.getCursor(CURSOR);
+      opts.onProgress?.({ stage: "plan", fromBlock: rewindTo + 1, toBlock: head, doneBlock: rewindTo, launches: 0, trades: 0, enriched: 0, pools: 0, swaps: 0, note: `reorg at ${cursor?.last_block}: rewound ${REORG_REWIND} blocks` });
+    }
+  }
   // Coverage is [oldest_block, cursor]. A window deeper than the coverage is filled backwards first; a cursor that fell
   // behind the window start (the tool was not run for a while) restarts coverage at the window start.
   const oldest = Number(store.get("oldest_block") ?? store.minBlock("curve_trades") ?? 0);
@@ -101,6 +114,8 @@ export async function sync(ctx: SyncContext, opts: SyncOptions): Promise<SyncPro
     await runChunks(backFrom, backTo, chunk, concurrency, chunkBody, (b) => { p.doneBlock = b; opts.onProgress?.(p); });
   }
   await runChunks(from, head, chunk, concurrency, chunkBody, (b) => { store.setCursor(CURSOR, b); p.doneBlock = b; opts.onProgress?.(p); });
+  // remember the canonical hash of the cursor block for the next run's reorg check
+  try { const blk = (await gate.request("eth_getBlockByNumber", [hex(head), false])) as { hash?: string } | null; if (blk?.hash) store.setCursor(CURSOR, head, blk.hash); } catch { /* the hash is a check, not a requirement */ }
 
   // Trades on curves launched before the window: find their launches by curve address, walking back in big chunks.
   p.stage = "resolve"; opts.onProgress?.(p);
