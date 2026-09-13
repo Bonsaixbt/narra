@@ -14,13 +14,14 @@ export function syncReporter(label: string): { onProgress: (p: SyncProgress) => 
     const out = [
       c.dim(`narra · ${label} · blocks ${p.fromBlock}…${p.toBlock}`),
       progressLine("logs", done, total, `${p.launches} launches · ${p.trades} trades`),
-      progressLine(p.stage === "enrich" || p.stage === "done" ? "enrich" : "resolve", p.stage === "done" ? 1 : p.stage === "enrich" ? 0.5 : p.stage === "resolve" ? 0.2 : 0, 1, p.enriched ? `${p.enriched} tokens` : ""),
+      progressLine(p.stage === "enrich" || p.stage === "pools" || p.stage === "done" ? "enrich" : "resolve", p.stage === "done" || p.stage === "pools" ? 1 : p.stage === "enrich" ? 0.5 : p.stage === "resolve" ? 0.2 : 0, 1, p.enriched ? `${p.enriched} tokens` : ""),
+      progressLine("pools", p.stage === "done" ? 1 : p.stage === "pools" ? 0.5 : 0, 1, p.pools || p.swaps ? `${p.pools} pools · ${p.swaps} swaps` : ""),
     ];
     if (tty) { if (lines) process.stderr.write(`\x1b[${lines}A`); process.stderr.write(out.map((l) => `\x1b[2K${l}`).join("\n") + "\n"); lines = out.length; }
   };
   return {
     onProgress: draw,
-    finish: (p, ms) => { if (tty) draw(p); process.stderr.write(c.dim(`  ready in ${(ms / 1000).toFixed(1)}s · ${p.launches} launches · ${p.trades} trades · ${p.enriched} enriched\n`)); },
+    finish: (p, ms) => { if (tty) draw(p); process.stderr.write(c.dim(`  ready in ${(ms / 1000).toFixed(1)}s · ${p.launches} launches · ${p.trades} trades · ${p.enriched} enriched · ${p.swaps} pool swaps${p.note ? " · " + p.note : ""}\n`)); },
   };
 }
 

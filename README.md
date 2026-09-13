@@ -119,7 +119,18 @@ Full description with formulas: [docs/STRATEGY.md](./docs/STRATEGY.md). What is 
 
 ## After graduation
 
-A meta does not end when its tokens leave the curve. `PoolGraduated` marks the phase; swaps in the Uniswap v4 pool are counted with the curve volume, pool buyers join the overlap, and `graduated_share` tells you when a meta has matured and late launches into it tend to trail. Pool ingestion ships in v0.2; v0.1 already tracks the phase and shows it on the card.
+A meta does not end when its tokens leave the curve. narra indexes the Uniswap v4 pools Pons creates at graduation (`Initialize` on the PoolManager behind the Pons hook) and every `Swap` in them. Pool buys count toward the meta's ETH and buyers, the card shows `phase pool · graduated 18m ago · 59.61 ETH volume in window`, and `graduated_share` tells you when a meta has matured and late launches into it tend to trail. Wallets behind pool trades come from the token's own `Transfer` events (the PoolManager pays the hook its fee and the rest to the buyer, sometimes through routers), so attribution costs one log query per chunk and no per-transaction reads.
+
+## Your own RPC
+
+Copy `.env.example` to `.env` (project) or `~/.narra/.env` (user) and put a private node first:
+
+```
+NARRA_RPC_URL=https://your-node/key,https://rpc.mainnet.chain.robinhood.com
+NARRA_WS_URL=wss://your-node/ws/key
+```
+
+The file is gitignored and never leaves the machine. `narra doctor` shows which endpoints are in use.
 
 ## Numbers (public RPC, 2026-09-13)
 
