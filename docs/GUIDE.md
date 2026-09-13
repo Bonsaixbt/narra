@@ -1,41 +1,41 @@
-# narra — гайд пользователя
+# narra — user guide
 
-narra отвечает на три вопроса про Pons v2 на Robinhood Chain: какая мета печатает прямо сейчас, куда перетекает капитал и в какую мету попадает конкретный токен. Всё считается на твоей машине из событий цепи. Ничего не подписывает, ключей не просит.
+narra answers three questions about Pons v2 on Robinhood Chain: which meta is printing right now, where capital is rotating, and which meta a given token belongs to. Everything is computed on your machine from chain events. Nothing is signed, no key is ever asked for.
 
-`IN` означает «токен принадлежит живой мете». Это не рекомендация. Меты на этой цепи умирают за минуты.
+`IN` means "this token belongs to a live meta". It is not a recommendation. Metas on this chain die within minutes.
 
 ---
 
-## 1. Установка и первый запуск
+## 1. Install and first run
 
 ```sh
 cd ~/Desktop/bonsai
 npm install
-npm run build && npm link        # команда narra появляется в любой папке
-narra doctor                     # проверка узла, констант Pons и кэша
+npm run build && npm link        # the `narra` command becomes available in any folder
+narra doctor                     # node, Pons constants, cache
 ```
 
-`.env` в папке проекта или `~/.narra/.env`:
+`.env` in the project folder or `~/.narra/.env`:
 
 ```
-NARRA_RPC_URL=https://твой-узел/ключ,https://rpc.mainnet.chain.robinhood.com
-NARRA_WS_URL=wss://твой-узел/ws/ключ
+NARRA_RPC_URL=https://your-node/key,https://rpc.mainnet.chain.robinhood.com
+NARRA_WS_URL=wss://your-node/ws/key
 ```
 
-Без своего узла тоже работает, на публичных RPC, только медленнее: первый час данных около двух минут.
+It also works without a private node, on the public RPCs, just slower: the first hour of data takes about two minutes.
 
-Кэш лежит в `~/.narra/narra.db`. Первый запуск любой команды докачивает недостающее окно, дальше каждая команда догоняет цепь за секунды.
+The cache lives in `~/.narra/narra.db`. The first run of any command fetches the missing window; after that every command catches up with the chain in seconds.
 
 ---
 
-## 2. Полный экран: `narra terminal`
+## 2. Full screen: `narra terminal`
 
 ```sh
-narra terminal                   # окно 60m по умолчанию
-narra terminal --window 15m      # быстрее и острее
+narra terminal                   # 60m window by default
+narra terminal --window 15m      # faster and sharper
 ```
 
-Экран:
+The screen:
 
 ```
  NARRA terminal  15:37 UTC  window 60m  ok · head 62064460 · 106 metas   websocket
@@ -54,39 +54,39 @@ narra terminal --window 15m      # быстрее и острее
  ↑↓ move · enter open · c contract · f flow · W wallets · w window · r refresh · ? help · q quit
 ```
 
-- Слева доска, ранжированная: сначала ROTATING IN и HOT, потом EMERGING, дальше остывающие.
-- Справа выбранная мета: числа, чем она склеена, когорты кошельков, приток и отток, члены.
-- Внизу живая лента: новые запуски, смена статусов, новые рёбра потока, градуации. Сокет будит обновление через секунды после события.
+- Left: the board, ranked. ROTATING IN and HOT first, then EMERGING, then the cooling ones.
+- Right: the selected meta — numbers, what holds it together, wallet cohorts, inflow and outflow, members.
+- Bottom: the live feed — new launches, status changes, new flow edges, graduations. The socket wakes the refresh seconds after an event.
 
-Клавиши:
+Keys:
 
-| Клавиша | Действие |
+| Key | Action |
 |---|---|
-| `↑` `↓` или `j` `k` | выбрать мету |
-| `enter` или `l` | открыть мету на весь экран |
-| `b` или `esc` | назад на доску |
-| `c` | вставить адрес контракта → карточка |
-| `f` | поток капитала между метами |
-| `W` | кошельки с когортами |
-| `w` | переключить окно 15m → 60m → 4h |
-| `r` | обновить сейчас |
-| `?` | помощь |
-| `q` | выход |
+| `↑` `↓` or `j` `k` | select a meta |
+| `enter` or `l` | open the meta full screen |
+| `b` or `esc` | back to the board |
+| `c` | paste a contract address → card |
+| `f` | capital flow between metas |
+| `W` | wallets with cohorts |
+| `w` | cycle the window 15m → 60m → 4h |
+| `r` | refresh now |
+| `?` | help |
+| `q` | quit |
 
 ---
 
-## 3. Проверить свой токен
+## 3. Check your token
 
-В полном экране: `c`, вставить адрес, `enter`. В обычном терминале:
+In the full screen: `c`, paste the address, `enter`. In a plain terminal:
 
 ```sh
-narra coin 0xАДРЕС
-narra coin 0xАДРЕС --window 4h        # шире окно, больше контекста
-narra coin 0xА 0xБ 0xВ                 # несколько сразу
-echo 0xАДРЕС | narra coin -            # из stdin
+narra coin 0xADDRESS
+narra coin 0xADDRESS --window 4h      # wider window, more context
+narra coin 0xA 0xB 0xC                # several at once
+echo 0xADDRESS | narra coin -         # from stdin
 ```
 
-Карточка:
+The card:
 
 ```
 $Roblonks · Roblonks · 0xac42…ee8f
@@ -105,113 +105,113 @@ watch
   41 of 100 early buyers bought goatsen in the last 10m → rotating out risk
 ```
 
-Как читать:
+How to read it:
 
-| Строка | Смысл |
+| Line | Meaning |
 |---|---|
-| `phase` | `curve` ещё на кривой с прогрессом до 4.2 ETH; `swept` пауза перед пулом; `pool` уже в Uniswap v4 |
-| вердикт | `IN` в живой мете; `EDGE` имя подходит, капитала мало; `OUT` мета остывает или покупатели ушли; `ORPHAN` ни к чему не липнет; `NOT_PONS` это не запуск Pons v2 |
-| число после меты | membership 0..1: половина текст, половина пересечение ранних покупателей |
-| `alt` | другие меты, к которым токен близок |
-| `popular` | ранг меты на доске, ранг токена внутри меты по покупателям, доля токенов окна, у которых покупателей меньше |
-| `reasons` | каждая строка выведена из чисел: пересечения кошельков, когорты, состояние меты |
-| `watch` | риски: уход ранних покупателей в другую мету, снайперы, деплоер-ферма |
+| `phase` | `curve` still on the bonding curve with progress toward 4.2 ETH; `swept` the pause before the pool; `pool` already trading in Uniswap v4 |
+| verdict | `IN` in a live meta; `EDGE` the name fits, the capital does not; `OUT` the meta is cooling or its buyers left; `ORPHAN` matches nothing; `NOT_PONS` not a Pons v2 launch |
+| the number after the meta | membership 0..1: half text similarity, half overlap of early buyers |
+| `alt` | other metas the token is close to |
+| `popular` | the meta's rank on the board, the token's rank inside the meta by buyers, the share of tokens in the window it out-buys |
+| `reasons` | every line is derived from numbers: wallet overlap, cohorts, the meta's state |
+| `watch` | risks: early buyers leaving for another meta, snipers, a launch-farm deployer |
 
-Коды выхода с `--quiet` для скриптов: 0 IN, 1 EDGE, 2 OUT, 3 ORPHAN, 4 NOT_PONS.
+Exit codes with `--quiet`, for scripts: 0 IN, 1 EDGE, 2 OUT, 3 ORPHAN, 4 NOT_PONS.
 
 ---
 
-## 4. Доска: `narra now`
+## 4. The board: `narra now`
 
 ```sh
-narra now                        # топ-15, DEAD скрыты
+narra now                        # top 15, DEAD hidden
 narra now --window 4h
-narra now --all                  # все меты
+narra now --all                  # every meta
 narra now --top 40
-narra now --pair stock           # только меты с акционными парами
-narra now --members              # с членами под каждой метой
+narra now --pair stock           # only metas with stock-token pairs
+narra now --members              # with members under each meta
 ```
 
-Первые строки это ответ: сколько мет в каких статусах, сколько ETH и покупателей, самая горячая мета, откуда утекает капитал и в сколько мет, доли нарративов. Ниже таблица.
+The first lines are the answer: how many metas in which statuses, how much ETH and how many buyers, the hottest meta, where capital is draining and into how many metas, narrative shares. The table follows.
 
-Статусы:
+Statuses:
 
-| Статус | Что произошло |
+| Status | What happened |
 |---|---|
-| `HOT` | много запусков, много ETH, есть градуации |
-| `EMERGING` | запусков ещё мало, но деньги и покупатели растут |
-| `ROTATING IN` | кошельки из других мет покупают сюда |
-| `ROTATING OUT` | те же кошельки уже покупают соседей |
-| `COOLING` | запусков много, денег мало, падает |
-| `DEAD` | имена печатаются, сделок нет |
+| `HOT` | many launches, much ETH, graduations |
+| `EMERGING` | few launches yet, but money and buyers are growing |
+| `ROTATING IN` | wallets from other metas are buying here |
+| `ROTATING OUT` | those same wallets are already buying the neighbours |
+| `COOLING` | many launches, little money, falling |
+| `DEAD` | names keep printing, no trades |
 
-Колонки: `CA` запусков в окне, `ETH in` ETH в кривые и пулы, `grad` градуаций, `buyers` уникальных покупателей, `flow` ⇦ пришедших и ⇨ ушедших кошельков, стрелка со слагом откуда или куда.
+Columns: `CA` launches in the window, `ETH in` ETH into curves and pools, `grad` graduations, `buyers` unique buyers, `flow` ⇦ wallets that arrived and ⇨ wallets that left, an arrow with the slug they came from or went to.
 
-Нарратив рядом со слагом: `chinese`, `animals`, `stocks`, `robinhood`, `ai-agents`, `politics`, `crypto`, `tools`, `celebrities`, `money`, `culture` или `mixed`. `chinese·animals` значит китайские имена с животной темой.
+The narrative next to the slug: `chinese`, `animals`, `stocks`, `robinhood`, `ai-agents`, `politics`, `crypto`, `tools`, `celebrities`, `money`, `culture` or `mixed`. `chinese·animals` means Chinese names with an animal theme.
 
 ---
 
-## 5. Найти и понять мету
+## 5. Find and understand a meta
 
 ```sh
-narra find cat                   # по слову, тикеру, имени или началу адреса
+narra find cat                   # by word, ticker, name or address prefix
 narra find 0x9e02
-narra why cat-fart               # точный слаг
-narra why cheese                 # любое слово из имени, тегов или тикеров
+narra why cat-fart               # exact slug
+narra why cheese                 # any word from its name, tags or tickers
 ```
 
-`why` показывает: числа меты, чем она склеена (связи по имени, семантике, кошелькам, деплоеру), теги с примерами тикеров, приток и отток, членов с membership и пересечением покупателей. Если слово подходит нескольким метам, команда перечислит их.
+`why` shows: the meta's numbers, what holds it together (links by name, semantics, wallets, deployer), tags with example tickers, inflow and outflow, members with membership and buyer overlap. If a word matches several metas the command lists them.
 
 ---
 
-## 6. Куда идёт капитал
+## 6. Where capital goes
 
 ```sh
-narra flow                       # рёбра A → B за окно
+narra flow                       # edges A → B for the window
 narra flow --window 4h
 ```
 
-Ребро значит: кошельки купили два и больше токена меты A в прошлом окне и купили мету B в этом. Рядом ETH, которые они занесли в B, и деплоеры, сменившие мету. Публикуются рёбра от 5 кошельков или от 2 деплоеров.
+An edge means: wallets bought two or more tokens of meta A in the previous window and bought meta B in this one. Next to it, the ETH they brought into B and the deployers that switched metas. Edges publish at 5 or more wallets, or 2 or more deployers.
 
 ---
 
-## 7. Кошельки
+## 7. Wallets
 
 ```sh
-narra wallets                    # по net ETH, только покупавшие в окне
+narra wallets                    # by net ETH, only wallets that bought in the window
 narra wallets --cohort rotator
 narra wallets --cohort early-in-hot --sort tokens
-narra wallets --all              # включая тех, кто только продавал
-narra wallet 0xАДРЕС             # один кошелёк: когорты, позиции, вход после запуска
+narra wallets --all              # including wallets that only sold
+narra wallet 0xADDRESS           # one wallet: cohorts, positions, entry delay after launch
 ```
 
-Когорты:
+Cohorts:
 
-| Когорта | Правило |
+| Cohort | Rule |
 |---|---|
-| `sniper` | 3+ покупки и половина из них в первые 5 секунд после запуска |
-| `sprayer` | больше токенов за окно, чем лимит 8 / 20 / 50 для 15m / 60m / 4h; не голосует в кластеризации |
-| `rotator` | покупал в 3+ метах и net больше нуля |
-| `early-in-hot` | 3+ покупки членов живых мет в первые 5 минут |
+| `sniper` | 3+ buys and half of them within 5 seconds of launch |
+| `sprayer` | more tokens per window than the cap of 8 / 20 / 50 for 15m / 60m / 4h; does not vote in clustering |
+| `rotator` | bought in 3+ metas and net above zero |
+| `early-in-hot` | 3+ buys of live-meta members within 5 minutes of launch |
 
-`net` это ETH на выходе минус на входе за окно. Оно не учитывает, что кошелёк ещё держит. Это поток, не PnL.
+`net` is ETH out minus ETH in over the window. It ignores what the wallet still holds. It is flow, not P&L.
 
 ---
 
-## 8. История
+## 8. History
 
 ```sh
-narra trend --hours 48 --step 4  # ETH за шаг, доли нарративов
-narra history cat-fart --hours 6 # статусы меты по снапшотам
-narra history 0xАДРЕС --hours 24 # почасовая активность токена
-narra backfill --hours 72        # докачать историю
+narra trend --hours 48 --step 4  # ETH per step, narrative shares
+narra history cat-fart --hours 6 # a meta's statuses from snapshots
+narra history 0xADDRESS --hours 24   # a token's hourly activity
+narra backfill --hours 72        # fetch more history
 ```
 
-Сырые сделки хранятся 48 часов, старше сворачиваются в почасовые агрегаты, так что `trend` и `history` работают и на неделях.
+Raw trades are kept for 48 hours; older rows fold into hourly aggregates, so `trend` and `history` keep working over weeks.
 
 ---
 
-## 9. Живая лента без полного экрана
+## 9. Live feed without the full screen
 
 ```sh
 narra watch
@@ -221,47 +221,47 @@ narra watch --jsonl | jq -r 'select(.type=="STATUS" and .to=="HOT") | .slug'
 
 ---
 
-## 10. Для агентов и скриптов
+## 10. For agents and scripts
 
-Каждая команда принимает `--json`. `narra schema coin` печатает JSON Schema ответа.
+Every command takes `--json`. `narra schema coin` prints the JSON Schema of the answer.
 
-MCP для Claude Code, Claude Desktop, Cursor, Codex:
+MCP for Claude Code, Claude Desktop, Cursor, Codex:
 
 ```sh
 claude mcp add narra -- narra mcp
 ```
 
-Локальный HTTP на 127.0.0.1:
+Local HTTP on 127.0.0.1:
 
 ```sh
 narra serve --port 4663
-curl localhost:4663/coin/0xАДРЕС
+curl localhost:4663/coin/0xADDRESS
 curl localhost:4663/now?window=15m
 ```
 
 ---
 
-## 11. Обслуживание
+## 11. Maintenance
 
 ```sh
-narra doctor                     # узел, константы, кэш, семантика
+narra doctor                     # node, constants, cache, semantic layer
 narra cache stats
-narra cache normalize            # пересчитать ETH у сделок после глубокого бэкфила
-narra cache vacuum               # сжать базу
-narra cache clear                # начать с нуля
-narra calibrate --window 60m --hours 168 --write   # пороги статусов из накопленных снапшотов
+narra cache normalize            # recompute ETH values after a deep backfill
+narra cache vacuum               # compact the database
+narra cache clear                # start from scratch
+narra calibrate --window 60m --hours 168 --write   # status thresholds from collected snapshots
 ```
 
-Снапшоты для калибровки копятся только пока работает `narra serve` или `narra watch`. Для постоянной работы есть юниты в `integrations/launchd/` и `integrations/systemd/`.
+Snapshots for calibration accumulate only while `narra serve` or `narra watch` is running. For continuous operation there are units in `integrations/launchd/` and `integrations/systemd/`.
 
-Семантический слой выключен по умолчанию. `NARRA_SEMANTIC=on` в `.env` включает локальные эмбеддинги, `NARRA_SEMANTIC_NAME=anthropic|openai` добавляет подписи мет через модель. Подробно в `.env.example`.
+The semantic layer is off by default. `NARRA_SEMANTIC=on` in `.env` enables local embeddings; `NARRA_SEMANTIC_NAME=anthropic|openai` adds model-written labels for metas. Details in `.env.example`.
 
 ---
 
-## 12. Как не обмануться
+## 12. How not to fool yourself
 
-- Окно 15m острое и шумное, 60m основное, 4h показывает контекст, но крупные меты там сливаются.
-- Мета с сотней покупателей и одним запуском это чаще один токен, вокруг которого пусто. Смотри `CA` и `members`.
-- `deployer is a launch farm` в карточке значит, что автор печатает токены десятками. Такой токен может попасть в мету по кошелькам, но это не сигнал.
-- Много снайперов среди ранних покупателей значит быстрый выход. Это написано в `watch`.
-- Все пороги статусов пока стартовые, не откалиброванные. Числа в `reasons` точные, ярлыки статусов приблизительные.
+- The 15m window is sharp and noisy, 60m is the default, 4h shows context but large metas merge there.
+- A meta with a hundred buyers and one launch is usually a single token with nothing around it. Look at `CA` and `members`.
+- `deployer is a launch farm` on the card means the author prints tokens by the dozen. Such a token can join a meta through wallets; it is not a signal.
+- Many snipers among the early buyers means a fast exit. It is written in `watch`.
+- Status thresholds are starting values, not calibrated. The numbers in `reasons` are exact; the status labels are approximate.

@@ -1,130 +1,113 @@
-# narra — состояние проекта
+# narra — project status
 
-Дата: 2026-09-13 (обновлено: терминал, нарративы, популярность; история 48 ч собрана)
-Версия: 0.2.0 (в npm не опубликована; `npm pack` даёт 94 КБ, чистая установка без опциональных зависимостей проверена) (не опубликована в npm, GitHub не настроен)
-Пакет: `narra-cli`, бинарь `narra`
+Date: 2026-09-13 (last update: terminal, narratives, popularity, readability; 48 h of history collected)
+Version: 0.2.0 (not published to npm; `npm pack` gives a 94 KB tarball, clean install without optional dependencies verified)
+Package: `narra-cli`, binary `narra`
 
 ---
 
-## Как это работает
+## How it works
 
 ```
-цепь (Robinhood Chain, Pons v2 factory + все кривые)
-   │  eth_getLogs по чанкам 2000 блоков, два запроса на чанк (фабрика, топики CurveBuy/CurveSell)
+chain (Robinhood Chain, Pons v2 factory + every curve + Uniswap v4 PoolManager)
+   │  eth_getLogs in 2 000-block chunks, parallel on a private node; websocket wakes live loops
    ▼
-ingest   decode → SQLite (~/.narra/narra.db): launches, tokens, pairs, curve_trades, cursors, cluster_snapshots
-   │  multicall на каждый новый токен: name, symbol, описание, соцсети, запись фабрики
+ingest   decode → SQLite (~/.narra/narra.db): launches, tokens, pairs, curve_trades, pools, pool_swaps, hourly, cursors, snapshots
+   │  one multicall per new token: name, symbol, description, socials, factory record
    ▼
-analyze  tokenize (теги из имени/тикера/описания) → cluster (компоненты связности) → heat (тепло за окно)
-         → status (HOT/EMERGING/ROTATING/COOLING/DEAD) → flow (рёбра A→B по повторным кошелькам) → verdict (IN/EDGE/OUT/ORPHAN)
+analyze  tokenize (tags from name/ticker/description, CJK dictionary) → cluster (components with a size guard)
+         → heat → status → flow (edges A→B by repeat wallets) → wallets (cohorts) → narrative → verdict
    │
    ▼
-вывод    CLI-таблицы · --json/--jsonl по zod-схемам · MCP по stdio · HTTP на 127.0.0.1 · библиотека createNarra()
+output   CLI tables · --json/--jsonl from zod schemas · full-screen terminal · MCP over stdio · HTTP on 127.0.0.1 · createNarra()
 ```
 
-Один процесс, без демона. Каждая команда сначала догоняет кэш (инкрементально, за секунды), потом считает. `--offline` считает по кэшу без сети.
+One process, no daemon. Every command syncs the cache first (incrementally, in seconds), then computes. `--offline` computes from the cache without the network.
 
-Правила в двух открытых файлах: `src/analyze/dictionary.json` (стоп-слова, синонимы, семена для склеенных тикеров) и `src/analyze/thresholds.json` (пороги статусов, фильтр публикации, лимит кошельков-распылителей).
+Rules live in two open files: `src/analyze/dictionary.json` (stop words, aliases, compound seeds, CJK translations, narrative families) and `src/analyze/thresholds.json` (status thresholds, publish filter, sprayer caps).
 
 ---
 
-## Реализовано (v0.1)
+## Done
 
-| Блок | Что есть | Файлы |
+| Area | What exists | Files |
 |---|---|---|
-| Цепь | константы, ABI, топики с самопроверкой против известных хэшей | `src/chain/constants.ts`, `abi.ts`, `topics.ts` |
-| RPC-гейт | список эндпоинтов с флагами `logs`, лимит параллельности, штрафная скамья на 429 и Cloudflare, без batch | `src/chain/rpc.ts` |
-| Хранилище | SQLite WAL, типизированные строки, оконные запросы, снапшоты, ретеншн 48 ч | `src/store/db.ts`, `schema.ts` |
-| Ingest | декодер логов, интерполяция времени по краям чанка, оценка блока по времени, бэкфил с курсором, резолв старых кривых по топику curve, multicall-обогащение, символы пар, курс ETH/USD для стейбл-пар | `src/ingest/*` |
-| Пулы v4 (v0.2, готово) | `Initialize` на PoolManager с хуком Pons → `pools`; `Swap` по известным пулам → `pool_swaps`; кошелёк через цепочку `Transfer` токена от/к PoolManager минус комиссия хука; объём пулов и покупатели пулов входят в тепло, карточка показывает фазу `pool` и объём | `src/ingest/pools.ts` |
-| История (v0.2, готово) | параллельные чанки под приватный узел (6 в полёте), `narra backfill --hours N` с дозаполнением назад, ретеншн поднимается автоматически, сделки старше ретеншна сворачиваются в почасовые агрегаты `hourly` на токен и площадку, `narra history <slug|token>`; гейт запоминает лимит диапазона `eth_getLogs` провайдера и дробит запросы заранее; нерезолвленные кривые кэшируются, чтобы не обходить их каждый раз. Замер на Chainstack: 6 часов ≈ 232 с (3 758 запусков, 268k сделок), инкремент ≈ 7 с | `src/ingest/sync.ts`, `src/store/db.ts`, `src/cli/history.ts` |
-| Размер кластера | компонент больше 60 членов пересчитывается со строгими порогами до 4 раз; на 4h крупнейший кластер упал с 1734 до 288 членов | `src/analyze/cluster.ts` |
-| Трейдеры (v0.2, готово) | статистика кошельков за окно из кривых и пулов: buys/sells, ETH in/out, net, wins, медианная задержка входа после запуска, доля покупок в первые 5 с; когорты sniper / sprayer / rotator / early-in-hot; микс когорт у каждого кластера; в вердикте причина «N ротаторов и M early-in-hot среди ранних покупателей» и предупреждение о снайперах; `narra wallets`, `narra wallet <addr>`, MCP-инструменты | `src/analyze/wallets.ts`, `src/cli/wallets.ts` |
-| CJK-словарь (v0.2, готово) | китайские имена дают английские теги по словарю самого длинного совпадения: 金狗 → dog, 罗宾侠 → hood, 中国股票指数 → stock, index; сам ран сохраняется для копий | `src/analyze/dictionary.json → cjk`, `tokenize.ts` |
-| Семантика (v0.2, готово, выкл. по умолчанию) | провайдеры: локальные эмбеддинги через transformers.js (`Xenova/multilingual-e5-small`), любой OpenAI-совместимый `/v1/embeddings` и `/v1/chat/completions` (OpenAI, Ollama, LM Studio, OpenRouter), Anthropic SDK для именования; кэш эмбеддингов и подписей в SQLite; семантические связи с тремя гейтами (абсолютный порог, z-score ≥ 2.5 относительно среднего сходства токена, взаимный top-3); подпись и summary кластера с дневным бюджетом; `--no-semantic`; счётчик `semantic` в `why` и статус в `doctor`. Замер: 192 семантических связи против 1015 по имени на 60m, первый запуск 12 с, дальше 5 с | `src/semantic/*`, `src/analyze/cluster.ts` |
-| WebSocket (v0.2, готово) | `watch` и `serve` подписываются по WSS на фабрику и PoolManager; событие будит синк с дебаунсом 5 с, интервал поллинга остаётся нижней границей; вотчдог переподписывается после 45 с тишины. Замер: тики каждые ~9 с, разбуженные свопами | `src/ingest/live.ts`, `src/cli/watch.ts` |
-| Калибровка (v0.2, готово как инструмент) | `narra calibrate` читает `cluster_snapshots`, печатает квантили запусков/ETH/покупателей и предлагает пороги под целевую долю HOT (10 %); `--write` записывает в `thresholds.json` с датой. Сами пороги пока не перезаписаны: за сегодня только 87 снапшотов, нужно несколько дней непрерывного `serve`/`watch` | `src/cli/calibrate.ts` |
-| Категории (v0.2, готово, часть семантики) | девять корзин таксономии заданы якорными фразами; токен получает тег `cat:<корзина>` при явном ближайшем якоре; категория может назвать кластер, но не связывает токены сама по себе | `src/semantic/taxonomy.ts` |
-| Replay-тест | 600 блоков фабрики и кривых + 300 блоков свопов и трансферов проходят decode → store → analyze, доска детерминирована, каждый кластер удерживается связями | `test/replay.test.ts` |
-| Схемы | `schemas/*.json` генерируются при сборке из zod для агентов и других языков | `scripts/gen-schemas.ts` |
-| Реорги (v0.2, готово) | курсор хранит хэш блока; при расхождении хвост в 200 блоков стирается и перечитывается | `src/ingest/sync.ts`, `Store.dropFromBlock` |
-| Ротация за 10 минут (v0.2, готово) | вердикт считает уход ранних покупателей по покупкам последних 10 минут, окно целиком только как запасной вариант | `src/analyze/verdict.ts`, `board.ts → recentBuyers` |
-| Сервис | юниты launchd и systemd для непрерывного `narra serve`, чтобы копились снапшоты под калибровку | `integrations/launchd/`, `integrations/systemd/` |
-| Терминал (готово) | `narra terminal`: полноэкранный экран без TUI-библиотек: доска слева с рангом, нарративом, полосой ETH и потоком ⇦⇨; справа выбранная мета с числами, связями, когортами, рёбрами и членами; внизу живая лента; `c` вставить CA и получить карточку с популярностью; `f` поток; `W` кошельки; `w` окно; работает по WSS-триггеру; проверен прогоном expect | `src/cli/terminal.ts` |
-| Нарративы (готово) | класс кластера по правилам словаря: chinese при ≥ 50 % CJK-имён с под-нарративом, иначе сильнейшее семейство тегов (animals, stocks, robinhood, ai-agents, politics, crypto, tools, celebrities, money, culture) или mixed; нарративы токена в карточке | `src/analyze/narrative.ts`, `dictionary.json → narratives` |
-| Популярность (готово) | в карточке: ранг меты на доске, ранг токена внутри меты по покупателям, процент токенов окна, у которых покупателей меньше | `src/narra.ts → coin` |
-| Поток на доске (готово) | у каждого кластера суммарный приток и отток кошельков и ETH по рёбрам | `board.ts → flow` |
-| История собрана | 48 часов на Chainstack: 35 412 запусков, 2.24 млн сделок на кривых, 48 720 свопов в 26 пулах; база 1.24 ГБ (≈ 620 МБ/сутки сырых данных, вдвое больше оценки); ретеншн поднят до 48 ч автоматически, старше сворачивается в `hourly`. 4-часовая доска на этих данных считается 29 с | `~/.narra/narra.db` |
-| Фермы (готово) | деплоер с > 8 запусками в окне не связывает свои токены; крупнейший кластер на 4h упал с 349 до 62 CA; в карточке предупреждение «deployer is a launch farm: N launches» | `src/analyze/cluster.ts → maxDeployerFan` |
-| Тренд (готово) | `narra trend --hours 48 --step 4`: ETH за шаг с долями по нарративам из сырых сделок и почасовых агрегатов; на собранных двух сутках виден переход к китайскому нарративу (0 % → 65 % → 25 %) | `src/cli/trend.ts` |
-| Обслуживание кэша (готово) | `cache normalize` (нормализация quote пакетами по всему кэшу; после глубокого бэкфила 1.4 млн строк за 66 с), `cache vacuum` (checkpoint WAL + VACUUM), checkpoint после каждого prune | `src/cli/cache.ts` |
-| Читаемость (готово) | доска начинается с ответа: строка итогов, hottest, draining с числом ушедших кошельков, доли нарративов; по умолчанию топ-15 без DEAD (`--top N`, `--all`); колонки подстраиваются под ширину терминала, числа выровнены вправо с разделителями; `narra find <слово>` ищет меты и токены; `narra why` принимает любое слово из имени, тегов или тикеров и перечисляет варианты при неоднозначности; карточка без дублей и противоречий; `wallets` без «продавцов старых мешков» по умолчанию; примеры тегов в `why` схлопнуты (`$GOATSEN ×14`); те же итоги в шапке `narra terminal` | `src/cli/now.ts`, `find.ts`, `why.ts`, `terminal.ts` |
-| Конфиг | `.env` в проекте или `~/.narra/.env`: `NARRA_RPC_URL`, `NARRA_WS_URL`, `NARRA_DB`, `NARRA_RETENTION_H`, `NARRA_NO_USD`, `NARRA_NO_POOLS` | `src/env.ts`, `.env.example` |
-| Токенизация | стоп-слова, синонимы, множественное число, разбор HOODRAT → hood + rat, веса тикер 1.2 / имя 1.0 / описание 0.4 / пара 0.6, CJK | `src/analyze/tokenize.ts` |
-| Кластеры | связь по имени (Jaccard ≥ 0.35), по деплоеру + тегу, по кошелькам (≥ 5 общих и ≥ 20 % меньшего набора, слияние групп только при ≥ 2 парах); распылители (> 8/20/50 токенов за 15m/60m/4h) не голосуют; стабильные слаги между тиками; учёт типа связей | `src/analyze/cluster.ts` |
-| Тепло и статус | n_launches, n_alive, ETH in, покупатели, градуации, доля в пуле, доля покупок под tax, дельта к прошлому окну; шесть статусов с приоритетом; фильтр публикации | `heat.ts`, `status.ts`, `thresholds.json` |
-| Поток | рёбра A→B по кошелькам (≥ 2 токена A в прошлом окне → B в текущем) и деплоерам | `flow.ts` |
-| Вердикт | membership = ½ текст + ½ пересечение ранних покупателей; IN требует ≥ 0.5 и ≥ 2 общих покупателей; причины строками с числами | `verdict.ts` |
-| Команды | `now`, `coin` (несколько адресов, stdin, коды выхода), `flow`, `why`, `watch` (поллинг, события LAUNCH/STATUS/EDGE/GRAD/JOIN/SYNC), `doctor`, `backfill`, `schema`, `cache` | `src/cli/*` |
-| Интеграции | `narra mcp` (5 инструментов + промпт), `narra serve` (HTTP + SSE на loopback), `createNarra()` и чистые функции, JSON Schema из zod | `src/mcp/server.ts`, `src/cli/serve.ts`, `src/lib.ts`, `src/schemas.ts` |
-| Файлы для агентов | SKILL.md для Claude Code, правило Cursor, сниппет AGENTS.md, схемы OpenAI, обёртка LangChain, n8n, jq-рецепты | `integrations/` |
-| Качество | 35 тестов без сети (фикстура: 600 живых блоков), typecheck, сборка в `dist`, CI на Node 22/24 | `test/`, `.github/workflows/ci.yml` |
-| Документация | README, STRATEGY (формулы), PONS (что читаем из цепи), SAFETY, ARCHITECTURE | `README.md`, `docs/` |
-
-Проверено на живой цепи 2026-09-13: холодный старт 60m ≈ 134 с (1 508 запусков, 44 910 сделок), 15m ≈ 35 с, инкремент 3–10 с, `coin` из тёплого кэша < 2 с, MCP и HTTP отвечают.
+| Chain | constants, ABI, event topics self-checked against known hashes | `src/chain/constants.ts`, `abi.ts`, `topics.ts` |
+| RPC gate | endpoint list with `logs` capability, concurrency caps, penalty box on 429 and Cloudflare, no batching, learned block-range cap with automatic splitting | `src/chain/rpc.ts` |
+| Store | SQLite WAL, typed rows, window queries, snapshots, hourly aggregates, retention with compaction, WAL checkpoint after prune | `src/store/db.ts`, `schema.ts` |
+| Ingest | log decoding, timestamp interpolation per chunk, block-at-time estimation, chunked backfill with a cursor and backward fill for deeper windows, old-curve resolution by curve topic (cached when unresolvable), multicall enrichment, pair symbols, ETH/USD for stable pairs, batched quote normalisation | `src/ingest/*` |
+| Pools after graduation | `Initialize` on the PoolManager with the Pons hook → `pools`; `Swap` for known pools → `pool_swaps`; wallet attribution by walking the token's `Transfer` chain from/to the PoolManager, skipping the hook's fee leg; pool volume and buyers count in heat; the card shows `pool` phase and volume | `src/ingest/pools.ts` |
+| History | parallel chunks on a private node (6 in flight), `narra backfill --hours N`, retention raised automatically, rows older than retention fold into per-token hourly aggregates, `narra history`, `narra trend`. Measured on Chainstack: 6 h ≈ 232 s, 48 h collected: 39 286 launches, 2.27 M curve trades, 207 k pool swaps, 1.5 GB (~620 MB/day) | `src/ingest/sync.ts`, `src/cli/history.ts`, `trend.ts` |
+| Tokenisation | stop words, aliases, plurals, compound tickers (`HOODRAT → hood + rat`), weights ticker 1.2 / name 1.0 / description 0.4 / pair 0.6, CJK runs kept plus dictionary translations (`金狗 → dog`, `罗宾侠 → hood`) | `src/analyze/tokenize.ts`, `dictionary.json` |
+| Clustering | links by name (Jaccard ≥ 0.35), deployer + tag (not for launch farms with > 8 launches), wallets (≥ 5 shared and ≥ 20 % of the smaller set; groups merge only with ≥ 2 cross pairs), optional semantic links; sprayers (> 8/20/50 tokens per 15m/60m/4h) do not vote; components above 60 members re-clustered with stricter thresholds; stable slugs across ticks; link kinds counted | `src/analyze/cluster.ts` |
+| Heat and status | launches, alive members, ETH in, buyers, graduations, share in pool, share of buys within 5 s of launch, delta vs the previous window; six statuses with priority; publish filter | `heat.ts`, `status.ts`, `thresholds.json` |
+| Flow | edges A→B by wallets (≥ 2 tokens of A in the previous window → B now) and deployers; per-cluster inflow/outflow totals | `flow.ts` |
+| Wallets | per-window stats from curves and pools: buys/sells, ETH in/out, net, wins, median entry delay, fast-buy share; cohorts sniper / sprayer / rotator / early-in-hot; cohort mix per cluster; cohort reasons in verdicts; `narra wallets`, `narra wallet` | `src/analyze/wallets.ts`, `src/cli/wallets.ts` |
+| Narratives | cluster class by dictionary rules: `chinese` at ≥ 50 % CJK names with a sub-narrative, otherwise the strongest tag family (animals, stocks, robinhood, ai-agents, politics, crypto, tools, celebrities, money, culture) or `mixed`; token narratives on the card | `src/analyze/narrative.ts` |
+| Verdict | membership = ½ text + ½ early-buyer overlap; IN needs ≥ 0.5 and ≥ 2 overlapping buyers; rotation measured on the last 10 minutes; reasons as sentences with numbers; popularity (meta rank, rank inside, buyer percentile); launch-farm and sniper warnings | `verdict.ts`, `src/narra.ts` |
+| Semantic layer (optional, off by default) | local embeddings via transformers.js (`Xenova/multilingual-e5-small`), any OpenAI-compatible `/v1/embeddings` and `/v1/chat/completions`, Anthropic SDK for naming; cached embeddings and labels; semantic links with three gates (absolute floor, z-score ≥ 2.5, mutual top-3); zero-shot categories from taxonomy anchors; label + summary per cluster with a daily budget; `--no-semantic` | `src/semantic/*` |
+| Commands | `now`, `coin`, `find`, `why`, `flow`, `wallets`, `wallet`, `watch`, `terminal`, `history`, `trend`, `doctor`, `backfill`, `calibrate`, `schema`, `cache`, `serve`, `mcp` | `src/cli/*` |
+| Readability | the board opens with the answer (totals, hottest, draining, narrative shares), top 15 without DEAD, columns adapt to terminal width, right-aligned numbers; `find` and fuzzy `why`; card without duplicates; wallets without old-bag sellers by default | `src/cli/now.ts`, `find.ts`, `terminal.ts` |
+| Terminal | full-screen view without a TUI library: board, selected meta, live feed, contract lookup, flow, wallets; driven by the websocket trigger; verified with an expect run | `src/cli/terminal.ts` |
+| Live | websocket subscription to the factory and PoolManager wakes `watch`/`serve` (debounced 5 s), watchdog re-subscribes after 45 s of silence | `src/ingest/live.ts` |
+| Reorgs | cursor stores the block hash; on mismatch the 200-block tail is dropped and re-read | `src/ingest/sync.ts` |
+| Integrations | MCP (7 tools + a guardrail prompt), local HTTP + SSE, `createNarra()` and pure functions, generated `schemas/*.json`, Claude Code skill, Cursor rule, AGENTS.md snippet, OpenAI tool schemas, LangChain wrapper, n8n, shell recipes, launchd and systemd units | `src/mcp/`, `src/cli/serve.ts`, `src/lib.ts`, `integrations/` |
+| Calibration tool | `narra calibrate` reads snapshots, prints quantiles, proposes thresholds for a target HOT share, `--write` stores them with a date | `src/cli/calibrate.ts` |
+| Quality | 50 tests without network (fixtures: 600 real blocks of curve logs, 300 of pool swaps, full replay), typecheck, build, CI on Node 22/24 | `test/`, `.github/workflows/ci.yml` |
+| Docs | README, GUIDE (user guide), STRATEGY (formulas), PONS (what is read from the chain), SAFETY, ARCHITECTURE, OSS (phase-1 spec), product/ (phase-2 specs) | `README.md`, `docs/` |
+| Config | `.env` in the project or `~/.narra/.env`: RPC, WSS, DB, retention, semantic layer | `src/env.ts`, `.env.example` |
 
 ---
 
-## Требует реализации
+## Open
 
-### v0.2 — до запуска токена
+### Needs the owner
 
-| Задача | Зачем | Где |
+| Task | Why | Where |
 |---|---|---|
-| ~~Свопы Uniswap v4 после градуации~~ — сделано 2026-09-13 (см. выше). Осталось: тест на записанных логах, `graduated_share` как причина в вердикте уже есть | | |
-| ~~История~~ — сделано, кроме окон 24h/7d на почасовых агрегатах (анализ сейчас читает сырые сделки, 4h считается 22 с) | | |
-| ~~Трейдеры~~ — сделано. Уточнение: поле `tax` в CurveBuy это creator tax на каждой покупке, а не opening tax, поэтому снайперы и `taxed_ratio` считаются по задержке входа ≤ 5 с | | |
-| ~~Семантический слой~~ — сделано, включая категории; LLM-именование не проверено вживую, нужен ключ Anthropic или OpenAI-совместимый сервер | | |
-| Калибровка: инструмент готов, нужны данные. Держать `narra serve` несколько дней (launchd/pm2), затем `narra calibrate --window 60m --hours 168 --write` | пороги пока придуманы | `src/cli/calibrate.ts` |
-| ~~WSS~~ — сделано как триггер синка; полноценный стриминг логов в кэш без `eth_getLogs` не нужен, пока тик занимает 7–8 с | | |
-| Цены акционных пар (NVDA, TSLA…) для ETH-нормализации | сейчас стоковые кластеры ранжируются только по покупателям и CA | `src/ingest/enrich.ts → normalizeQuote` |
-| Окна 24h/7d на почасовых агрегатах | анализ читает сырые сделки, 4h считается ~22 с; сутки на сырых данных слишком тяжело | `src/analyze/board.ts` |
-| Публикация: GitHub и `npm publish narra-cli` (нужен логин владельца; пакет собран и проверен на чистой установке) | пока `npx` не работает | — |
+| Publish: GitHub and `npm publish narra-cli` | `npx narra-cli` does not work until then | — |
+| Run `narra serve` for a few days, then `narra calibrate --window 60m --hours 168 --write` | status thresholds are still opinions (`calibrated_on: null`) | `integrations/launchd/`, `src/cli/calibrate.ts` |
+| An Anthropic key or an OpenAI-compatible endpoint in `.env` | model-written meta labels are untested live | `.env.example` |
+| Grow the narrative families in `dictionary.json` | about half of the ETH on the trend falls into `mixed` | `src/analyze/dictionary.json` |
 
-### v0.3 — после запуска
+### Before publishing
 
-- Telegram-алерты локально (`narra watch --telegram`).
-- Полноэкранный TUI (лента + доска + карточка), если будет спрос.
-- Модуль NOISE: упоминания в X как четвёртый сигнал в карточке.
-- Словарь тегов, обкатанный на истории (публикуется базовая версия).
+- Verify the terminal at 80 columns and in light themes (tested at 140 columns).
+- Default retention for other people's machines: 24 h (48 h of raw trades is 1.5 GB).
+- Oversized metas on 4h windows: the largest is ~60 CA after the farm rule; re-check after calibration, maybe lower `maxSize`.
 
-### Фаза 2 — наш продукт (см. `docs/product/`)
+### Later
 
-Хостинг того же пакета как сервиса, история дольше 48 ч, сайт-доска без кошелька, холдер-гейт по балансу `$NARRA`, OG-карточки. Продукт импортирует `narra-cli` как зависимость, не форкает.
-
----
-
-## Известные слабости
-
-- Кошельки-распылители фильтруются порогом по числу токенов; толпа из 200 «полуботов» всё ещё может сцеплять чужие группы. `narra why` показывает, сколько связей по имени, кошелькам и деплоеру.
-- Фермы запусков с одинаковыми именами выглядят как мета. Отдельного статуса «ферма» нет.
-- Время сделок интерполируется внутри чанка (±1 с).
-- Кривые старше 600 000 блоков (~17 ч) без запуска в кэше не резолвятся в токен.
-- Тег `hood` на этой цепи почти общий: кластер `hood` на часовом окне собирает 80+ CA. Решить при калибровке: снизить вес или оставить как «мета Robinhood».
+- Analysis speed: 4h takes ~25 s, 60m ~5 s; clustering dominates and can be made several times faster without changing results.
+- 24h / 7d boards on hourly aggregates.
+- Alerts: `narra watch --telegram`, "tell me when meta X turns HOT".
+- Prices for stock-token pairs (today stock metas rank by buyers only).
+- A real reorg has not been observed; the rewind logic is untested live.
+- Phase 2, the hosted product: `docs/product/BACKEND.md`, `docs/product/FRONTEND.md`.
 
 ---
 
-## Как запустить сейчас
+## Known weaknesses
+
+- Sprayers are filtered by a token-count cap; a crowd of 200 semi-bots can still chain unrelated groups. `narra why` shows how many links of each kind hold a cluster.
+- Launch farms with identical names look like a meta. The card flags the deployer; there is no separate "farm" status.
+- Trade timestamps are interpolated inside a chunk (±1 s).
+- Curves older than 600 000 blocks (~17 h) without a cached launch are not resolved to a token.
+- The `hood` tag is almost generic on this chain; the `robinhood` narrative absorbs a lot.
+
+---
+
+## Run it now
 
 ```sh
 cd ~/Desktop/bonsai
-npm run now                              # доска 60m
-npx tsx bin/narra.ts now --window 15m --members
-npx tsx bin/narra.ts coin <CA>
-npx tsx bin/narra.ts why <slug>
-npx tsx bin/narra.ts watch --window 15m --every 10
-npx tsx bin/narra.ts serve --port 4663   # http://127.0.0.1:4663/now
+npm run build && npm link
+narra terminal
+narra now --window 15m
+narra coin <CA>
+narra find <word>
+narra serve --port 4663          # http://127.0.0.1:4663/now
 npm test && npm run build && node dist/bin/narra.js doctor
 ```
 
-MCP для Claude Code из папки проекта: `claude mcp add narra -- npx tsx /Users/vovaslupacik/Desktop/bonsai/bin/narra.ts mcp`.
+MCP for Claude Code: `claude mcp add narra -- narra mcp`.
