@@ -7,6 +7,9 @@ import { Store, resolveDbPath } from "./store/db.js";
 import { BlockClock } from "./ingest/blocks.js";
 import { sync, type SyncProgress } from "./ingest/sync.js";
 import { WINDOWS, type WindowKey } from "./cli/args.js";
+import { loadEnv } from "./env.js";
+
+loadEnv();
 
 export interface NarraOptions {
   rpc?: string;          // comma-separated, #nologs suffix supported

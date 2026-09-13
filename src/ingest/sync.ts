@@ -10,6 +10,7 @@ import type { Store, TradeRow } from "../store/db.js";
 import { BlockClock } from "./blocks.js";
 import { decodeLaunch, decodeLifecycle, decodeTrade, interpolator, type RawLog } from "./decode.js";
 import { enrichPending, ensurePairs, normalizeQuote } from "./enrich.js";
+import { syncPools } from "./pools.js";
 
 const hex = (n: number) => "0x" + n.toString(16);
 export const CURSOR = "main";
@@ -17,9 +18,9 @@ export const CURSOR = "main";
 export interface SyncContext { store: Store; gate: Gate; http: PublicClient; clock: BlockClock }
 
 export interface SyncProgress {
-  stage: "plan" | "logs" | "resolve" | "enrich" | "done";
+  stage: "plan" | "logs" | "resolve" | "enrich" | "pools" | "done";
   fromBlock: number; toBlock: number; doneBlock: number;
-  launches: number; trades: number; enriched: number; note?: string;
+  launches: number; trades: number; enriched: number; pools: number; swaps: number; note?: string;
 }
 
 export interface SyncOptions {
@@ -41,7 +42,7 @@ export async function sync(ctx: SyncContext, opts: SyncOptions): Promise<SyncPro
   const cursor = store.getCursor(CURSOR);
   // A cursor behind the window start means the cache has a hole outside the window; that is fine for the window itself.
   const from = cursor && cursor.last_block + 1 >= windowStart ? cursor.last_block + 1 : windowStart;
-  const p: SyncProgress = { stage: "plan", fromBlock: from, toBlock: head, doneBlock: from - 1, launches: 0, trades: 0, enriched: 0 };
+  const p: SyncProgress = { stage: "plan", fromBlock: from, toBlock: head, doneBlock: from - 1, launches: 0, trades: 0, enriched: 0, pools: 0, swaps: 0 };
   opts.onProgress?.(p);
   if (cursor && cursor.last_block + 1 < windowStart) store.set("cache_gap_before", String(windowStart));
 
@@ -95,6 +96,13 @@ export async function sync(ctx: SyncContext, opts: SyncOptions): Promise<SyncPro
     p.enriched += e.enriched;
     opts.onProgress?.(p);
     if (e.enriched + e.failed < 250) break;
+  }
+  p.stage = "pools"; opts.onProgress?.(p);
+  if (process.env.NARRA_NO_POOLS !== "1") {
+    try {
+      const pp = await syncPools(ctx, { head, nowTs, windowSec: opts.windowSec, onProgress: (x) => { p.pools = x.pools; p.swaps = x.swaps; opts.onProgress?.(p); } });
+      p.pools = pp.pools; p.swaps = pp.swaps;
+    } catch (e) { p.note = `pools: ${(e as Error).message.split("\n")[0]}`; }
   }
   p.stage = "done"; opts.onProgress?.(p);
   return p;

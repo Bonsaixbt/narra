@@ -20,8 +20,9 @@ factory   LaunchSwept(token, quoteOut, tokenOut)
 factory   PoolGraduated(token, positionId, tokenAmount, pairTokenAmount)
 curve     CurveBuy(buyer, recipient, quoteIn, tokensOut, fee, tax)      -- topic filter only, all curves at once
 curve     CurveSell(seller, recipient, tokensIn, quoteOut, fee, tax)
-pool mgr  Initialize(id, currency0, currency1, fee, tickSpacing, hooks, sqrtPriceX96, tick)   -- v0.2
-pool mgr  Swap(id, sender, amount0, amount1, sqrtPriceX96, liquidity, tick, fee)              -- v0.2
+pool mgr  Initialize(id, currency0, currency1, fee, tickSpacing, hooks, sqrtPriceX96, tick)   -- hooks == factory.memeHook()
+pool mgr  Swap(id, sender, amount0, amount1, sqrtPriceX96, liquidity, tick, fee)              -- positive amount = swapper receives
+token     Transfer(from, to, value)                                                            -- wallet attribution for pool trades
 ```
 
 `CurveBuy.recipient` is the wallet that received the tokens; `buyer` may be a router. narra keys everything on `recipient`.
@@ -33,6 +34,10 @@ Per launch, one Multicall3 call: `name()`, `symbol()`, `getTokenInfo()` (logo, d
 ## Sync
 
 One cursor. Chunks of 2 000 blocks; per chunk two `eth_getLogs` (factory, curve topics) and two block reads for timestamps. Trades on curves launched before the window are matched by querying `TokenLaunched` filtered on the curve topic, 40 curves per call, back to 600 000 blocks. A reorg deeper than the 2-block head lag is not handled in v0.1.
+
+## Pools
+
+A graduated token's pool is found by `Initialize` with the Pons hook and a currency equal to a cached launch. Swap side is the sign of the token amount (positive = the swapper received tokens = buy). The wallet is the end of the token `Transfer` chain that starts at the PoolManager (buys) or ends there (sells), skipping the hook's fee leg; when no chain is found, `Swap.sender` (a router) is recorded and counted as unattributed. A hot pool does several thousand swaps per half hour; per-transaction reads would not scale, log queries per chunk do.
 
 ## Public RPC limits, measured
 
