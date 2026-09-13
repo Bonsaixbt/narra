@@ -4,7 +4,9 @@
   "private": true,
   "description": "narra as a hosted service: the same engine as narra-cli behind HTTP + SSE, with a holder gate, rate limits, OG cards and history beyond the local retention.",
   "type": "module",
-  "engines": { "node": ">=22" },
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "dev": "tsx src/index.ts",
@@ -22,5 +24,8 @@
     "@types/node": "^22.18.0",
     "tsx": "^4.20.0",
     "typescript": "^5.9.0"
+  },
+  "optionalDependencies": {
+    "@resvg/resvg-js": "^2.6.2"
   }
 }

@@ -40,12 +40,12 @@ Every response is validated against zod schemas; the JSON Schemas are checked in
 | GET | `/trend?hours=48&step=4` | `{ narratives: string[], rows: [{from, launches, buys, eth, narratives: {name: pct}}] }` | holders |
 | GET | `/stream` | SSE: `hello`, then `LAUNCH`, `STATUS`, `EDGE`, `GRAD`, `JOIN`, `SYNC`, `ping`; `data:` is a `WatchEvent` | anonymous viewers get events 5 minutes late |
 | GET | `/schema/:name` | JSON Schema | no |
-| GET | `/og/cluster/:slug`, `/og/coin/:ca` | SVG 1200×630 share card (`image/svg+xml`) | no |
+| GET | `/og/cluster/:slug`, `/og/coin/:ca` | SVG 1200×630 share card; add `/png` for `image/png` (X previews need PNG) | no |
 | POST | `/holders/check` `{ address }` | `{ address, balance, threshold, ok, token? }` and sets the `narra_holder` cookie when `ok` | no |
 
 Gates are open until the token exists (`NARRA_TOKEN_ADDRESS` unset): build against everything now. Once the token is live, gated routes answer `401 { error: { code: "HOLDER_REQUIRED" } }` without the cookie; send the cookie back (or the token as `x-narra-holder`) through your proxy. Other errors: `400 BAD_ADDRESS | BAD_QUERY | AMBIGUOUS`, `404 NO_CLUSTER | NO_SCHEMA | NOT_FOUND`, `429 RATE_LIMITED` (60/min per IP anonymous, 600/min holders), `503 WARMING_UP` for the first minute after a restart.
 
-OG images: X needs PNG; the SVG is the source, rasterise it in a Next.js route with `@resvg/resvg-js` (or ask us for a PNG route).
+OG images: point `og:image` at the `/png` variant; the SVG is there for inline use.
 
 ### The shapes you will render
 

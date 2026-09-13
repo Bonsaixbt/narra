@@ -26,3 +26,12 @@ export function coinCard(r: CoinOut | NotPonsOut): string {
     ...r.watch.slice(0, 1).map((t) => ({ text: "! " + t, size: 26, color: "#FFB020" })),
   ]);
 }
+
+/** PNG through resvg when the optional dependency is installed; null otherwise (serve the SVG). */
+export async function toPng(svg: string): Promise<Uint8Array | null> {
+  try {
+    const { Resvg } = await import("@resvg/resvg-js");
+    const r = new Resvg(svg, { fitTo: { mode: "width", value: 1200 }, font: { loadSystemFonts: true } });
+    return r.render().asPng();
+  } catch { return null; }
+}

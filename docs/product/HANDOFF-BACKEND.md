@@ -37,7 +37,8 @@ service/src/
   gate.ts       readBalance() through viem; issueToken()/verifyToken(): base64url payload + HMAC-SHA256, 24 h TTL, constant-time compare
   ratelimit.ts  token bucket per IP (anonymous) or per holder address
   stream.ts     SSE hub: holders immediately, anonymous after NARRA_PUBLIC_STREAM_DELAY_S; SYNC heartbeats are never delayed
-  og.ts         SVG share cards (1200×630) for a meta and a token
+  og.ts         SVG share cards (1200×630) for a meta and a token; PNG through @resvg/resvg-js (optional dependency)
+  alerts.ts     Telegram: STATUS→HOT/ROTATING, EDGE ≥ 8 wallets, GRAD; dedupe per key, per-minute cap, optional delay
 test/           gate round-trip and tampering, limiter refill, stream delay
 ```
 
@@ -64,7 +65,8 @@ Library entry points the service relies on (all exported from `narra-cli`): `Nar
 | `NARRA_WINDOWS` | `60m,15m,4h` | windows to keep; drop `4h` on a small box |
 | `NARRA_SLOW_WINDOW_EVERY_S` | 300 | recompute interval for `4h` |
 | `NARRA_STALE_AFTER_S` / `NARRA_MAX_LAG_BLOCKS` | 180 / 300 | health thresholds |
-| `NARRA_SEMANTIC*` | off | the semantic layer, see the root `.env.example`; naming needs a model key |
+| `NARRA_SEMANTIC*` | off | the semantic layer, see the root `.env.example`; naming needs a model key (OpenRouter free models work) |
+| `NARRA_TG_BOT_TOKEN`, `NARRA_TG_CHAT_IDS`, `NARRA_TG_EVENTS`, `NARRA_TG_DEDUPE_S`, `NARRA_TG_PER_MINUTE`, `NARRA_TG_DELAY_S` | off | Telegram alerts to fixed chats |
 
 ## 5. Turning the gate on (launch day)
 
@@ -97,8 +99,7 @@ The response shapes are the zod schemas in `narra-cli` (`src/schemas.ts`, genera
 
 | Task | Notes |
 |---|---|
-| PNG share cards | X previews need PNG; render the existing SVG with `@resvg/resvg-js` in a route, cache 60 s |
-| Deploy | VPS, `docker compose up -d`, TLS proxy, `NARRA_API_ORIGIN`, uptime ping on `/api/health` |
-| Telegram alerts | subscribe to the engine's events (`STATUS` to HOT, new `EDGE`), send through a bot; gated to holders by address |
+| Deploy | `service/deploy/VPS.md` and `deploy/Caddyfile`: docker compose, Caddy TLS, `NARRA_API_ORIGIN`, uptime ping on `/api/health` |
+| Telegram per-holder subscriptions | today alerts go to configured chats (`NARRA_TG_*`); a per-user subscription needs a bot conversation and an address check |
 | Threshold calibration | needs days of snapshots; the tool exists |
 | Multi-process | one process is enough today; if a second writer is ever needed, move the cache to Postgres — the store layer is the only place that knows SQLite |
