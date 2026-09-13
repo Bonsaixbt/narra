@@ -19,3 +19,4 @@ jobs:
       - run: npm test
       - run: npm run build
       - run: node dist/bin/narra.js schema coin > /dev/null
+      - run: cd service && npm install && npm run typecheck && npm test

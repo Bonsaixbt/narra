@@ -1,0 +1,26 @@
+{
+  "name": "narra-service",
+  "version": "0.1.0",
+  "private": true,
+  "description": "narra as a hosted service: the same engine as narra-cli behind HTTP + SSE, with a holder gate, rate limits, OG cards and history beyond the local retention.",
+  "type": "module",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsx src/index.ts",
+    "start": "node dist/src/index.js",
+    "test": "node --import tsx --test test/*.test.ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@hono/node-server": "^1.14.0",
+    "hono": "^4.7.0",
+    "narra-cli": "file:..",
+    "viem": "^2.37.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.18.0",
+    "tsx": "^4.20.0",
+    "typescript": "^5.9.0"
+  }
+}

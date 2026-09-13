@@ -2,7 +2,7 @@
 
 Date: 2026-09-13
 Product: the hosted service behind the narra terminal for Pons v2 / Robinhood Chain
-Status: draft toward launch day
+Status: implemented in `service/` (Hono): engine loop with cached analyses per window, holder gate, rate limits, SSE with a public delay, SVG share cards, Docker + hourly backups. Remaining: PNG rasteriser for X previews, Telegram alerts, deployment on a VPS.
 
 Related: `docs/OSS.md` (phase 1, the open terminal), `docs/GUIDE.md`, `docs/FRONTEND.md` (the site).
 

@@ -14,7 +14,7 @@ export { statusOf, THRESHOLDS, isLive } from "./analyze/status.js";
 export { heatOf } from "./analyze/heat.js";
 export { flowEdges } from "./analyze/flow.js";
 export { verdictFor } from "./analyze/verdict.js";
-export { analyze, membersOf } from "./analyze/board.js";
+export { analyze, membersOf, type Analysis } from "./analyze/board.js";
 export { computeTrend, clusterHistory, tokenHistory } from "./analyze/trend.js";
 export { narrativeOf, tokenNarratives } from "./analyze/narrative.js";
 export { walletStats, cohortMix } from "./analyze/wallets.js";

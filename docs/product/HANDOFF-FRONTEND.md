@@ -10,31 +10,42 @@ The engine exists and runs as a terminal tool (`narra-cli`, TypeScript, MIT). Th
 
 ## 2. What you get from the backend
 
-The backend is the same package run as a service: `narra serve`. It speaks plain JSON over HTTP plus one SSE stream. **You can run the real backend on your laptop today** — no mocks needed:
+The backend is `service/` in the same repository: the narra engine behind HTTP + SSE (Hono). **Run the real backend on your laptop today** — no mocks:
 
 ```sh
 git clone https://github.com/Bonsaixbt/narra && cd narra
 npm install && npm run build
-npx tsx bin/narra.ts serve --port 4663 --window 60m
-# first run fetches the last hour from public RPCs (~2 min), then it stays live
-curl localhost:4663/now | jq .clusters[0]
+cd service && cp .env.example .env && npm install && npm run dev
+# first tick fetches the last hours from public RPCs (a few minutes), then it stays live
+curl localhost:4663/api/health
+curl "localhost:4663/api/board?top=5" | jq '.clusters[] | {slug, status, narrative}'
 ```
 
-Every response is validated against zod schemas; the JSON Schemas are checked into `schemas/*.json` (`now`, `coin`, `flow`, `why`, `watch`, `wallets`, `wallet`). Types can be imported from the package: `import type { NowOut, CoinOut } from "narra-cli"`.
+Every response is validated against zod schemas; the JSON Schemas are checked into `schemas/*.json` (`now`, `coin`, `flow`, `why`, `watch`, `wallets`, `wallet`). Types come from the package: `import type { NowOut, CoinOut, FlowOut, WhyOut, WalletsOut, WalletOut, WatchEvent } from "narra-cli"`.
 
-### Endpoints (v1, as served by `narra serve` today)
+### Endpoints (all under `/api`)
 
-| Method | Path | Returns | Notes |
+| Method | Path | Returns | Gate |
 |---|---|---|---|
-| GET | `/health` | `{ ok, narra, cursor, launches, trades, swaps, pools, routes[] }` | poll every 30 s for the stale banner |
-| GET | `/now?window=15m\|60m\|4h&members=1&pair=all\|eth\|stable\|stock` | `NowOut` | the board |
-| GET | `/coin/:ca?window=60m` | `CoinOut` or `NotPonsOut` | the card; 400 on a malformed address |
-| GET | `/why/:slug?window=60m` | `WhyOut` | 404 when the slug is not on the board |
-| GET | `/flow?window=60m` | `FlowOut` | edges between metas |
-| GET | `/schema/:name` | JSON Schema | `now`, `coin`, `flow`, `why`, `watch`, `wallets`, `wallet` |
-| GET | `/stream` | SSE | events `LAUNCH`, `STATUS`, `EDGE`, `GRAD`, `JOIN`, `SYNC`; `data:` is a `WatchEvent` |
+| GET | `/health` | `{ ok, snapshot_age_s, head_block, lag_blocks, ticks, last_error, … }` — `503` when stale | no |
+| GET | `/board?window=60m&top=15&all=1&members=1&pair=all\|eth\|stable\|stock` | `NowOut` | `15m` and `4h` windows: holders |
+| GET | `/coin/:ca?window=60m` | `CoinOut` or `NotPonsOut` | no |
+| GET | `/find?q=word` | `{ clusters: [{slug,status,narrative,rank,eth,buyers,why}], tokens: [{token,symbol,name,cluster,status,buyers,launched_at,phase}] }` | no |
+| GET | `/cluster/:slug?window=60m` | `WhyOut` (slug, or any word from its name/tags/tickers; `400 AMBIGUOUS` lists the matches) | no |
+| GET | `/flow?window=60m` | `FlowOut` | holders |
+| GET | `/wallets?cohort=rotator&sort=net_eth&top=25` | `WalletsOut` | holders |
+| GET | `/wallet/:address` | `WalletOut` | holders |
+| GET | `/history/cluster/:slug?hours=24` | `{ slug, hours, snapshots: [{ts, status, n_launches, quote_eth, buyers, graduations, members}] }` | holders |
+| GET | `/history/token/:ca?hours=24` | `{ token, hours, rows: [{hour, curve_buys, curve_in_eth, pool_buys, pool_in_eth, buyers}] }` | holders |
+| GET | `/trend?hours=48&step=4` | `{ narratives: string[], rows: [{from, launches, buys, eth, narratives: {name: pct}}] }` | holders |
+| GET | `/stream` | SSE: `hello`, then `LAUNCH`, `STATUS`, `EDGE`, `GRAD`, `JOIN`, `SYNC`, `ping`; `data:` is a `WatchEvent` | anonymous viewers get events 5 minutes late |
+| GET | `/schema/:name` | JSON Schema | no |
+| GET | `/og/cluster/:slug`, `/og/coin/:ca` | SVG 1200×630 share card (`image/svg+xml`) | no |
+| POST | `/holders/check` `{ address }` | `{ address, balance, threshold, ok, token? }` and sets the `narra_holder` cookie when `ok` | no |
 
-The production service adds (see `BACKEND.md` §9): `/find?q=`, `/wallets`, `/wallet/:address`, `/history/cluster/:slug`, `/trend`, `/holders/check`, OG image routes, a holder gate for the `15m`/`4h` windows, flow, wallets and history, rate limits and CORS locked to the site's origin. Build against the local service now; the gated routes will return `401 { error: { code: "HOLDER_REQUIRED" } }` in production when the cookie is missing.
+Gates are open until the token exists (`NARRA_TOKEN_ADDRESS` unset): build against everything now. Once the token is live, gated routes answer `401 { error: { code: "HOLDER_REQUIRED" } }` without the cookie; send the cookie back (or the token as `x-narra-holder`) through your proxy. Other errors: `400 BAD_ADDRESS | BAD_QUERY | AMBIGUOUS`, `404 NO_CLUSTER | NO_SCHEMA | NOT_FOUND`, `429 RATE_LIMITED` (60/min per IP anonymous, 600/min holders), `503 WARMING_UP` for the first minute after a restart.
+
+OG images: X needs PNG; the SVG is the source, rasterise it in a Next.js route with `@resvg/resvg-js` (or ask us for a PNG route).
 
 ### The shapes you will render
 
