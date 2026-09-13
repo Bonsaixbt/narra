@@ -112,7 +112,10 @@ import { applyCategories } from "./semantic/taxonomy.js";
 import { tokenNarratives } from "./analyze/narrative.js";
 import { createHash } from "node:crypto";
 
-export interface QueryOptions { window?: WindowKey; pair?: "all" | "eth" | "stable" | "stock"; members?: boolean; top?: number; all?: boolean; onProgress?: (p: SyncProgress) => void; noSync?: boolean; noSemantic?: boolean }
+export interface QueryOptions {
+  /** A ready analysis to answer from (the service keeps one per window); skips sync and analyze. */
+  analysis?: { a: Analysis; meta: NowOut extends infer T ? Omit<T, "clusters" | "counts" | "quote_unit"> : never };
+  window?: WindowKey; pair?: "all" | "eth" | "stable" | "stock"; members?: boolean; top?: number; all?: boolean; onProgress?: (p: SyncProgress) => void; noSync?: boolean; noSemantic?: boolean }
 
 declare module "./narra.js" {
   interface Narra {
@@ -133,6 +136,7 @@ export function semanticOf(n: Narra, off: boolean): Promise<SemanticState> {
 }
 
 Narra.prototype.prepare = async function (this: Narra, opts: QueryOptions) {
+  if (opts.analysis) return opts.analysis;
   const window: WindowKey = opts.window ?? "60m";
   const hadCursor = !!this.store.getCursor("main");
   let head: number | null = null;
@@ -310,4 +314,12 @@ Narra.prototype.find = async function (this: Narra, text: string, opts: QueryOpt
     .map((t) => { const slug = a.membership.get(t.token) ?? null; return { token: t.token, symbol: t.symbol, name: t.name, cluster: slug, status: slug ? statuses.get(slug) ?? null : null, buyers: a.buyers.get(t.token)?.size ?? 0, launched_at: t.launchedTs, phase: t.phase }; })
     .sort((x, y) => y.buyers - x.buyers).slice(0, opts.top ?? 25);
   return { schema_version: SCHEMA_VERSION, query: text, window: opts.window ?? "60m", clusters, tokens };
+};
+
+import { computeTrend, clusterHistory, tokenHistory, type TrendOut, type ClusterHistoryRow, type TokenHourRow } from "./analyze/trend.js";
+declare module "./narra.js" { interface Narra { trend(hours?: number, step?: number): TrendOut; history(target: string, hours?: number): { slug?: string; token?: string; hours: number; snapshots?: ClusterHistoryRow[]; rows?: TokenHourRow[] } } }
+Narra.prototype.trend = function (this: Narra, hours = 48, step = hours > 24 ? 4 : 1): TrendOut { return computeTrend(this.store, hours, step); };
+Narra.prototype.history = function (this: Narra, target: string, hours = 24) {
+  if (/^0x[0-9a-fA-F]{40}$/.test(target)) return { token: target.toLowerCase(), hours, rows: tokenHistory(this.store, target, hours) };
+  return { slug: target, hours, snapshots: clusterHistory(this.store, target, hours) };
 };
