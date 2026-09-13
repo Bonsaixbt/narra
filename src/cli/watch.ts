@@ -10,6 +10,7 @@ import { c, utc, STATUS_COLOR, short } from "./render.js";
 import { SCHEMA_VERSION, type WatchEvent } from "../schemas.js";
 import type { Narra } from "../narra.js";
 import type { Analysis } from "../analyze/board.js";
+import { liveTrigger } from "../ingest/live.js";
 
 export interface WatchState { statuses: Map<string, string>; edges: Set<string>; members: Map<string, string>; phases: Map<string, string>; seenLaunch: Set<string>; first: boolean }
 
@@ -58,25 +59,37 @@ export function renderEvent(e: WatchEvent): string {
   }
 }
 
-export async function watchLoop(n: Narra, opts: { window: "15m" | "60m" | "4h"; everySec: number; only?: Set<string>; onEvent: (e: WatchEvent) => void; onProgress?: Parameters<Narra["sync"]>[1]; signal?: AbortSignal }): Promise<void> {
+export async function watchLoop(n: Narra, opts: { window: "15m" | "60m" | "4h"; everySec: number; only?: Set<string>; onEvent: (e: WatchEvent) => void; onProgress?: Parameters<Narra["sync"]>[1]; signal?: AbortSignal; live?: boolean }): Promise<void> {
   const state: WatchState = { statuses: new Map(), edges: new Set(), members: new Map(), phases: new Map(), seenLaunch: new Set(), first: true };
   let progress = opts.onProgress;
-  while (!opts.signal?.aborted) {
-    const t0 = Date.now();
-    try {
-      const { a, meta } = await n.prepare({ window: opts.window, onProgress: progress });
-      progress = undefined;
-      const ts = new Date().toISOString();
-      const events = diffEvents(state, a, ts);
-      const emit = (e: WatchEvent) => { if (!opts.only || opts.only.has(e.type)) opts.onEvent(e); };
-      for (const e of events) emit(e);
-      emit({ schema_version: SCHEMA_VERSION, ts, type: "SYNC", note: `head ${meta.head_block} · ${a.clusters.length} clusters · ${a.counts.launches} launches · ${a.counts.trades} trades in ${opts.window}` });
-    } catch (err) {
-      opts.onEvent({ schema_version: SCHEMA_VERSION, ts: new Date().toISOString(), type: "SYNC", note: `error: ${(err as Error).message.split("\n")[0]}` });
+  // The socket wakes the loop early; the polling interval stays as the floor.
+  let wakeNow: ((reason: string) => void) | null = null;
+  let wakeReason = "timer";
+  const live = opts.live === false ? null : liveTrigger(n.clients.ws, (reason) => { wakeReason = reason; wakeNow?.(reason); });
+  try {
+    while (!opts.signal?.aborted) {
+      const t0 = Date.now();
+      try {
+        const { a, meta } = await n.prepare({ window: opts.window, onProgress: progress });
+        progress = undefined;
+        const ts = new Date().toISOString();
+        const events = diffEvents(state, a, ts);
+        const emit = (e: WatchEvent) => { if (!opts.only || opts.only.has(e.type)) opts.onEvent(e); };
+        for (const e of events) emit(e);
+        const lh = live?.health();
+        emit({ schema_version: SCHEMA_VERSION, ts, type: "SYNC", note: `head ${meta.head_block} · ${a.clusters.length} clusters · ${a.counts.launches} launches · ${a.counts.trades} trades in ${opts.window} · woke by ${wakeReason}${lh ? ` · ${lh.mode}${lh.note ? " (" + lh.note + ")" : ""}` : ""}` });
+        wakeReason = "timer";
+      } catch (err) {
+        opts.onEvent({ schema_version: SCHEMA_VERSION, ts: new Date().toISOString(), type: "SYNC", note: `error: ${(err as Error).message.split("\n")[0]}` });
+      }
+      const wait = Math.max(1_000, opts.everySec * 1000 - (Date.now() - t0));
+      await new Promise<void>((r) => {
+        const id = setTimeout(() => { wakeNow = null; r(); }, wait);
+        wakeNow = () => { clearTimeout(id); wakeNow = null; r(); };
+        opts.signal?.addEventListener("abort", () => { clearTimeout(id); r(); }, { once: true });
+      });
     }
-    const wait = Math.max(1_000, opts.everySec * 1000 - (Date.now() - t0));
-    await new Promise<void>((r) => { const id = setTimeout(r, wait); opts.signal?.addEventListener("abort", () => { clearTimeout(id); r(); }, { once: true }); });
-  }
+  } finally { live?.stop(); }
 }
 
 export async function watch(args: Args): Promise<number> {
