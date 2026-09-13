@@ -1,157 +1,137 @@
-# NARRA — ТЗ на открытую терминальную версию
+# narra — spec for the open terminal version (phase 1)
 
-Дата: 2026-09-13
-Что это: `narra` — CLI и библиотека, которые целиком работают на машине пользователя и отвечают, какая мета сейчас печатает на Pons v2 / Robinhood Chain и входит ли токен в неё.
-Статус: спецификация фазы 1, реализована в v0.2.0 (см. `docs/STATUS.md` как источник правды о текущем состоянии). Хостинг, сайт и холдер-фичи — фаза 2, см. `docs/product/`.
-
----
-
-## 0. Принцип 
-
-1. **Терминал — продукт.** Всё, что умеет `narra`, доступно из шелла без сайта, без аккаунта, без ключа.
-2. **Ноль конфигурации.** `npx narra now` работает сразу на публичных RPC. Свой узел — опция, не требование.
-3. **Агент — первый пользователь.** Каждая команда имеет `--json` со стабильной схемой, есть MCP-сервер, библиотечный API и готовые файлы-скиллы. Человек читает тот же вывод, что и модель.
-4. **Каждое число открывается.** В JSON у каждого вердикта — блок, транзакция запуска, окно, число покупателей. Никакой магии.
-5. **Только чтение.** Нет приватного ключа, нет `--live`, нет автобая. `IN` не значит «покупай».
-6. **Свой код.** Ничего из чужих репозиториев. Публичные факты о цепи используются свободно.
-7. **Локальные данные.** Кэш в `~/.narra/`, пользователь может удалить его в любой момент.
+Date: 2026-09-13
+What: `narra` — a CLI and library that runs entirely on the user's machine and answers which meta is printing on Pons v2 / Robinhood Chain right now and whether a token belongs to it.
+Status: phase-1 spec, implemented in v0.2.0. `docs/STATUS.md` is the source of truth for the current state; `docs/GUIDE.md` is the user guide. Hosting, the site and holder features are phase 2, see `docs/product/`.
 
 ---
 
-## 1. Что делает
+## 0. Principles
 
-| Вопрос | Команда |
+1. **The terminal is the product.** Everything narra can do is available from the shell without a site, an account or a key.
+2. **Zero configuration.** `npx narra-cli now` works immediately on public RPCs. A private node is an option, not a requirement.
+3. **The agent is the first user.** Every command has `--json` with a stable schema, there is an MCP server, a library API and ready-made skill files. A human reads the same output as the model.
+4. **Every number opens.** Every verdict in JSON carries the block, the launch transaction, the window, the buyer counts. No magic.
+5. **Read-only.** No private key, no `--live`, no auto-buy. `IN` does not mean "buy".
+6. **Own code.** Nothing from other repositories. Public facts about the chain are used freely.
+7. **Local data.** The cache lives in `~/.narra/`; the user can delete it at any time.
+
+---
+
+## 1. What it does
+
+| Question | Command |
 |---|---|
-| Какая мета сейчас живая | `narra now` |
-| Этот CA в мете? Почему? | `narra coin <CA>` |
-| Куда перетекают повторные покупатели | `narra flow` |
-| Почему кластер назван так | `narra why <slug>` |
-| Что происходит прямо сейчас | `narra watch` |
-| Дать доступ агенту | `narra mcp`, `narra serve` |
-| Всё ли работает | `narra doctor` |
+| Which meta is alive right now | `narra now` |
+| Is this CA in a meta? Why? | `narra coin <CA>` |
+| Where are repeat buyers moving | `narra flow` |
+| Why is a cluster named like that | `narra why <slug>` |
+| What is happening right now | `narra watch`, `narra terminal` |
+| Give an agent access | `narra mcp`, `narra serve` |
+| Is everything working | `narra doctor` |
 
-Не делает: не торгует, не считает выход из мешка, не ранжирует «умные кошельки», не читает X (соцсигнал — отдельный модуль позже).
+Does not: trade, compute exit liquidity, rank "smart wallets", read X (social signal is a separate later module).
 
 ---
 
-## 2. Установка и первый запуск
+## 2. Install and first run
 
 ```sh
-npx narra now              # без установки
-npm i -g narra && narra now # глобально
-bunx narra now             # bun
-git clone … && npm i && npm run now   # из репо
+npx narra-cli now              # no install
+npm i -g narra-cli && narra now
+bunx narra-cli now
+git clone … && npm i && npm run now
 ```
 
-Требования: Node ≥ 22. Runtime-зависимости: `viem` (ABI и RPC-транспорт), `better-sqlite3` (кэш), `@modelcontextprotocol/sdk` (MCP). Всё остальное — свой код. Никаких сборщиков TUI.
+Requirements: Node ≥ 22. Runtime dependencies: `viem` (ABI and RPC transport), `better-sqlite3` (cache), `@modelcontextprotocol/sdk` (MCP), `zod` (schemas). Optional: `@huggingface/transformers` (local embeddings), `@anthropic-ai/sdk` (cluster naming).
 
-Первый запуск без кэша:
+First run without a cache:
 
 ```
 narra · cold start · fetching last 60m from public RPC
   launches   ████████████ 36 000 blocks   1 261 launches
   trades     ████████████                31 402 buys · 22 118 sells
-  pools      ████████████                    41 swaps
-  ready in 68s · cache ~/.narra/narra.db
+  ready in 134s · cache ~/.narra/narra.db
 ```
 
-Замер на публичном узле 2026-09-13: 3 000 блоков (5 мин цепи) по трём топикам читаются за 6 с. Час — около минуты холодного старта, дальше инкрементально за секунды. `--window 15m` для быстрого первого взгляда.
+Measured on the public node: 3 000 blocks (5 min of chain) across three topics read in 6 s. An hour is about two minutes of cold start, then incremental in seconds. `--window 15m` for a quick first look.
 
 ---
 
-## 3. Команды
+## 3. Commands
 
-Общие флаги: `--json`, `--jsonl` (для потоков), `--window 15m|60m|4h`, `--pair all|eth|usdg|stock`, `--rpc <url>`, `--quiet`, `--no-color`, `--db <path>`.
+Common flags: `--json`, `--jsonl` (streams), `--window 15m|60m|4h`, `--pair all|eth|stable|stock`, `--rpc <url>`, `--quiet`, `--no-color`, `--db <path>`, `--offline`, `--no-semantic`.
 
 ### `narra now`
 
-```
-META  12:04:11 UTC   window 60m   pair all   head 61 834 396   lag 2
-
-HOT          stock-hood     18 CA   2.41 ETH   3 grad   31% pool   ← agent-grok (11 w)
-EMERGING     astra-hands     7 CA   0.83 ETH   0 grad    0% pool
-COOLING      frog-exit      22 CA   0.19 ETH   0 grad    5% pool   → stock-hood (9 w)
-DEAD         office-bot     11 CA   0.00 ETH   0 grad    0% pool
-
-narra why stock-hood · narra coin <CA> · narra flow
-```
-
-`--top N` ограничивает строки. `--members` раскрывает членов под каждым кластером.
+The answer first (totals, hottest meta, where capital drains, narrative shares), then the top 15 metas with rank, status, narrative, launches, ETH in, graduations, buyers and flow arrows. `--top N`, `--all`, `--members`.
 
 ### `narra coin <CA>`
 
-```
-$HOODRAT · HoodRat · 0xabc…def
-phase curve 1.9/4.2 ETH · launched 41m ago · pair ETH
+The card: phase, verdict, cluster, membership, popularity, reasons, watch-outs, sources. Accepts several addresses and stdin (`-`). Exit codes with `--quiet`:
 
-IN   stock-hood   0.81   (cluster HOT)
-alt  astra-hands  0.22
-
-reasons
-  ticker HOOD matches cluster tag hood
-  14/31 early buyers also bought $HOODAI, $HOODX in last 40m
-  cluster stock-hood is HOT: 18 CA, 2.4 ETH in, 3 graduations / 60m
-watch
-  6 early buyers bought $ASTRA* in last 10m → rotating out risk
-
-sources  launch tx 0x…  block 61 834 120  computed 12:04:40 UTC
-```
-
-Принимает несколько адресов: `narra coin 0xa… 0xb…`. Читает из stdin: `echo 0xa… | narra coin -`.
-
-Коды выхода с `--quiet` (для скриптов и агентов без парсинга):
-
-| Код | Вердикт |
+| Code | Verdict |
 |---|---|
 | 0 | `IN` |
 | 1 | `EDGE` |
 | 2 | `OUT` |
 | 3 | `ORPHAN` |
 | 4 | `NOT_PONS` |
-| 10+ | ошибка (RPC, ввод) |
+| 10+ | error (RPC, input) |
 
 ### `narra flow`
 
-```
-from          → to            wallets   ETH    deployers   window
-agent-grok    → stock-hood       11     0.62       2        60m
-frog-exit     → stock-hood        9     0.31       0        60m
-stock-hood    → astra-hands       6     0.18       1        60m
-```
+Edges A→B: wallets, ETH, deployers, statuses of both ends.
 
-### `narra why <slug>`
+### `narra why <meta>`
 
-Теги с весами, топ-5 токенов на тег, правило, по которому связаны члены, текущие числа.
+Tags with weights and example tickers, how the members are linked, current numbers, members. Exact slug or any word from its name, tags or tickers; several matches are listed.
+
+### `narra find <word>`
+
+Search metas and tokens in the window by word, ticker, name or address prefix.
 
 ### `narra watch`
 
-Построчная лента. Типы: `LAUNCH`, `STATUS` (смена статуса кластера), `EDGE` (новое ребро), `GRAD` (градуация), `JOIN` (токен вошёл в кластер). `--only STATUS,EDGE` фильтрует. `--jsonl` печатает по объекту на строку. Без полноэкранного TUI в v0.1.
+Line-by-line feed: `LAUNCH`, `STATUS`, `EDGE`, `GRAD`, `JOIN`, `SYNC`. `--only` filters, `--jsonl` prints one object per line. Woken by the websocket.
+
+### `narra terminal`
+
+Full-screen view: board, selected meta, live feed, contract lookup, flow, wallets.
+
+### `narra wallets`, `narra wallet <address>`
+
+Wallet cohorts (sniper, sprayer, rotator, early-in-hot), positions, entry delay after launch.
+
+### `narra history`, `narra trend`, `narra backfill`
+
+History over the collected cache.
 
 ### `narra doctor`
 
-RPC (HTTPS и WSS), chainId, живые параметры фабрики против ожидаемых, состояние кэша, лаг, размер БД, версия схемы JSON.
+RPC (HTTPS and WSS), chain id, live factory parameters vs expectations, cache state, lag, semantic layer.
 
 ### `narra serve [--port 4663]`
 
-Локальный HTTP на loopback с теми же ответами, что `--json`: `/now`, `/coin/:ca`, `/flow`, `/why/:slug`, `/stream` (SSE), `/health`, `/schema`. Для любого языка и для n8n/Make. Только `127.0.0.1`, без CORS наружу.
+Local HTTP on loopback with the same answers as `--json`: `/now`, `/coin/:ca`, `/flow`, `/why/:slug`, `/stream` (SSE), `/health`, `/schema`. Only `127.0.0.1`.
 
 ### `narra mcp`
 
-MCP-сервер по stdio. См. §6.
+MCP server over stdio. See §6.
 
-### `narra schema [now|coin|flow|why|watch]`
+### `narra schema [now|coin|flow|why|watch|wallets|wallet]`
 
-Печатает JSON Schema ответа. Агент может прочитать схему перед вызовом.
+Prints the JSON Schema of an answer. The same files are generated into `schemas/` at build time.
 
-### `narra backfill --hours 4` · `narra cache clear`
+### `narra calibrate`, `narra cache`
 
-Служебные.
+Maintenance.
 
 ---
 
-## 4. Формат JSON
+## 4. JSON format
 
-Все ответы имеют `schema_version` (семвер, ломающие изменения только с мажором), `computed_at`, `window`, `head_block`, `lag_blocks`, `source: { rpc, mode: "cold"|"cache"|"live" }`.
+Every answer carries `schema_version` (semver, breaking changes only with a major), `computed_at`, `window`, `head_block`, `lag_blocks`, `source: { rpc, mode: "cold"|"cache"|"live" }`.
 
 ```jsonc
 // narra coin 0xabc… --json
@@ -160,89 +140,85 @@ MCP-сервер по stdio. См. §6.
   "token": "0xabc…", "symbol": "HOODRAT", "name": "HoodRat",
   "phase": "curve",                      // curve | swept | pool | rescued
   "curve": { "real_quote_eth": 1.9, "threshold_eth": 4.2, "progress": 0.45 },
-  "pool": null,                          // { graduated_at, volume_eth_60m, swaps_60m } в фазе pool
+  "pool": null,                          // { graduated_at, volume_eth_window, swaps_window } in the pool phase
   "pair": { "address": "0x0", "symbol": "ETH", "kind": "eth" },
-  "launched_at": "2026-09-13T11:23:10Z", "deployer": "0x…",
+  "launched_at": 1789300000, "deployer": "0x…",
   "verdict": "IN",                       // IN | EDGE | OUT | ORPHAN | NOT_PONS
   "cluster": { "slug": "stock-hood", "status": "HOT", "membership": 0.81 },
   "alternatives": [{ "slug": "astra-hands", "membership": 0.22 }],
-  "reasons": ["ticker HOOD matches cluster tag hood", "14/31 early buyers also bought …"],
-  "watch": ["6 early buyers bought $ASTRA* in last 10m → rotating out risk"],
-  "evidence": { "early_buyers": 31, "overlap_buyers": 14, "text_score": 0.9, "wallet_score": 0.72,
-                "launch_tx": "0x…", "launch_block": 61834120 },
+  "reasons": ["$HOODRAT matches cluster tags hood", "14/31 early buyers also bought …"],
+  "watch": ["6 of 31 early buyers bought astra-hands in the last 10m → rotating out risk"],
+  "narratives": ["robinhood", "animals"],
+  "popularity": { "cluster_rank": 2, "clusters_total": 107, "rank_in_cluster": 3, "cluster_size": 9, "buyers": 814, "buyers_percentile": 99 },
+  "evidence": { "early_buyers": 31, "overlap_buyers": 14, "text_score": 0.9, "wallet_score": 0.72, "launch_tx": "0x…", "launch_block": 61834120 },
   "computed_at": "2026-09-13T12:04:40Z", "window": "60m", "head_block": 61834396, "lag_blocks": 2,
   "source": { "rpc": "publicnode+robinhood", "mode": "cache" }
 }
 ```
 
-`reasons` и `watch` — готовые предложения на английском, чтобы модель могла процитировать их без пересказа. `evidence` — числа для тех, кто хочет считать сам.
+`reasons` and `watch` are ready-made English sentences so a model can quote them without paraphrasing. `evidence` holds the raw counts.
 
-Правило: ни одно поле не исчезает между минорными версиями; новые добавляются. Схемы лежат в `schemas/*.json` в репо и печатаются командой `narra schema`.
+Rule: no field disappears between minor versions; new ones are added.
 
 ---
 
-## 5. Библиотечный API
+## 5. Library API
 
 ```ts
-import { createNarra } from "narra";
+import { createNarra } from "narra-cli";
 
-const narra = await createNarra({ rpc: process.env.RPC_URL, db: "~/.narra/narra.db", window: "60m" });
-await narra.sync();                        // инкрементальный догон кэша
-const board = await narra.now();           // тот же объект, что narra now --json
+const narra = createNarra({ rpc: process.env.RPC_URL, db: "~/.narra/narra.db" });
+await narra.sync("60m");                  // incremental catch-up
+const board = await narra.now();          // the same object as narra now --json
 const card  = await narra.coin("0xabc…");
-for await (const ev of narra.watch({ only: ["STATUS", "EDGE"] })) console.log(ev);
-await narra.close();
+for await (const ev of narra.watch()) console.log(ev);
+narra.close();
 ```
 
-Экспортируются также чистые функции без сети, чтобы их можно было тестировать и переиспользовать: `tokenize(name, symbol, description)`, `cluster(tokens, trades, options)`, `status(heat, thresholds)`, `verdict(token, clusters)`. ESM + типы. CommonJS не нужен.
+Pure functions without any network are exported too: `tokenize`, `buildClusters`, `statusOf`, `heatOf`, `flowEdges`, `verdictFor`, `analyze`. ESM + types.
 
 ---
 
-## 6. Интеграция в агентов
+## 6. Agent integration
 
-### 6.1 MCP-сервер (`narra mcp`)
+### 6.1 MCP server (`narra mcp`)
 
-Инструменты:
-
-| Tool | Вход | Выход |
+| Tool | Input | Output |
 |---|---|---|
-| `narra_now` | `{ window?, pair?, top? }` | доска |
-| `narra_coin` | `{ address }` или `{ addresses[] }` | вердикт(ы) |
-| `narra_flow` | `{ window? }` | рёбра |
-| `narra_why` | `{ slug }` | описание кластера |
-| `narra_doctor` | — | здоровье |
+| `narra_now` | `{ window?, pair?, top?, members? }` | board |
+| `narra_coin` | `{ address }` or `{ addresses[] }` | verdict(s) |
+| `narra_flow` | `{ window? }` | edges |
+| `narra_why` | `{ slug }` | cluster explanation |
+| `narra_wallets` | `{ window?, cohort?, sort?, top? }` | wallet cohorts |
+| `narra_wallet` | `{ address }` | one wallet |
+| `narra_doctor` | — | health |
 
-Ресурс `narra://board` (обновляется по подписке) и промпт `narra_check_before_entry` с текстом: «если пользователь принёс CA — сначала `narra_coin`; не советуй вход в DEAD, OUT, ORPHAN; всегда цитируй reasons».
-
-Описания инструментов пишутся под модель: короткая фраза, что возвращает, и когда вызывать.
-
-Конфиги в README, копипаст:
+Prompt `narra_check_before_entry`: "if the user brings a CA, call `narra_coin` first; do not suggest entries into DEAD, OUT or ORPHAN; always quote the reasons".
 
 ```jsonc
 // Claude Desktop / Claude Code (.mcp.json) / Cursor / Windsurf / Codex
-{ "mcpServers": { "narra": { "command": "npx", "args": ["-y", "narra", "mcp"] } } }
+{ "mcpServers": { "narra": { "command": "npx", "args": ["-y", "narra-cli", "mcp"] } } }
 ```
 
 ```sh
-claude mcp add narra -- npx -y narra mcp
+claude mcp add narra -- npx -y narra-cli mcp
 ```
 
-### 6.2 Файлы-скиллы в репо
+### 6.2 Skill files in the repo
 
 ```
 integrations/
-  claude/SKILL.md            # скилл для Claude Code: когда вызывать, какие команды, как читать вердикт
-  cursor/narra.mdc            # правило для Cursor
-  AGENTS.md.snippet          # блок для AGENTS.md / CLAUDE.md любого проекта
-  openai/tools.json          # function-calling схемы для OpenAI-совместимых API
-  langchain/narra_tool.py     # обёртка-инструмент на 30 строк, зовёт CLI с --json
-  n8n/workflow.json          # HTTP-нода на narra serve
-  shell/examples.sh          # jq-пайплайны
+  claude/SKILL.md            # Claude Code skill: when to call what, how to read a verdict
+  cursor/narra.mdc           # Cursor rule
+  AGENTS.md.snippet          # block for any project's AGENTS.md / CLAUDE.md
+  openai/tools.json          # function-calling schemas for OpenAI-compatible APIs
+  langchain/narra_tool.py    # 30-line tool wrapper calling the CLI with --json
+  n8n/README.md              # HTTP node on narra serve
+  shell/examples.sh          # jq pipelines
+  launchd/, systemd/         # keep narra serve running
 ```
 
-Содержание `SKILL.md` — одна страница: три команды, формат вывода, коды выхода, правило «reasons цитировать, вердикт не переинтерпретировать».
-
-### 6.3 Шелл и пайпы
+### 6.3 Shell and pipes
 
 ```sh
 narra watch --jsonl --only STATUS | jq -r 'select(.to=="HOT") | .slug'
@@ -251,121 +227,101 @@ narra now --json | jq '.clusters[] | select(.status=="HOT") | .slug'
 curl -s localhost:4663/coin/0xabc… | jq .verdict
 ```
 
-### 6.4 Для бота на Grok / Telegram / чего угодно
-
-`narra serve` + один HTTP-запрос. Пример на 15 строк в README.
-
 ---
 
-## 7. Данные и цепь
+## 7. Data and chain
 
-Публичные константы (проверяются `narra doctor`):
+Public constants (checked by `narra doctor`):
 
 | | |
 |---|---|
-| Сеть | Robinhood Chain, chainId 4663, блок ~100 мс |
-| RPC по умолчанию | `wss://robinhood-rpc.publicnode.com` для подписок, `https://rpc.mainnet.chain.robinhood.com` для `eth_getLogs`, `https://robinhood-rpc.publicnode.com` для `eth_call` |
+| Network | Robinhood Chain, chain id 4663, ~100 ms blocks |
+| Default RPC | `wss://robinhood-rpc.publicnode.com` for subscriptions, `https://rpc.mainnet.chain.robinhood.com` for `eth_getLogs`, `https://robinhood-rpc.publicnode.com` for `eth_call` |
 | Pons v2 factory | `0x7eD598BcEf8bd9Edd8C97A195C6d13f40801EC7e` |
 | Uniswap v4 PoolManager | `0x8366a39cc670b4001a1121b8f6a443a643e40951` |
 | Multicall3 | `0xcA11bde05977b3631167028862bE2a173976CA11` |
-| Градуация | 4.2 ETH, phantom 1.68 ETH; supply 1e9 |
+| Graduation (ETH pairs) | 4.2 ETH, phantom 1.68 ETH; supply 1e9 |
 
-События: `TokenLaunched`, `LaunchSwept`, `PoolGraduated` на фабрике; `CurveBuy`, `CurveSell` по топику без адреса (одним запросом по всем кривым); `Initialize`, `Swap` на PoolManager для пулов после миграции. Топики трёх основных событий зашиты и сверяются с `keccak256` сигнатур при старте.
+Events: `TokenLaunched`, `LaunchSwept`, `PoolGraduated` on the factory; `CurveBuy`, `CurveSell` by topic without an address (one query covers every curve); `Initialize`, `Swap` on the PoolManager for pools after graduation; token `Transfer` for pool wallet attribution.
 
-Чтение через Multicall3: имя, тикер, `getTokenInfo` (описание, соцсети), запись фабрики, состояние кривой — одним `eth_call` на токен.
+Own RPC layer: endpoint list with `logs` / `ws` flags, no batch requests, concurrency 2 on public nodes and 6 on private ones, a pause on 429, a bench on a Cloudflare challenge, a learned block-range cap with automatic splitting. `--rpc` or `NARRA_RPC_URL` replace everything with one private node.
 
-Свой RPC-слой: список эндпоинтов с флагами `logs` / `ws`, без batch-запросов, параллельность 2 на публичных узлах, пауза на 429, штрафная скамья на Cloudflare-челлендж, переподписка WSS при тишине 45 с с параллельным поллингом. `--rpc` или `NARRA_RPC_URL` подменяют всё одним приватным узлом.
+Cache: SQLite at `~/.narra/narra.db`: `launches`, `tokens`, `pairs`, `curve_trades`, `pools`, `pool_swaps`, `hourly`, `cursors`, `cluster_snapshots`, `embeddings`, `cluster_labels`, `kv`. Raw-trade retention 48 h by default (`NARRA_RETENTION_H`, raised automatically by a deeper backfill); cluster snapshots and hourly aggregates are kept indefinitely.
 
-Кэш: SQLite в `~/.narra/narra.db`, таблицы `launches`, `tokens`, `pairs`, `curve_trades`, `pools`, `pool_swaps`, `cursors`, `cluster_snapshots`. Ретеншн сырых сделок — 48 ч по умолчанию (`NARRA_RETENTION_H`), снапшоты кластеров — бессрочно. Это и есть личная история пользователя.
-
-Нормализация quote: ETH как есть; стейблы через курс ETH/USD с DexScreener (кэш 5 мин, при отсутствии — `stale`); акционные пары без цены считаются по покупателям и CA, не по объёму. В JSON всегда и сырое значение, и нормализованное.
+Quote normalisation: ETH as is; stables through ETH/USD from a public price endpoint (5-minute cache, `stale` when unavailable); stock-token pairs without a price are counted by buyers and launches, not by volume. JSON always carries both the raw and the normalised value.
 
 ---
 
-## 8. Алгоритмы (кратко, полное описание — `docs/STRATEGY.md`)
+## 8. Algorithms (short; full description in `docs/STRATEGY.md`)
 
-**Токенизация.** Имя, тикер, описание → теги. Нижний регистр, разбор CamelCase, стоп-слова, словарь синонимов (`robinhood → hood`), тег пары `pair:eth`. Вес: тикер 1.2, имя 1.0, описание 0.4. Словарь открыт в `dictionary.json`.
+**Tokenisation.** Name, ticker, description → tags. Lowercase, camelCase split, stop words, aliases (`robinhood → hood`), compound tickers split on seeds, CJK runs plus dictionary translations, pair tag `pair:eth`. Weights: ticker 1.2, name 1.0, description 0.4. The dictionary is open in `dictionary.json`.
 
-**Кластер.** Кандидаты — запуски за окно плюс любой токен со сделками за окно (кривая или пул). Связь двух токенов: взвешенный Жаккар тегов ≥ 0.35, или ≥ 5 общих покупателей, или общий деплоер плюс общий тег. Компоненты связности размером ≥ 3 → кластер. Слаг из двух тяжёлых тегов, наследуется между тиками при пересечении членов ≥ 50%.
+**Clusters.** Candidates: launches in the window plus any token traded in the window (curve or pool). Two tokens link on weighted Jaccard ≥ 0.35, or on a shared deployer plus a shared tag (not for launch farms with more than 8 launches), or on ≥ 5 shared buyers that are ≥ 20 % of the smaller buyer set (name-groups merge only with ≥ 2 cross pairs), or on a semantic link when the layer is on. Sprayers do not vote. Components of ≥ 3 → cluster; components above 60 members are re-clustered with stricter thresholds. Slug from the two heaviest tags, inherited between ticks at ≥ 50 % member overlap.
 
-**Тепло.** За окно: число CA, живые CA (сделка за 15 мин), quote в ETH (кривые + пулы), уникальные покупатели (`recipient` на кривой ∪ `tx.from` в пуле), градуации, доля покупок под opening tax, доля членов в пуле, дельта к прошлому окну.
+**Heat.** Per window: launches, alive members (a trade in the last 15 min), ETH in (curves + pools), unique buyers (`recipient` on curves ∪ the attributed wallet in pools), graduations, share of buys within 5 s of launch, share of members in a pool, delta vs the previous window.
 
-**Статус.** `HOT`, `EMERGING`, `ROTATING IN`, `ROTATING OUT`, `COOLING`, `DEAD`. Пороги в `thresholds.json` с датой калибровки. Приоритет: `DEAD > ROTATING OUT > ROTATING IN > HOT > EMERGING > COOLING`.
+**Status.** `HOT`, `EMERGING`, `ROTATING IN`, `ROTATING OUT`, `COOLING`, `DEAD`. Thresholds in `thresholds.json` with a calibration date. Priority: `DEAD > ROTATING OUT > ROTATING IN > HOT > EMERGING > COOLING`.
 
-**Поток.** Кошелёк «в кластере A», если купил ≥ 2 его токена за окно. Ребро A→B: такие кошельки, купившие B в следующем окне; плюс деплоеры, сменившие кластер. Публикуется при ≥ 5 кошельках или ≥ 2 деплоерах.
+**Flow.** A wallet is "in cluster A" if it bought ≥ 2 A tokens in the window. Edge A→B: such wallets buying B in the next window, plus deployers that switched. Published at ≥ 5 wallets or ≥ 2 deployers.
 
-**Вердикт.** `membership = 0.5·text + 0.5·wallet_overlap` к лучшему живому кластеру. `IN ≥ 0.5` при живом статусе; `EDGE 0.25–0.5`; `OUT`, если кластер остывает или ≥ 30% ранних покупателей за 10 мин ушли в другой; `ORPHAN` иначе.
+**Verdict.** `membership = ½·text + ½·wallet_overlap` against the best live cluster. `IN ≥ 0.5` with ≥ 2 overlapping early buyers in a live status; `EDGE 0.25–0.5` or no capital; `OUT` when the cluster cools or ≥ 30 % of early buyers moved elsewhere in the last 10 minutes; `ORPHAN` otherwise.
 
-**После миграции.** Пул ищется по `Initialize` с валютами токена и пары и хуком Pons, poolId сверяется пересчётом ключа. Свопы пишутся по `pool_id`, кошелёк из `tx.from` (контракты по `eth_getCode` в overlap не участвуют). Токен остаётся в кластере, пока торгуется. Метрика `graduated_share` подаётся как причина в `EDGE`/`OUT` для опоздавших запусков.
+**After graduation.** The pool is found by `Initialize` with the token and pair as currencies and the Pons hook. Swaps are written by `pool_id`; the wallet is the end of the token's `Transfer` chain from the PoolManager (buys) or to it (sells), skipping the hook's fee leg. The token stays in its cluster while it trades. `graduated_share` feeds the verdict as a reason for late launches.
 
 ---
 
-## 9. Репозиторий
+## 9. Repository
 
 ```
 narra/
-  README.md                 # 60 секунд до первого вывода, три команды, MCP-конфиг, JSON-пример
+  README.md                 # sixty seconds to the first output, MCP config, JSON example
   LICENSE                   # MIT
   package.json              # bin: narra
   bin/narra.ts
   src/
-    chain/       constants.ts · abi.ts · rpc.ts · multicall.ts · topics.ts
-    ingest/      launches.ts · trades.ts · lifecycle.ts · pools.ts · enrich.ts · pairs.ts · sync.ts
-    store/       schema.sql · db.ts · retention.ts
-    analyze/     tokenize.ts · dictionary.json · cluster.ts · heat.ts · thresholds.json · status.ts · flow.ts · verdict.ts
-    cli/         now.ts · coin.ts · flow.ts · why.ts · watch.ts · doctor.ts · serve.ts · schema.ts · render.ts
-    mcp/         server.ts · tools.ts
-    lib.ts       # createMeta и чистые функции
-  schemas/       now.json · coin.json · flow.json · why.json · watch.json
-  integrations/  claude/ · cursor/ · openai/ · langchain/ · n8n/ · shell/ · AGENTS.md.snippet
-  docs/          STRATEGY.md · PONS.md · ARCHITECTURE.md · API.md · SAFETY.md
-  test/          fixtures/ (записанные логи 3 000 блоков) · *.test.ts
+    chain/       constants · abi · topics · rpc · multicall
+    ingest/      decode · blocks · sync · enrich · pools · live
+    store/       schema · db
+    analyze/     tokenize · dictionary.json · cluster · heat · thresholds.json · status · flow · wallets · narrative · verdict · board
+    semantic/    provider · local · openai · anthropic · taxonomy · index
+    cli/         args · render · now · coin · find · why · flow · wallets · watch · terminal · history · trend · doctor · backfill · calibrate · serve · schema · cache
+    mcp/         server
+    schemas.ts · narra.ts · lib.ts · env.ts
+  schemas/       generated JSON Schemas
+  integrations/  claude · cursor · openai · langchain · n8n · shell · launchd · systemd · AGENTS.md.snippet
+  docs/          GUIDE · STATUS · STRATEGY · PONS · SAFETY · ARCHITECTURE · OSS · product/
+  test/          fixtures/ (recorded logs) · *.test.ts
   .github/workflows/ci.yml
 ```
 
-`docs/SAFETY.md` — что инструмент не делает: не подписывает, не хранит ключ, не советует вход; что уходит в сеть: только JSON-RPC на выбранный узел и один запрос курса на DexScreener (отключается `--no-usd`).
-
-README начинается с живого вывода `narra now` и `narra coin`, потом установка, потом блок «for agents» с MCP-конфигом и JSON. Без роадмапа с обещаниями.
+`docs/SAFETY.md`: what the tool does not do (sign, hold a key, advise entries); what leaves the machine (JSON-RPC to the chosen node, one price request, optional model calls when the semantic layer is on).
 
 ---
 
-## 10. Качество
+## 10. Quality
 
-- TypeScript strict, ESM, `node:test`. Тесты не ходят в сеть: токенизация на 200 реальных именах, кластеризация на синтетике со стабильностью слагов, статусы по таблице порогов, поток, вердикт, декодинг логов, replay 3 000 блоков из фикстур с детерминированной доской.
-- CI: lint, typecheck, test на Node 22 и 24, `narra doctor --offline` на фикстурах.
-- Перф: холодный старт 60m на публичном RPC ≤ 90 с; `narra coin` из тёплого кэша ≤ 2 с; `narra now` ≤ 1 с; память процесса `watch` ≤ 200 МБ.
-- Совместимость: macOS, Linux, Windows (Windows Terminal; цвета и ссылки деградируют корректно).
-- Версионирование: `0.1.0` в день публикации репо, `schema_version 1.0.0` замораживается на день 0.
-
----
-
-## 11. Этапы
-
-**v0.1 — репо публичное**
-1. RPC-слой, константы, `doctor`.
-2. Ingest фабрики и кривых, кэш, инкрементальный `sync`, холодный старт с прогрессом.
-3. Enrich, пары, нормализация.
-4. Токенизация, кластеры, тепло, статусы. `now`, `why`, `--json`, `schema`.
-5. Вердикт. `coin`, коды выхода, stdin.
-6. Поток. `flow`.
-7. `watch --jsonl`.
-8. `mcp`, `serve`, `integrations/`, README.
-
-**v0.2 — до CA**
-9. Пулы v4: `Initialize`, `Swap`, `graduated_share`.
-10. Калибровка `thresholds.json` на неделе живых данных, дата в файле.
-11. Replay-фикстуры и CI.
-
-**v0.3 — после CA**
-Telegram-алерты локально (`narra watch --telegram`), полноэкранный TUI, модуль NOISE как четвёртый сигнал.
-
-**Фаза 2 (наш продукт)** — `docs/product/BACKEND.md` и `docs/product/FRONTEND.md`: хостинг того же пакета как сервиса, история дольше 48 ч, сайт, холдер-гейт. Продукт импортирует `narra` как зависимость, а не форкает.
+- TypeScript strict, ESM, `node:test`. Tests never touch the network: tokenisation on real names, clustering on synthetic sets with slug stability, status table, flow, verdict, wallets, semantic layer with a fake provider, log decoding on recorded fixtures, a full replay.
+- CI: typecheck, test, build on Node 22 and 24.
+- Performance: cold start 60m on public RPC ≈ 134 s; `narra coin` from a warm cache ≤ 2 s; `narra now` ≈ 5 s on 60m and ≈ 25 s on 4h; `watch` ticks every few seconds on the websocket.
+- Platforms: macOS, Linux, Windows (Windows Terminal; colours and links degrade cleanly).
+- Versioning: `0.2.0`; `schema_version 1.0.0` frozen.
 
 ---
 
-## 12. Открытые вопросы
+## 11. Phases
 
-1. Имя пакета в npm: `narra` занято в npm (v2.0.1), кандидаты `narra-cli` или `narra-terminal`. Проверить занятость перед публикацией.
-2. Публичный RPC режет `eth_getLogs` в бурсты. Если холодный старт на нём окажется дольше 2 минут в часы пик — включить по умолчанию `--window 15m` для первого запуска и доносить остальное в фоне.
-3. Нужен ли `--window 4h` в OSS или это уже история для фазы 2. Пока да, локально ничего не стоит.
-4. Описание токена как источник тегов: возможно шумит, решает калибровка.
+**v0.1 — public repo**: RPC layer, ingest, cache, tokenisation, clusters, statuses, verdicts, flow, watch, MCP, serve, integrations, README. Done.
+
+**v0.2 — before the token launch**: pools after graduation, deep history with hourly compaction, wallet cohorts, semantic layer, websocket trigger, reorg rewind, calibration tool, replay fixtures, CI, terminal, narratives, popularity. Done except the calibration itself (needs days of snapshots) and publishing.
+
+**v0.3 — after the launch**: Telegram alerts, the social-signal module (NOISE) as a fourth signal, a dictionary tuned on history.
+
+**Phase 2 (the hosted product)** — `docs/product/BACKEND.md` and `docs/product/FRONTEND.md`: the same package hosted as a service, history beyond 48 h, a site, a holder gate. The product imports `narra-cli` as a dependency; it does not fork it.
+
+---
+
+## 12. Open questions
+
+1. Public RPC bursts: if the cold start exceeds two minutes at peak hours, default the first run to `--window 15m` and fetch the rest in the background.
+2. Whether `--window 4h` belongs in the OSS build or only in phase 2: it stays, it costs nothing locally.
+3. The description as a tag source may add noise; calibration decides.
