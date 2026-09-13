@@ -34,7 +34,9 @@ export interface ClusterOut {
   top_tags: { tag: string; weight: number }[];
   members: string[];
   heat: Heat;
-  links: { text: number; wallet: number; deployer: number };
+  links: { text: number; wallet: number; deployer: number; semantic: number };
+  summary?: string;
+  label_source?: "tags" | "model" | "cache";
   cohorts?: { sniper: number; sprayer: number; rotator: number; "early-in-hot": number; total: number };
   rotating_from: string | null; rotating_to: string | null;
 }

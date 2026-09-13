@@ -2,7 +2,7 @@
 import type { LaunchRow, Store, TokenRow, TradeRow } from "../store/db.js";
 import { PHASE } from "../chain/constants.js";
 import { tokenize } from "./tokenize.js";
-import { buildClusters, buyersByToken, dropSprayers, inheritSlugs, DEFAULT_CLUSTER_OPTIONS, type ClusterOptions } from "./cluster.js";
+import { buildClusters, buyersByToken, dropSprayers, inheritSlugs, DEFAULT_CLUSTER_OPTIONS, type ClusterOptions, type SemanticPair } from "./cluster.js";
 import { heatOf } from "./heat.js";
 import { statusOf, STATUS_ORDER, THRESHOLDS } from "./status.js";
 import { flowEdges } from "./flow.js";
@@ -37,7 +37,9 @@ export function toTokenInfo(l: LaunchRow, t: TokenRow | undefined, pairKind: Tok
   return info;
 }
 
-export function analyze(store: Store, windowKey: string, windowSec: number, nowTs: number, opts: ClusterOptions = DEFAULT_CLUSTER_OPTIONS): Analysis {
+export interface AnalyzeExtras { semantic?: (tokens: TokenInfo[]) => SemanticPair[] }
+
+export function analyze(store: Store, windowKey: string, windowSec: number, nowTs: number, opts: ClusterOptions = DEFAULT_CLUSTER_OPTIONS, extras: AnalyzeExtras = {}): Analysis {
   const to = nowTs, from = nowTs - windowSec;
   const trades = store.tradesBetween(from - windowSec, to + 1);
   const swaps = store.swapsBetween(from - windowSec, to + 1);
@@ -65,7 +67,9 @@ export function analyze(store: Store, windowKey: string, windowSec: number, nowT
   const sprayerCap = (THRESHOLDS.sprayer_max_tokens as Record<string, number>)[windowKey] ?? 20;
   const { buyers, dropped } = dropSprayers(rawBuyers, sprayerCap);
 
-  const raw = buildClusters([...tokens.values()], buyers, { ...opts, maxTokensPerWallet: sprayerCap });
+  const tokenList = [...tokens.values()];
+  const semantic = extras.semantic ? extras.semantic(tokenList) : [];
+  const raw = buildClusters(tokenList, buyers, { ...opts, maxTokensPerWallet: sprayerCap }, 4, semantic);
   const prev = store.latestSnapshots(windowKey).map((s) => ({ slug: s.slug, members: (JSON.parse(s.payload) as { members: string[] }).members ?? [] }));
   inheritSlugs(prev, raw);
 
@@ -82,7 +86,7 @@ export function analyze(store: Store, windowKey: string, windowSec: number, nowT
     const ein = edges.filter((e) => e.to === c.slug), eout = edges.filter((e) => e.from === c.slug);
     const status = statusOf(heat, ein, eout);
     if (heat.unique_buyers < THRESHOLDS.publish.min_buyers && heat.n_launches < THRESHOLDS.publish.min_launches) return [];
-    return [{ slug: c.slug, label: c.top_tags.map((t) => t.tag).slice(0, 3).join(" · ") || c.slug, status, top_tags: c.top_tags, members: c.members, heat, links: c.links, rotating_from: ein[0]?.from ?? null, rotating_to: eout[0]?.to ?? null }];
+    return [{ slug: c.slug, label: c.top_tags.map((t) => t.tag).slice(0, 3).join(" · ") || c.slug, label_source: "tags" as const, status, top_tags: c.top_tags, members: c.members, heat, links: c.links, rotating_from: ein[0]?.from ?? null, rotating_to: eout[0]?.to ?? null }];
   });
   const published = new Set(clusters.map((c) => c.slug));
   for (const [tok, slug] of membership) if (!published.has(slug)) { membership.delete(tok); memberScore.delete(tok); }

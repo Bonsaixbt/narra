@@ -20,11 +20,13 @@ export interface ClusterOptions {
   minSize: number;
   /** A component larger than this is re-clustered with stricter thresholds; single-linkage otherwise chains a whole chain into one blob. */
   maxSize: number;
+  /** When splitting an oversized component, only semantic pairs at or above this cosine survive. */
+  semanticSplitFloor: number;
   /** Wallets that bought more than this many tokens are bots/routers and do not vote. */
   maxTokensPerWallet: number;
 }
 
-export const DEFAULT_CLUSTER_OPTIONS: ClusterOptions = { minTagSupport: 3, simThreshold: 0.35, minBuyerOverlap: 5, minBuyerShare: 0.2, minWalletPairsToMerge: 2, minSize: 3, maxSize: 60, maxTokensPerWallet: 60 };
+export const DEFAULT_CLUSTER_OPTIONS: ClusterOptions = { minTagSupport: 3, simThreshold: 0.35, minBuyerOverlap: 5, minBuyerShare: 0.2, minWalletPairsToMerge: 2, minSize: 3, maxSize: 60, semanticSplitFloor: 0.9, maxTokensPerWallet: 60 };
 
 export interface RawCluster {
   id: number;
@@ -37,7 +39,7 @@ export interface RawCluster {
   /** token → number of other members it is directly linked to */
   degree: Map<string, number>;
   /** how many links of each kind hold the cluster together */
-  links: { text: number; wallet: number; deployer: number };
+  links: { text: number; wallet: number; deployer: number; semantic: number };
 }
 
 class UnionFind {
@@ -71,27 +73,32 @@ export function dropSprayers(buyers: Map<string, Set<string>>, maxTokens: number
  * Clusters with a size guard: any component above `maxSize` is re-clustered on its own members with a stricter
  * similarity threshold and a higher buyer-share floor, up to `depth` times. What still will not split is kept as is.
  */
-export function buildClusters(tokens: TokenInfo[], buyers: Map<string, Set<string>>, opts: ClusterOptions = DEFAULT_CLUSTER_OPTIONS, depth = 4): RawCluster[] {
-  const first = buildClustersOnce(tokens, buyers, opts);
+export type SemanticPair = [number, number, number];
+
+export function buildClusters(tokens: TokenInfo[], buyers: Map<string, Set<string>>, opts: ClusterOptions = DEFAULT_CLUSTER_OPTIONS, depth = 4, semantic: SemanticPair[] = []): RawCluster[] {
+  const first = buildClustersOnce(tokens, buyers, opts, semantic);
   if (depth <= 0) return first;
   const byToken = new Map(tokens.map((t) => [t.token, t]));
   const out: RawCluster[] = [];
   for (const c of first) {
     if (c.members.length <= opts.maxSize) { out.push(c); continue; }
     const stricter: ClusterOptions = { ...opts, simThreshold: Math.min(0.9, opts.simThreshold + 0.12), minBuyerShare: Math.min(0.8, opts.minBuyerShare + 0.15), minBuyerOverlap: opts.minBuyerOverlap + 3, minTagSupport: opts.minTagSupport + 1 };
-    const sub = buildClusters(c.members.map((m) => byToken.get(m)!), buyers, stricter, depth - 1);
+    const subTokens = c.members.map((m) => byToken.get(m)!);
+    const local = new Map(subTokens.map((t, i) => [t.token, i]));
+    const subSem: SemanticPair[] = semantic.flatMap(([a, b, sc]) => { const x = local.get(tokens[a].token), y = local.get(tokens[b].token); return x !== undefined && y !== undefined && sc >= opts.semanticSplitFloor ? [[x, y, sc] as SemanticPair] : []; });
+    const sub = buildClusters(subTokens, buyers, stricter, depth - 1, subSem);
     if (sub.length === 1 && sub[0].members.length === c.members.length) { out.push(c); continue; }
     out.push(...sub);
   }
   return out.sort((a, b) => b.members.length - a.members.length).map((c, i) => ({ ...c, id: i }));
 }
 
-function buildClustersOnce(tokens: TokenInfo[], buyers: Map<string, Set<string>>, opts: ClusterOptions): RawCluster[] {
+function buildClustersOnce(tokens: TokenInfo[], buyers: Map<string, Set<string>>, opts: ClusterOptions, semantic: SemanticPair[] = []): RawCluster[] {
   const idx = new Map(tokens.map((t, i) => [t.token, i]));
   const uf = new UnionFind(tokens.length);
   const degree = new Map<string, number>();
-  const linkKind = new Map<string, "text" | "wallet" | "deployer">();
-  const link = (a: number, b: number, kind: "text" | "wallet" | "deployer") => {
+  const linkKind = new Map<string, "text" | "wallet" | "deployer" | "semantic">();
+  const link = (a: number, b: number, kind: "text" | "wallet" | "deployer" | "semantic") => {
     if (a === b) return;
     linkKind.set(a < b ? `${a}:${b}` : `${b}:${a}`, kind);
     uf.union(a, b);
@@ -114,6 +121,9 @@ function buildClustersOnce(tokens: TokenInfo[], buyers: Map<string, Set<string>>
       else if (ta.deployer === tb.deployer) { linked.add(k); link(a, b, "deployer"); }
     }
   }
+
+  // 1b. semantic: embedding neighbours (already thresholded and k-capped by the caller)
+  for (const [a, b] of semantic) { const k = key(a, b); if (!linked.has(k)) { linked.add(k); link(a, b, "semantic"); } }
 
   // 2. wallets: co-occurrence of buyers across tokens. Wallet links are weaker than name links: they merge two
   //    name-groups only when at least two distinct token pairs across the groups share a crowd, so one busy wallet
@@ -168,7 +178,7 @@ function buildClustersOnce(tokens: TokenInfo[], buyers: Map<string, Set<string>>
       const sim = similarity(m.tags, centroid);
       membership.set(m.token, round2(0.5 * degScore + 0.5 * Math.min(1, sim * 2)));
     }
-    const links = { text: 0, wallet: 0, deployer: 0 };
+    const links = { text: 0, wallet: 0, deployer: 0, semantic: 0 };
     const gi = new Set(g);
     for (const [k, kind] of linkKind) { const [a, b] = k.split(":").map(Number); if (gi.has(a) && gi.has(b)) links[kind]++; }
     // Wallet-only clusters share a crowd, not a word: name them after their two most-bought members.

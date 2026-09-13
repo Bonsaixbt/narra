@@ -14,7 +14,7 @@ export function renderNow(r: NowOut, members: boolean): string {
   const rows = r.clusters.map((k) => {
     const h = k.heat;
     const rot = k.rotating_from ? c.dim(`← ${k.rotating_from}`) : k.rotating_to ? c.dim(`→ ${k.rotating_to}`) : "";
-    return [STATUS_COLOR[k.status]?.(k.status.padEnd(12)) ?? k.status, k.slug, `${h.n_launches} CA`, `${eth(h.quote_norm_in)} ETH`, `${h.n_graduated} grad`, `${Math.round(h.graduated_share * 100)}% pool`, `${h.unique_buyers} buyers`, rot];
+    return [STATUS_COLOR[k.status]?.(k.status.padEnd(12)) ?? k.status, k.label_source && k.label_source !== "tags" ? `${k.slug} ${c.dim("· " + k.label)}` : k.slug, `${h.n_launches} CA`, `${eth(h.quote_norm_in)} ETH`, `${h.n_graduated} grad`, `${Math.round(h.graduated_share * 100)}% pool`, `${h.unique_buyers} buyers`, rot];
   });
   lines.push(table(rows, [12, 22, 7, 10, 7, 9, 11, 0]));
   if (members) {

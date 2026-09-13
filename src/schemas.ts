@@ -31,7 +31,8 @@ export const Member = z.object({
 });
 export const Cluster = z.object({
   slug: z.string(), label: z.string(), status: Status, top_tags: z.array(z.object({ tag: z.string(), weight: z.number() })),
-  n_members: z.number(), heat: Heat, links: z.object({ text: z.number(), wallet: z.number(), deployer: z.number() }),
+  n_members: z.number(), heat: Heat, links: z.object({ text: z.number(), wallet: z.number(), deployer: z.number(), semantic: z.number() }),
+  summary: z.string().optional(), label_source: z.enum(["tags", "model", "cache"]).optional(),
   cohorts: z.object({ sniper: z.number(), sprayer: z.number(), rotator: z.number(), "early-in-hot": z.number(), total: z.number() }).optional(), rotating_from: z.string().nullable(), rotating_to: z.string().nullable(),
   members: z.array(Member).optional(),
 });

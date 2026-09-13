@@ -27,6 +27,7 @@ export interface DoctorReport {
   factory: { launch_enabled: boolean | null; snipe_tax_start_bps: string | null; snipe_tax_seconds: string | null; meme_hook: string | null; pool_manager: string | null };
   expectations: { name: string; ok: boolean; detail: string }[];
   cache: { path: string; launches: number; tokens: number; trades: number; oldest_trade_ts: number | null; newest_trade_ts: number | null; cursor_block: number | null };
+  semantic: { enabled: boolean; embed: string; name: string; embeddings: number; errors: string[] };
   errors: string[];
 }
 
@@ -62,6 +63,7 @@ export class Narra {
       factory: { launch_enabled: null, snipe_tax_start_bps: null, snipe_tax_seconds: null, meme_hook: null, pool_manager: null },
       expectations: [],
       cache: { path: this.store.path, ...pick(this.store.stats(), ["launches", "tokens", "trades", "oldest_trade_ts", "newest_trade_ts"]), cursor_block: this.store.getCursor("main")?.last_block ?? null },
+      semantic: { enabled: process.env.NARRA_SEMANTIC === "on", embed: process.env.NARRA_SEMANTIC_EMBED ?? "local", name: process.env.NARRA_SEMANTIC_NAME ?? "off", embeddings: this.store.embeddingCount(), errors: [] },
       errors,
     };
     try { r.chain_id = Number(BigInt((await this.clients.gate.request("eth_chainId")) as string)); } catch (e) { errors.push(`eth_chainId: ${(e as Error).message}`); }
@@ -105,8 +107,10 @@ import type { Address } from "viem";
 import type { RawLog } from "./ingest/decode.js";
 import { decodeLaunch } from "./ingest/decode.js";
 import { TOPICS } from "./chain/topics.js";
+import { initSemantic, ensureEmbeddings, semanticPairs, nameCluster, type SemanticState } from "./semantic/index.js";
+import { createHash } from "node:crypto";
 
-export interface QueryOptions { window?: WindowKey; pair?: "all" | "eth" | "stable" | "stock"; members?: boolean; top?: number; onProgress?: (p: SyncProgress) => void; noSync?: boolean }
+export interface QueryOptions { window?: WindowKey; pair?: "all" | "eth" | "stable" | "stock"; members?: boolean; top?: number; onProgress?: (p: SyncProgress) => void; noSync?: boolean; noSemantic?: boolean }
 
 declare module "./narra.js" {
   interface Narra {
@@ -120,6 +124,12 @@ declare module "./narra.js" {
   }
 }
 
+const semanticCache = new WeakMap<Narra, Promise<SemanticState>>();
+export function semanticOf(n: Narra, off: boolean): Promise<SemanticState> {
+  if (off) return initSemantic({ off: true });
+  let p = semanticCache.get(n); if (!p) { p = initSemantic(); semanticCache.set(n, p); } return p;
+}
+
 Narra.prototype.prepare = async function (this: Narra, opts: QueryOptions) {
   const window: WindowKey = opts.window ?? "60m";
   const hadCursor = !!this.store.getCursor("main");
@@ -127,7 +137,27 @@ Narra.prototype.prepare = async function (this: Narra, opts: QueryOptions) {
   if (!opts.noSync) { const p = await this.sync(window, opts.onProgress); head = p.toBlock; }
   const cursor = this.store.getCursor("main")?.last_block ?? null;
   const nowTs = this.store.stats().newest_trade_ts ?? Math.floor(Date.now() / 1000);
-  const a = analyze(this.store, window, WINDOWS[window], nowTs);
+  const sem = await semanticOf(this, !!opts.noSemantic || process.env.NARRA_SEMANTIC !== "on");
+  let extras: Parameters<typeof analyze>[5] = {};
+  if (sem.embedder) {
+    // embed whatever the window will look at: launches + traded tokens are exactly what analyze() gathers
+    const from = nowTs - WINDOWS[window];
+    const traded = new Set<string>(); for (const t of this.store.tradesBetween(from, nowTs + 1)) if (t.token) traded.add(t.token);
+    for (const l of this.store.launchesSince(from)) traded.add(l.token);
+    const rows = this.store.launchesFor([...traded]); const pairs = this.store.pairs(); const meta = this.store.tokensFor(rows.map((l) => l.token));
+    const infos = rows.map((l) => toTokenInfo(l, meta.get(l.token), pairs.get(l.pair)?.kind ?? "other", pairs.get(l.pair)?.symbol ?? "?"));
+    await ensureEmbeddings(this.store, sem, infos);
+    extras = { semantic: (tokens) => semanticPairs(this.store, sem, tokens) };
+  }
+  const a = analyze(this.store, window, WINDOWS[window], nowTs, undefined, extras);
+  if (sem.namer) {
+    for (const c of a.clusters.slice(0, 30)) {
+      const top = c.members.slice(0, 12).sort();
+      const key = createHash("sha1").update(top.join(",")).digest("hex").slice(0, 16);
+      const r = await nameCluster(this.store, sem, { slug: c.slug, tags: c.top_tags.map((t) => t.tag), members: c.members.slice(0, 12).map((m) => { const t = a.tokens.get(m)!; return { symbol: t.symbol, name: t.name, description: t.description }; }), heat: c.heat }, key);
+      if (r) { c.label = r.label; c.summary = r.summary; c.label_source = r.source; }
+    }
+  }
   const meta = {
     schema_version: SCHEMA_VERSION as typeof SCHEMA_VERSION, computed_at: new Date().toISOString(), window,
     window_from: a.window.from, window_to: a.window.to, head_block: head ?? cursor, lag_blocks: head !== null && cursor !== null ? head - cursor : null,
@@ -143,7 +173,7 @@ Narra.prototype.now = async function (this: Narra, opts: QueryOptions = {}): Pro
   if (opts.top) clusters = clusters.slice(0, opts.top);
   return {
     ...meta, quote_unit: "ETH",
-    clusters: clusters.map((c) => ({ slug: c.slug, label: c.label, status: c.status, top_tags: c.top_tags, n_members: c.members.length, heat: c.heat, links: c.links, cohorts: c.cohorts, rotating_from: c.rotating_from, rotating_to: c.rotating_to, ...(opts.members ? { members: membersOf(a, c, this.store) } : {}) })),
+    clusters: clusters.map((c) => ({ slug: c.slug, label: c.label, status: c.status, top_tags: c.top_tags, n_members: c.members.length, heat: c.heat, links: c.links, summary: c.summary, label_source: c.label_source, cohorts: c.cohorts, rotating_from: c.rotating_from, rotating_to: c.rotating_to, ...(opts.members ? { members: membersOf(a, c, this.store) } : {}) })),
     counts: a.counts,
   };
 };
@@ -201,7 +231,7 @@ Narra.prototype.why = async function (this: Narra, slug: string, opts: QueryOpti
   const tags = c.top_tags.map((t) => ({ ...t, examples: c.members.filter((m) => a.tokens.get(m)?.tags.has(t.tag)).slice(0, 5).map((m) => a.tokens.get(m)?.symbol || m.slice(0, 10)) }));
   return {
     ...meta,
-    cluster: { slug: c.slug, label: c.label, status: c.status, top_tags: c.top_tags, n_members: c.members.length, heat: c.heat, links: c.links, cohorts: c.cohorts, rotating_from: c.rotating_from, rotating_to: c.rotating_to, members: membersOf(a, c, this.store) },
+    cluster: { slug: c.slug, label: c.label, status: c.status, top_tags: c.top_tags, n_members: c.members.length, heat: c.heat, links: c.links, summary: c.summary, label_source: c.label_source, cohorts: c.cohorts, rotating_from: c.rotating_from, rotating_to: c.rotating_to, members: membersOf(a, c, this.store) },
     tags, edges_in: a.edges.filter((e) => e.to === c.slug), edges_out: a.edges.filter((e) => e.from === c.slug),
     rule: "two tokens are linked when weighted Jaccard of their tags ≥ 0.35, or they share ≥ 5 buyers, or they share a deployer and a tag; the cluster is the connected component; the slug is its two heaviest tags",
   };
