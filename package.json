@@ -63,5 +63,9 @@
     "agents",
     "onchain",
     "analytics"
-  ]
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/<owner>/narra.git"
+  }
 }
