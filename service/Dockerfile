@@ -5,14 +5,14 @@ COPY package.json package-lock.json tsconfig.json ./
 COPY bin ./bin
 COPY src ./src
 COPY scripts ./scripts
-RUN npm ci --omit=optional && npm run build
+RUN npm ci && npm run build
 COPY service/package.json service/tsconfig.json ./service/
 COPY service/src ./service/src
 RUN cd service && npm install --omit=dev && npm run build
 
 FROM node:22-slim
 WORKDIR /app
-ENV NODE_ENV=production NARRA_DB=/data/narra.db NARRA_API_HOST=0.0.0.0
+ENV NODE_ENV=production NARRA_DB=/data/narra.db NARRA_MODEL_DIR=/data/models NARRA_API_HOST=0.0.0.0
 COPY --from=build /app /app
 VOLUME ["/data"]
 EXPOSE 4663
