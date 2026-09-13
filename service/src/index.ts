@@ -14,10 +14,13 @@ import { Engine, type Window } from "./engine.js";
 import { issueToken, verifyToken, readBalance } from "./gate.js";
 import { RateLimiter } from "./ratelimit.js";
 import { StreamHub } from "./stream.js";
-import { clusterCard, coinCard } from "./og.js";
+import { clusterCard, coinCard, toPng } from "./og.js";
+import { Alerter, alertConfig } from "./alerts.js";
 
 const hub = new StreamHub(CONFIG.publicStreamDelaySec);
-const engine = new Engine((e) => hub.publish(e));
+const alertCfg = alertConfig();
+const alerter = alertCfg ? new Alerter(alertCfg) : null;
+const engine = new Engine((e) => { hub.publish(e); alerter?.offer(e); });
 const anon = new RateLimiter(CONFIG.rateAnon), holders = new RateLimiter(CONFIG.rateHolder);
 type Env = { Variables: { holder: { address: string; balance: number } | null; ip: string } };
 const app = new Hono<Env>();
@@ -40,7 +43,7 @@ const gated = createMiddleware<Env>(async (c, next) => {
   await next();
 });
 
-app.get("/api/health", (c) => { const h = engine.health(); return c.json({ ...h, narra: "service 0.1.0", gate: gateEnabled(), stream_clients: hub.size }, h.ok ? 200 : 503); });
+app.get("/api/health", (c) => { const h = engine.health(); return c.json({ ...h, narra: "service 0.1.0", gate: gateEnabled(), stream_clients: hub.size, alerts: alerter ? { sent: alerter.sent, dropped: alerter.dropped, errors: alerter.errors } : null }, h.ok ? 200 : 503); });
 
 app.get("/api/board", async (c) => {
   const w = windowOf(c.req.query("window"));
@@ -86,6 +89,9 @@ app.get("/api/stream", (c) => {
   });
 });
 
+const png = async (c: { header: (k: string, v: string) => void; body: (b: Uint8Array | string, s?: 200 | 503) => Response }, svg: string) => { const buf = await toPng(svg); if (!buf) return c.body("png rasteriser not installed (npm i @resvg/resvg-js); use the svg route", 503); c.header("content-type", "image/png"); c.header("cache-control", "public, max-age=60"); return c.body(buf); };
+app.get("/api/og/cluster/:slug/png", async (c) => { const cached = ready("60m"); if (!cached) return c.body("not ready", 503); const r = await engine.n.now({ analysis: cached, window: "60m", all: true }); const k = r.clusters.find((x) => x.slug === c.req.param("slug")); if (!k) return c.body("no such meta", 404); return png(c, clusterCard(k)); });
+app.get("/api/og/coin/:ca/png", async (c) => { const ca = c.req.param("ca"); if (!/^0x[0-9a-fA-F]{40}$/.test(ca)) return c.body("bad address", 400); const cached = ready("60m"); if (!cached) return c.body("not ready", 503); const r = await engine.n.coin(ca, { analysis: cached, window: "60m" }); return png(c, coinCard(r)); });
 app.get("/api/og/cluster/:slug", async (c) => { const cached = ready("60m"); if (!cached) return c.body("not ready", 503); const r = await engine.n.now({ analysis: cached, window: "60m", all: true }); const k = r.clusters.find((x) => x.slug === c.req.param("slug")); if (!k) return c.body("no such meta", 404); c.header("content-type", "image/svg+xml"); c.header("cache-control", "public, max-age=60"); return c.body(clusterCard(k)); });
 app.get("/api/og/coin/:ca", async (c) => { const ca = c.req.param("ca"); if (!/^0x[0-9a-fA-F]{40}$/.test(ca)) return c.body("bad address", 400); const cached = ready("60m"); if (!cached) return c.body("not ready", 503); const r = await engine.n.coin(ca, { analysis: cached, window: "60m" }); c.header("content-type", "image/svg+xml"); c.header("cache-control", "public, max-age=60"); return c.body(coinCard(r)); });
 
@@ -94,5 +100,5 @@ app.onError((ex, c) => { const e = err("INTERNAL", ex.message.split("\n")[0], 50
 
 engine.start();
 serve({ fetch: app.fetch, port: CONFIG.port, hostname: CONFIG.host }, (info) => console.error(`narra service · http://${info.address}:${info.port}/api · windows ${CONFIG.windows.join(",")} · gate ${gateEnabled() ? "on" : "off (no token yet)"} · public stream delay ${CONFIG.publicStreamDelaySec}s`));
-process.on("SIGINT", () => { engine.close(); hub.stop(); process.exit(0); });
-process.on("SIGTERM", () => { engine.close(); hub.stop(); process.exit(0); });
+process.on("SIGINT", () => { engine.close(); hub.stop(); alerter?.stop(); process.exit(0); });
+process.on("SIGTERM", () => { engine.close(); hub.stop(); alerter?.stop(); process.exit(0); });
