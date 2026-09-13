@@ -31,14 +31,14 @@ export const Member = z.object({
 });
 export const Cluster = z.object({
   slug: z.string(), label: z.string(), status: Status, top_tags: z.array(z.object({ tag: z.string(), weight: z.number() })),
-  n_members: z.number(), heat: Heat, rotating_from: z.string().nullable(), rotating_to: z.string().nullable(),
+  n_members: z.number(), heat: Heat, links: z.object({ text: z.number(), wallet: z.number(), deployer: z.number() }), rotating_from: z.string().nullable(), rotating_to: z.string().nullable(),
   members: z.array(Member).optional(),
 });
 
 export const NowOut = Meta.extend({
   quote_unit: z.literal("ETH"),
   clusters: z.array(Cluster),
-  counts: z.object({ candidates: z.number(), clustered: z.number(), trades: z.number(), launches: z.number() }),
+  counts: z.object({ candidates: z.number(), clustered: z.number(), trades: z.number(), launches: z.number(), sprayers: z.number() }),
 });
 export const CoinOut = Meta.extend({
   token: z.string(), symbol: z.string(), name: z.string(), phase: Phase,

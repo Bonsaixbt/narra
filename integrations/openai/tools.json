@@ -1,0 +1,49 @@
+[
+  {
+    "type": "function",
+    "function": {
+      "name": "narra_now",
+      "description": "Live metas (clusters of token launches) on Pons v2 / Robinhood Chain with status HOT, EMERGING, ROTATING IN/OUT, COOLING or DEAD, launches, ETH in, buyers, graduations and flow arrows. Implement by running `narra now --json` with the given flags.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "window": { "type": "string", "enum": ["15m", "60m", "4h"], "description": "lookback window, default 60m" },
+          "pair": { "type": "string", "enum": ["all", "eth", "stable", "stock"] },
+          "top": { "type": "integer", "minimum": 1, "maximum": 50 },
+          "members": { "type": "boolean", "description": "include member tokens" }
+        }
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "narra_coin",
+      "description": "Verdict for a Pons v2 contract address: IN, EDGE, OUT, ORPHAN or NOT_PONS with cluster, membership score, reasons and watch-outs. Call first whenever the user pastes a 0x address. Implement by running `narra coin <address> --json`.",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "address": { "type": "string", "pattern": "^0x[0-9a-fA-F]{40}$" },
+          "window": { "type": "string", "enum": ["15m", "60m", "4h"] }
+        },
+        "required": ["address"]
+      }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "narra_flow",
+      "description": "Edges A→B of repeat buyers and deployers moving between metas. Implement by running `narra flow --json`.",
+      "parameters": { "type": "object", "properties": { "window": { "type": "string", "enum": ["15m", "60m", "4h"] } } }
+    }
+  },
+  {
+    "type": "function",
+    "function": {
+      "name": "narra_why",
+      "description": "Why a meta is named and grouped that way: tags with example tickers, members, links, flow. Implement by running `narra why <slug> --json`.",
+      "parameters": { "type": "object", "properties": { "slug": { "type": "string" }, "window": { "type": "string", "enum": ["15m", "60m", "4h"] } }, "required": ["slug"] }
+    }
+  }
+]

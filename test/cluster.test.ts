@@ -15,7 +15,7 @@ test("tokens sharing supported tags form one cluster; unrelated names stay apart
     tok(5, "Frog Exit", "FROGX"), tok(6, "Frog King", "FROGK"), tok(7, "Pepe Frog", "PEPE"),
     tok(8, "Lonely Whale", "WHALE"),
   ];
-  const cl = buildClusters(tokens, new Map(), { minTagSupport: 3, simThreshold: 0.3, minBuyerOverlap: 5, minSize: 3, maxTokensPerWallet: 60 });
+  const cl = buildClusters(tokens, new Map(), { minTagSupport: 3, simThreshold: 0.3, minBuyerOverlap: 5, minBuyerShare: 0.15, minWalletPairsToMerge: 2, minSize: 3, maxTokensPerWallet: 60 });
   assert.equal(cl.length, 2);
   const slugs = cl.map((c) => c.slug).sort();
   assert.ok(slugs[0].includes("frog") && slugs[1].includes("hood"), slugs.join(","));
@@ -47,4 +47,13 @@ test("slugs are inherited from the previous tick when members mostly overlap", (
   const cl = buildClusters(tokens, new Map());
   inheritSlugs([{ slug: "stock-hood", members: ["0xt1", "0xt2", "0xt3", "0xt9"] }], cl);
   assert.equal(cl[0].slug, "stock-hood");
+});
+
+test("sprayer wallets are dropped before overlap linking", async () => {
+  const { dropSprayers } = await import("../src/analyze/cluster.ts");
+  const buyers = new Map<string, Set<string>>();
+  for (let t = 0; t < 12; t++) buyers.set(`0xt${t}`, new Set(["bot", `w${t}`]));
+  const { buyers: clean, dropped } = dropSprayers(buyers, 8);
+  assert.equal(dropped, 1);
+  for (const s of clean.values()) assert.ok(!s.has("bot"));
 });

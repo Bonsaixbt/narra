@@ -134,7 +134,7 @@ Narra.prototype.now = async function (this: Narra, opts: QueryOptions = {}): Pro
   if (opts.top) clusters = clusters.slice(0, opts.top);
   return {
     ...meta, quote_unit: "ETH",
-    clusters: clusters.map((c) => ({ slug: c.slug, label: c.label, status: c.status, top_tags: c.top_tags, n_members: c.members.length, heat: c.heat, rotating_from: c.rotating_from, rotating_to: c.rotating_to, ...(opts.members ? { members: membersOf(a, c, this.store) } : {}) })),
+    clusters: clusters.map((c) => ({ slug: c.slug, label: c.label, status: c.status, top_tags: c.top_tags, n_members: c.members.length, heat: c.heat, links: c.links, rotating_from: c.rotating_from, rotating_to: c.rotating_to, ...(opts.members ? { members: membersOf(a, c, this.store) } : {}) })),
     counts: a.counts,
   };
 };
@@ -192,7 +192,7 @@ Narra.prototype.why = async function (this: Narra, slug: string, opts: QueryOpti
   const tags = c.top_tags.map((t) => ({ ...t, examples: c.members.filter((m) => a.tokens.get(m)?.tags.has(t.tag)).slice(0, 5).map((m) => a.tokens.get(m)?.symbol || m.slice(0, 10)) }));
   return {
     ...meta,
-    cluster: { slug: c.slug, label: c.label, status: c.status, top_tags: c.top_tags, n_members: c.members.length, heat: c.heat, rotating_from: c.rotating_from, rotating_to: c.rotating_to, members: membersOf(a, c, this.store) },
+    cluster: { slug: c.slug, label: c.label, status: c.status, top_tags: c.top_tags, n_members: c.members.length, heat: c.heat, links: c.links, rotating_from: c.rotating_from, rotating_to: c.rotating_to, members: membersOf(a, c, this.store) },
     tags, edges_in: a.edges.filter((e) => e.to === c.slug), edges_out: a.edges.filter((e) => e.from === c.slug),
     rule: "two tokens are linked when weighted Jaccard of their tags ≥ 0.35, or they share ≥ 5 buyers, or they share a deployer and a tag; the cluster is the connected component; the slug is its two heaviest tags",
   };

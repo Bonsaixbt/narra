@@ -84,8 +84,9 @@ export async function sync(ctx: SyncContext, opts: SyncOptions): Promise<SyncPro
     store.resolveTradeTokens();
   }
 
-  // Pair symbols, then quote normalisation for the rows still missing it.
+  // Pair symbols, ETH/USD for stable pairs, then quote normalisation for the rows still missing it.
   await ensurePairs(ctx.store, ctx.http, [...pairAddrs]);
+  await refreshEthUsd(store);
   normalizePending(store, nowTs - opts.windowSec);
 
   p.stage = "enrich"; opts.onProgress?.(p);
@@ -99,26 +100,43 @@ export async function sync(ctx: SyncContext, opts: SyncOptions): Promise<SyncPro
   return p;
 }
 
-/** TokenLaunched has the curve as its 2nd indexed topic, so one filtered query per 100k-block chunk finds old launches cheaply. */
-async function resolveCurves(ctx: SyncContext, curves: string[], beforeBlock: number, pairAddrs: Set<string>, tsOf: (block: number) => number, maxBack = 600_000, step = 100_000): Promise<number> {
+/**
+ * TokenLaunched has the curve as its 2nd indexed topic, so a filtered query per chunk finds old launches cheaply.
+ * Public nodes cap the number of values in one topic filter, so curves go in batches of `batch`.
+ */
+async function resolveCurves(ctx: SyncContext, curves: string[], beforeBlock: number, pairAddrs: Set<string>, tsOf: (block: number) => number, maxBack = 600_000, step = 100_000, batch = 40): Promise<number> {
   const want = new Set(curves.map((c) => c.toLowerCase()));
   let found = 0;
-  let to = beforeBlock;
   const floor = Math.max(0, beforeBlock - maxBack);
-  while (want.size && to > floor) {
+  for (let to = beforeBlock; want.size && to > floor; to -= step) {
     const from = Math.max(floor, to - step + 1);
-    const topicCurves = [...want].map((c) => ("0x" + c.slice(2).padStart(64, "0")) as `0x${string}`);
-    const logs = (await ctx.gate.request("eth_getLogs", [{ address: ADDR.ponsFactory, topics: [TOPICS.tokenLaunched, null, topicCurves], fromBlock: hex(from), toBlock: hex(to) }])) as RawLog[];
-    const rows = [];
-    for (const l of logs) {
-      const blk = Number(BigInt(l.blockNumber));
-      const L = decodeLaunch(l, tsOf(blk));
-      if (L) { rows.push(L); want.delete(L.curve); pairAddrs.add(L.pair); }
+    const list = [...want];
+    for (let i = 0; i < list.length; i += batch) {
+      const topicCurves = list.slice(i, i + batch).map((c) => ("0x" + c.slice(2).padStart(64, "0")) as `0x${string}`);
+      const logs = (await ctx.gate.request("eth_getLogs", [{ address: ADDR.ponsFactory, topics: [TOPICS.tokenLaunched, null, topicCurves], fromBlock: hex(from), toBlock: hex(to) }])) as RawLog[];
+      const rows = [];
+      for (const l of logs) {
+        const L = decodeLaunch(l, tsOf(Number(BigInt(l.blockNumber))));
+        if (L) { rows.push(L); want.delete(L.curve); pairAddrs.add(L.pair); }
+      }
+      found += ctx.store.upsertLaunches(rows);
     }
-    found += ctx.store.upsertLaunches(rows);
-    to = from - 1;
   }
   return found;
+}
+
+/** ETH/USD for stable-pair normalisation. One public price endpoint, cached 5 minutes, disabled by NARRA_NO_USD=1. Stale value survives outages. */
+export async function refreshEthUsd(store: Store, fetchFn: typeof fetch = fetch, now = Date.now()): Promise<number | null> {
+  if (process.env.NARRA_NO_USD === "1") return null;
+  const at = Number(store.get("eth_usd_at") ?? 0);
+  if (now - at < 5 * 60_000) return Number(store.get("eth_usd")) || null;
+  try {
+    const r = await fetchFn("https://api.coinbase.com/v2/prices/ETH-USD/spot", { headers: { accept: "application/json", "user-agent": "narra/0.1" }, signal: AbortSignal.timeout(6_000) });
+    const j = (await r.json()) as { data?: { amount?: string } };
+    const v = Number(j.data?.amount);
+    if (v > 0) { store.set("eth_usd", String(v)); store.set("eth_usd_at", String(now)); return v; }
+  } catch { /* keep the stale value */ }
+  return Number(store.get("eth_usd")) || null;
 }
 
 function normalizePending(store: Store, sinceTs: number): void {

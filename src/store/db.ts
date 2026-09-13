@@ -1,8 +1,8 @@
 import Database from "better-sqlite3";
-import { readFileSync, mkdirSync } from "node:fs";
+import { mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { homedir } from "node:os";
-import { fileURLToPath } from "node:url";
+import { SCHEMA } from "./schema.js";
 
 export type Side = "buy" | "sell";
 export type PairKind = "eth" | "stable" | "stock" | "other";
@@ -48,8 +48,7 @@ export class Store {
     this.path = resolveDbPath(path);
     if (this.path !== ":memory:") mkdirSync(dirname(this.path), { recursive: true });
     this.db = new Database(this.path);
-    const schemaPath = join(dirname(fileURLToPath(import.meta.url)), "schema.sql");
-    this.db.exec(readFileSync(schemaPath, "utf8"));
+    this.db.exec(SCHEMA);
   }
 
   close(): void { this.db.close(); }

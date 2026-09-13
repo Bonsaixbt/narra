@@ -12,13 +12,17 @@ export interface ClusterOptions {
   simThreshold: number;
   /** Shared buyers at or above this links two tokens regardless of names. */
   minBuyerOverlap: number;
+  /** Shared buyers must also be at least this share of the smaller token's buyer set. */
+  minBuyerShare: number;
+  /** Two name-groups merge only when at least this many distinct token pairs across them share a crowd. */
+  minWalletPairsToMerge: number;
   /** Components smaller than this are not published. */
   minSize: number;
   /** Wallets that bought more than this many tokens are bots/routers and do not vote. */
   maxTokensPerWallet: number;
 }
 
-export const DEFAULT_CLUSTER_OPTIONS: ClusterOptions = { minTagSupport: 3, simThreshold: 0.35, minBuyerOverlap: 5, minSize: 3, maxTokensPerWallet: 60 };
+export const DEFAULT_CLUSTER_OPTIONS: ClusterOptions = { minTagSupport: 3, simThreshold: 0.35, minBuyerOverlap: 5, minBuyerShare: 0.2, minWalletPairsToMerge: 2, minSize: 3, maxTokensPerWallet: 60 };
 
 export interface RawCluster {
   id: number;
@@ -30,6 +34,8 @@ export interface RawCluster {
   membership: Map<string, number>;
   /** token → number of other members it is directly linked to */
   degree: Map<string, number>;
+  /** how many links of each kind hold the cluster together */
+  links: { text: number; wallet: number; deployer: number };
 }
 
 class UnionFind {
@@ -49,12 +55,24 @@ export function buyersByToken(trades: { token: string | null; side: string; reci
   return m;
 }
 
+/** Drop wallets that bought more than `maxTokens` distinct tokens: snipers and routers link everything to everything. */
+export function dropSprayers(buyers: Map<string, Set<string>>, maxTokens: number): { buyers: Map<string, Set<string>>; dropped: number } {
+  const count = new Map<string, number>();
+  for (const set of buyers.values()) for (const w of set) count.set(w, (count.get(w) ?? 0) + 1);
+  const bad = new Set([...count].filter(([, n]) => n > maxTokens).map(([w]) => w));
+  const out = new Map<string, Set<string>>();
+  for (const [token, set] of buyers) { const s = new Set([...set].filter((w) => !bad.has(w))); if (s.size) out.set(token, s); }
+  return { buyers: out, dropped: bad.size };
+}
+
 export function buildClusters(tokens: TokenInfo[], buyers: Map<string, Set<string>>, opts: ClusterOptions = DEFAULT_CLUSTER_OPTIONS): RawCluster[] {
   const idx = new Map(tokens.map((t, i) => [t.token, i]));
   const uf = new UnionFind(tokens.length);
   const degree = new Map<string, number>();
-  const link = (a: number, b: number) => {
+  const linkKind = new Map<string, "text" | "wallet" | "deployer">();
+  const link = (a: number, b: number, kind: "text" | "wallet" | "deployer") => {
     if (a === b) return;
+    linkKind.set(a < b ? `${a}:${b}` : `${b}:${a}`, kind);
     uf.union(a, b);
     degree.set(tokens[a].token, (degree.get(tokens[a].token) ?? 0) + 1);
     degree.set(tokens[b].token, (degree.get(tokens[b].token) ?? 0) + 1);
@@ -71,12 +89,14 @@ export function buildClusters(tokens: TokenInfo[], buyers: Map<string, Set<strin
       const a = list[x], b = list[y], k = key(a, b);
       if (linked.has(k)) continue;
       const ta = tokens[a], tb = tokens[b];
-      const sameDeployerAndTag = ta.deployer === tb.deployer;
-      if (sameDeployerAndTag || similarity(ta.tags, tb.tags) >= opts.simThreshold) { linked.add(k); link(a, b); }
+      if (similarity(ta.tags, tb.tags) >= opts.simThreshold) { linked.add(k); link(a, b, "text"); }
+      else if (ta.deployer === tb.deployer) { linked.add(k); link(a, b, "deployer"); }
     }
   }
 
-  // 2. wallets: co-occurrence of buyers across tokens
+  // 2. wallets: co-occurrence of buyers across tokens. Wallet links are weaker than name links: they merge two
+  //    name-groups only when at least two distinct token pairs across the groups share a crowd, so one busy wallet
+  //    set cannot chain every copycat group on the chain into a single blob.
   const walletTokens = new Map<string, number[]>();
   for (const [token, set] of buyers) {
     const i = idx.get(token); if (i === undefined) continue;
@@ -90,10 +110,24 @@ export function buildClusters(tokens: TokenInfo[], buyers: Map<string, Set<strin
       pairCount.set(k, (pairCount.get(k) ?? 0) + 1);
     }
   }
+  const groupSize = new Map<number, number>();
+  tokens.forEach((_, i) => { const r = uf.find(i); groupSize.set(r, (groupSize.get(r) ?? 0) + 1); });
+  const groupLinks = new Map<string, { pairs: [number, number][]; need: number }>();
   for (const [k, n] of pairCount) {
     if (n < opts.minBuyerOverlap || linked.has(k)) continue;
     const [a, b] = k.split(":").map(Number);
-    linked.add(k); link(a, b);
+    const sa = buyers.get(tokens[a].token)?.size ?? 0, sb = buyers.get(tokens[b].token)?.size ?? 0;
+    if (n < opts.minBuyerShare * Math.min(sa, sb)) continue;
+    const ga = uf.find(a), gb = uf.find(b);
+    if (ga === gb) { linked.add(k); link(a, b, "wallet"); continue; } // inside a name-group: just strengthens degree
+    const gk = ga < gb ? `${ga}:${gb}` : `${gb}:${ga}`;
+    let gl = groupLinks.get(gk);
+    if (!gl) { gl = { pairs: [], need: Math.min(opts.minWalletPairsToMerge, (groupSize.get(ga) ?? 1) * (groupSize.get(gb) ?? 1)) }; groupLinks.set(gk, gl); }
+    gl.pairs.push([a, b]);
+  }
+  for (const [, gl] of groupLinks) {
+    if (gl.pairs.length < gl.need) continue;
+    for (const [a, b] of gl.pairs) { const k = key(a, b); if (!linked.has(k)) { linked.add(k); link(a, b, "wallet"); } }
   }
 
   // 3. components → clusters
@@ -113,7 +147,13 @@ export function buildClusters(tokens: TokenInfo[], buyers: Map<string, Set<strin
       const sim = similarity(m.tags, centroid);
       membership.set(m.token, round2(0.5 * degScore + 0.5 * Math.min(1, sim * 2)));
     }
-    out.push({ id: id++, members: members.map((m) => m.token), centroid, top_tags: top, slug: slugOf(top, id), membership, degree });
+    const links = { text: 0, wallet: 0, deployer: 0 };
+    const gi = new Set(g);
+    for (const [k, kind] of linkKind) { const [a, b] = k.split(":").map(Number); if (gi.has(a) && gi.has(b)) links[kind]++; }
+    // Wallet-only clusters share a crowd, not a word: name them after their two most-bought members.
+    const fallback = top.length ? [] : [...members].sort((x, y) => (buyers.get(y.token)?.size ?? 0) - (buyers.get(x.token)?.size ?? 0)).slice(0, 2)
+      .map((m) => [...m.tags.keys()].find(isContentTag) ?? m.symbol.toLowerCase()).filter(Boolean).map((tag) => ({ tag, weight: 0.01 }));
+    out.push({ id: id++, members: members.map((m) => m.token), centroid, top_tags: top.length ? top : fallback, slug: slugOf(top.length ? top : fallback, id), membership, degree, links });
   }
   return out.sort((a, b) => b.members.length - a.members.length);
 }
@@ -126,14 +166,20 @@ export function centroidOf(all: Tags[]): Tags {
   return c;
 }
 
+/**
+ * Tags that describe the cluster: ranked by how many members carry them times their average weight.
+ * A tag needs at least two members; when nothing reaches 20 % support the cluster is wallet-driven and the
+ * best-supported tags still name it (better "icat-金狗" than "mixed-3").
+ */
 function topTags(centroid: Tags, members: TokenInfo[]): { tag: string; weight: number }[] {
   const support = new Map<string, number>();
-  for (const m of members) for (const k of m.tags.keys()) support.set(k, (support.get(k) ?? 0) + 1);
-  return [...centroid]
-    .filter(([k]) => isContentTag(k) && (support.get(k) ?? 0) >= Math.max(2, Math.ceil(members.length * 0.2)))
-    .map(([tag, weight]) => ({ tag, weight: round2(weight) }))
-    .sort((a, b) => b.weight - a.weight)
-    .slice(0, 6);
+  for (const m of members) for (const k of m.tags.keys()) if (isContentTag(k)) support.set(k, (support.get(k) ?? 0) + 1);
+  const ranked = [...support]
+    .filter(([, n]) => n >= 2)
+    .map(([tag, n]) => ({ tag, support: n, weight: round2((centroid.get(tag) ?? 0) * (n / members.length) * 10) / 10 || 0.01, score: n * (centroid.get(tag) ?? 0) }))
+    .sort((a, b) => b.score - a.score);
+  const strong = ranked.filter((t) => t.support >= Math.max(2, Math.ceil(members.length * 0.2)));
+  return (strong.length ? strong : ranked).slice(0, 6).map(({ tag, weight }) => ({ tag, weight }));
 }
 
 export function slugOf(top: { tag: string }[], fallbackId: number): string {
@@ -150,7 +196,7 @@ export function inheritSlugs(prev: { slug: string; members: string[] }[], curr: 
     const mine = new Set(c.members);
     let best: { slug: string; score: number } | null = null;
     for (const p of prev) {
-      if (used.has(p.slug)) continue;
+      if (used.has(p.slug) || p.slug.startsWith("mixed-")) continue;
       const shared = p.members.filter((m) => mine.has(m)).length;
       const score = shared / Math.min(mine.size, p.members.length);
       if (score >= 0.5 && (!best || score > best.score)) best = { slug: p.slug, score };

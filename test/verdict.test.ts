@@ -46,3 +46,11 @@ test("words fit but buyers do not → EDGE", () => {
   assert.equal(v.verdict, "EDGE");
   assert.ok(v.reasons.some((r) => /below 0.5/.test(r)));
 });
+
+test("a name match with a single overlapping buyer is EDGE, not IN", () => {
+  const t = tok("x", "Hood Rat", "HOODRAT");
+  const trades = [buy("x", "w0", 1500), buy("x", "fresh1", 1500), buy("x", "fresh2", 1500)];
+  const v = verdictFor(t, trades, ctx("HOT"));
+  assert.equal(v.verdict, "EDGE");
+  assert.ok(v.reasons.some((r) => /only 1 early buyer overlap/.test(r)), v.reasons.join(" | "));
+});

@@ -1,0 +1,15 @@
+import { Client } from "@modelcontextprotocol/sdk/client/index.js";
+import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
+const t = new StdioClientTransport({ command: "npx", args: ["tsx", "bin/narra.ts", "mcp", "--db", process.argv[2]], cwd: "/Users/vovaslupacik/Desktop/bonsai", stderr: "ignore" });
+const c = new Client({ name: "smoke", version: "0.0.0" });
+await c.connect(t);
+const tools = await c.listTools();
+console.log("tools:", tools.tools.map((x) => x.name).join(", "));
+const prompts = await c.listPrompts();
+console.log("prompts:", prompts.prompts.map((x) => x.name).join(", "));
+const r = await c.callTool({ name: "narra_now", arguments: { window: "15m", top: 3 } });
+const j = JSON.parse(r.content[0].text);
+console.log("narra_now →", j.schema_version, j.window, "clusters:", j.clusters.map((k) => `${k.slug}:${k.status}`).join(" "));
+const d = await c.callTool({ name: "narra_doctor", arguments: {} });
+console.log("doctor ok:", JSON.parse(d.content[0].text).ok);
+await c.close();

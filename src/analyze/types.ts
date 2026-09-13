@@ -33,6 +33,7 @@ export interface ClusterOut {
   top_tags: { tag: string; weight: number }[];
   members: string[];
   heat: Heat;
+  links: { text: number; wallet: number; deployer: number };
   rotating_from: string | null; rotating_to: string | null;
 }
 
