@@ -1,0 +1,31 @@
+{
+  "_comment": "Open tag dictionary. stop: dropped outright. alias: normalised to a canonical tag. Calibrated on live launches, 2026-09-13.",
+  "stop": [
+    "the","a","an","of","on","in","to","for","and","or","by","with","is","it","this","that","at","from","as","be","are","was",
+    "coin","token","tokens","meme","memecoin","memes","official","inu","2","v2","v1","x","ai","chain","rh","pons","eth",
+    "launch","launched","new","just","first","only","real","true","one","og","dev","community","fun","com","www","http","https",
+    "buy","sell","hold","pump","moon","100x","1000x","gem","alpha","cto","fair","no","tax","lp","lock","locked","burn","burned",
+    "we","you","i","me","my","our","your","all","every","will","can","not","but","so","if","up","out","get","make","made",
+    "let","lets","go","going","now","here","there","who","what","when","how","why","its","into","about","over","than","then",
+    "us","have","has","had","do","does","did","been","being","more","most","some","any","very","also","much","many","own",
+    "s","t","d","ll","re","ve","m"
+  ],
+  "alias": {
+    "hood": "hood", "robinhood": "hood", "robinhoodchain": "hood", "hoodie": "hood", "robin": "hood",
+    "grokk": "grok", "grokai": "grok", "xai": "grok",
+    "tesla": "tsla", "nvidia": "nvda", "apple": "aapl", "microsoft": "msft", "google": "googl", "alphabet": "googl", "amazon": "amzn", "meta": "meta", "facebook": "meta",
+    "bitcoin": "btc", "ethereum": "ether", "solana": "sol", "doge": "doge", "dogecoin": "doge", "shiba": "shib",
+    "chatgpt": "gpt", "openai": "gpt", "astra": "astra", "claude": "claude", "anthropic": "claude", "gemini": "gemini",
+    "agents": "agent", "agentic": "agent", "bots": "bot", "robot": "bot", "robots": "bot",
+    "frogs": "frog", "pepe": "frog", "toad": "frog", "toads": "frog",
+    "cats": "cat", "kitty": "cat", "kitten": "cat", "dogs": "dog", "puppy": "dog", "pup": "dog", "shiba": "dog",
+    "trees": "tree", "bonsai": "tree", "forest": "tree",
+    "sniper": "snipe", "snipers": "snipe", "sniping": "snipe",
+    "copytrade": "copy", "copytrading": "copy", "mirror": "copy",
+    "terminals": "terminal", "term": "terminal", "cli": "terminal",
+    "trench": "trench", "trenches": "trench", "trencher": "trench",
+    "stocks": "stock", "equity": "stock", "equities": "stock", "shares": "stock", "share": "stock", "nasdaq": "stock", "nyse": "stock", "spy": "stock", "sp500": "stock",
+    "presidents": "president", "trump": "trump", "donald": "trump", "elon": "elon", "musk": "elon"
+  },
+  "pair_tags": { "eth": "pair:eth", "stable": "pair:stable", "stock": "pair:stock", "other": "pair:other" }
+}

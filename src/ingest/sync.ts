@@ -76,7 +76,10 @@ export async function sync(ctx: SyncContext, opts: SyncOptions): Promise<SyncPro
   store.resolveTradeTokens();
   const unknown = store.unknownCurves(nowTs - opts.windowSec);
   if (unknown.length) {
-    const found = await resolveCurves(ctx, unknown, from - 1, pairAddrs);
+    // Timestamps for old launches come from the measured block rate, not one block read per launch.
+    const rate = (nowTs - (await clock.timestamp(Math.max(0, head - 50_000)))) / Math.min(head, 50_000);
+    const tsOfOld = (block: number) => Math.round(nowTs - (head - block) * rate);
+    const found = await resolveCurves(ctx, unknown, from - 1, pairAddrs, tsOfOld);
     p.launches += found;
     store.resolveTradeTokens();
   }
@@ -86,14 +89,18 @@ export async function sync(ctx: SyncContext, opts: SyncOptions): Promise<SyncPro
   normalizePending(store, nowTs - opts.windowSec);
 
   p.stage = "enrich"; opts.onProgress?.(p);
-  const e = await enrichPending(store, ctx.http, 400);
-  p.enriched = e.enriched;
+  for (let i = 0; i < 20; i++) {
+    const e = await enrichPending(store, ctx.http, 250);
+    p.enriched += e.enriched;
+    opts.onProgress?.(p);
+    if (e.enriched + e.failed < 250) break;
+  }
   p.stage = "done"; opts.onProgress?.(p);
   return p;
 }
 
 /** TokenLaunched has the curve as its 2nd indexed topic, so one filtered query per 100k-block chunk finds old launches cheaply. */
-async function resolveCurves(ctx: SyncContext, curves: string[], beforeBlock: number, pairAddrs: Set<string>, maxBack = 3_000_000, step = 100_000): Promise<number> {
+async function resolveCurves(ctx: SyncContext, curves: string[], beforeBlock: number, pairAddrs: Set<string>, tsOf: (block: number) => number, maxBack = 600_000, step = 100_000): Promise<number> {
   const want = new Set(curves.map((c) => c.toLowerCase()));
   let found = 0;
   let to = beforeBlock;
@@ -105,7 +112,7 @@ async function resolveCurves(ctx: SyncContext, curves: string[], beforeBlock: nu
     const rows = [];
     for (const l of logs) {
       const blk = Number(BigInt(l.blockNumber));
-      const L = decodeLaunch(l, await ctx.clock.timestamp(blk));
+      const L = decodeLaunch(l, tsOf(blk));
       if (L) { rows.push(L); want.delete(L.curve); pairAddrs.add(L.pair); }
     }
     found += ctx.store.upsertLaunches(rows);
