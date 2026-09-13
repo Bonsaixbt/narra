@@ -243,6 +243,60 @@
         "type": "string"
       }
     },
+    "narratives": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "popularity": {
+      "anyOf": [
+        {
+          "type": "object",
+          "properties": {
+            "cluster_rank": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "clusters_total": {
+              "type": "number"
+            },
+            "rank_in_cluster": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "cluster_size": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "buyers": {
+              "type": "number"
+            },
+            "buyers_percentile": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "cluster_rank",
+            "clusters_total",
+            "rank_in_cluster",
+            "cluster_size",
+            "buyers",
+            "buyers_percentile"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
     "evidence": {
       "type": "object",
       "properties": {
@@ -305,6 +359,8 @@
     "alternatives",
     "reasons",
     "watch",
+    "narratives",
+    "popularity",
     "evidence"
   ],
   "additionalProperties": false

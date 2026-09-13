@@ -42,6 +42,7 @@ export async function run(args: Args): Promise<number> {
     case "find": return (await import("./find.js")).find(args);
     case "watch": return (await import("./watch.js")).watch(args);
     case "terminal": case "tui": return (await import("./terminal.js")).terminal(args);
+    case "__worker": return (await import("./worker.js")).runWorker(args);
     case "schema": return (await import("./schema.js")).schema(args);
     case "cache": return (await import("./cache.js")).cache(args);
     case "history": return (await import("./history.js")).history(args);

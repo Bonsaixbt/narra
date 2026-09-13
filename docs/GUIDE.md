@@ -207,7 +207,7 @@ narra history 0xADDRESS --hours 24   # a token's hourly activity
 narra backfill --hours 72        # fetch more history
 ```
 
-Raw trades are kept for 48 hours; older rows fold into hourly aggregates, so `trend` and `history` keep working over weeks.
+Raw trades are kept for 24 hours by default (a deeper `backfill` raises it automatically); older rows fold into hourly aggregates, so `trend` and `history` keep working over weeks.
 
 ---
 

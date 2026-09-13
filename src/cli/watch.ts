@@ -14,12 +14,21 @@ import { liveTrigger } from "../ingest/live.js";
 
 export interface WatchState { statuses: Map<string, string>; edges: Set<string>; members: Map<string, string>; phases: Map<string, string>; seenLaunch: Set<string>; first: boolean }
 
-export function diffEvents(prev: WatchState, a: Analysis, ts: string): WatchEvent[] {
+/** What diffEvents needs: Analysis satisfies it, and so does the terminal's snapshot adapter. */
+export interface DiffSource {
+  clusters: { slug: string; status: string; heat: { n_launches: number; quote_norm_in: number; unique_buyers: number } }[];
+  edges: { from: string; to: string; wallets: number; quote_norm: number; deployers: number }[];
+  launches: { token: string }[];
+  tokens: Map<string, { symbol: string; name: string; phase: string }>;
+  membership: Map<string, string>;
+}
+
+export function diffEvents(prev: WatchState, a: DiffSource, ts: string): WatchEvent[] {
   const ev: WatchEvent[] = [];
   const base = { schema_version: SCHEMA_VERSION as typeof SCHEMA_VERSION, ts };
   for (const k of a.clusters) {
     const old = prev.statuses.get(k.slug);
-    if (!prev.first && old !== k.status) ev.push({ ...base, type: "STATUS", slug: k.slug, from: old ?? "NEW", to: k.status, note: `${k.heat.n_launches} CA · ${k.heat.quote_norm_in.toFixed(2)} ETH · ${k.heat.unique_buyers} buyers` });
+    if (!prev.first && old !== k.status) ev.push({ ...base, type: "STATUS", slug: k.slug, from: old ?? "NEW", to: k.status as WatchEvent["to"], note: `${k.heat.n_launches} CA · ${k.heat.quote_norm_in.toFixed(2)} ETH · ${k.heat.unique_buyers} buyers` });
     prev.statuses.set(k.slug, k.status);
   }
   for (const e of a.edges) {
