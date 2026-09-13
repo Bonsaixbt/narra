@@ -120,6 +120,15 @@ Ready-made files for Claude Code skills, Cursor rules, `AGENTS.md`, OpenAI funct
 
 Full description with formulas: [docs/STRATEGY.md](./docs/STRATEGY.md). What is read from the chain and how: [docs/PONS.md](./docs/PONS.md). What the tool does not do: [docs/SAFETY.md](./docs/SAFETY.md).
 
+## Semantic layer (optional)
+
+Off by default; the deterministic core never depends on it. `NARRA_SEMANTIC=on` adds two things:
+
+- **Embeddings → semantic links.** Every token's name, ticker and first description sentence are embedded once (cached in SQLite). Two tokens link when their vectors are close in three senses at once: above an absolute floor, ≥ 2.5 standard deviations above each token's mean similarity to everything else (embedding models squeeze unrelated meme names into a narrow band), and mutually in each other's top-3. Default model is `Xenova/multilingual-e5-small` through transformers.js: local, CPU, ~120 MB downloaded once, ~1 500 names in a few seconds. `NARRA_SEMANTIC_EMBED=openai` points at any OpenAI-compatible `/v1/embeddings` instead (OpenAI, Ollama, LM Studio, OpenRouter).
+- **Cluster naming.** `NARRA_SEMANTIC_NAME=openai|anthropic` asks a chat model for a label and a one-line summary per published cluster (≤ 30 per tick, cached by member set, capped by `NARRA_SEMANTIC_BUDGET_PER_DAY`). The Anthropic provider uses the official SDK and `claude-opus-5` by default; set `NARRA_SEMANTIC_MODEL=claude-haiku-4-5` for the cheap option. Labels are display only and never influence clustering.
+
+`--no-semantic` produces the same numbers without semantic links; `narra why` shows how many links of each kind hold a cluster, `narra doctor` shows the provider and the embedding cache. Measured on 2026-09-13: with the layer on, a 60 m board gained 192 semantic links next to 1 015 name links, and the first run cost 12 s (model load + 1 559 embeddings), later runs 5 s.
+
 ## Wallets
 
 Cohorts are arithmetic over the cache, recomputed every tick: **sniper** (≥ 3 buys, half of them within 5 s of launch), **sprayer** (more distinct tokens than the window's cap; they do not vote in clustering), **rotator** (bought in ≥ 3 metas, net ETH out > in), **early-in-hot** (≥ 3 buys of live-meta members within 5 minutes of launch). Every cluster shows its cohort mix, and a token's verdict says how many rotators and early-in-hot wallets are among its early buyers. Net flow is out − in and ignores what is still held; it is a flow number, not a P&L claim, and there is no follow-this-wallet mode.

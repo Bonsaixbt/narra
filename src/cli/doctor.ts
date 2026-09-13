@@ -18,6 +18,7 @@ export async function doctor(args: Args): Promise<number> {
     const k = r.cache;
     console.log(`  cache      ${k.path}`);
     console.log(`             ${k.launches} launches · ${k.tokens} tokens · ${k.trades} trades · cursor ${k.cursor_block ?? "none"}` + (k.newest_trade_ts ? ` · newest trade ${ago(k.newest_trade_ts)}` : ""));
+    console.log(`  semantic   ${r.semantic.enabled ? `on · embed ${r.semantic.embed} · name ${r.semantic.name} · ${r.semantic.embeddings} embeddings cached` : "off (NARRA_SEMANTIC=on to enable)"}`);
     for (const e of r.errors) console.log(`  ${c.red("error")}  ${e}`);
     console.log(r.ok ? c.green("\nall good") : c.red("\nsomething is off, see above"));
     return r.ok ? 0 : 11;

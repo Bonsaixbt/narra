@@ -172,6 +172,31 @@ export class Store {
   get(key: string): string | undefined { return (this.db.prepare(`SELECT value FROM kv WHERE key = ?`).get(key) as { value: string } | undefined)?.value; }
   set(key: string, value: string): void { this.db.prepare(`INSERT OR REPLACE INTO kv (key, value) VALUES (?, ?)`).run(key, value); }
 
+  // --- semantic ------------------------------------------------------------------------------------
+  embeddingsFor(tokens: string[], model: string): Map<string, Float32Array> {
+    const out = new Map<string, Float32Array>();
+    for (let i = 0; i < tokens.length; i += 500) {
+      const chunk = tokens.slice(i, i + 500).map(lower);
+      const rows = this.db.prepare(`SELECT token, dim, vec FROM embeddings WHERE model = ? AND token IN (${chunk.map(() => "?").join(",")})`).all(model, ...chunk) as { token: string; dim: number; vec: Buffer }[];
+      for (const r of rows) out.set(r.token, new Float32Array(r.vec.buffer, r.vec.byteOffset, r.dim));
+    }
+    return out;
+  }
+  putEmbeddings(rows: { token: string; model: string; vec: Float32Array }[]): void {
+    const st = this.db.prepare(`INSERT OR REPLACE INTO embeddings (token, model, dim, vec) VALUES (?, ?, ?, ?)`);
+    this.db.transaction(() => { for (const r of rows) st.run(lower(r.token), r.model, r.vec.length, Buffer.from(r.vec.buffer, r.vec.byteOffset, r.vec.byteLength)); })();
+  }
+  embeddingCount(model?: string): number {
+    const row = (model ? this.db.prepare(`SELECT COUNT(*) n FROM embeddings WHERE model = ?`).get(model) : this.db.prepare(`SELECT COUNT(*) n FROM embeddings`).get()) as { n: number };
+    return row.n;
+  }
+  getClusterLabel(memberKey: string, model: string): { label: string; summary: string } | undefined {
+    return this.db.prepare(`SELECT label, summary FROM cluster_labels WHERE member_key = ? AND model = ?`).get(memberKey, model) as { label: string; summary: string } | undefined;
+  }
+  putClusterLabel(memberKey: string, model: string, label: string, summary: string): void {
+    this.db.prepare(`INSERT OR REPLACE INTO cluster_labels (member_key, model, label, summary, ts) VALUES (?, ?, ?, ?, ?)`).run(memberKey, model, label, summary, Math.floor(Date.now() / 1000));
+  }
+
   // --- housekeeping --------------------------------------------------------------------------------
   /** Rows older than the retention are folded into per-token hourly aggregates before they are deleted, so history survives. */
   prune(retentionHours: number, now = Math.floor(Date.now() / 1000)): { trades: number; swaps: number; hours: number } {

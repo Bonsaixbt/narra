@@ -18,7 +18,8 @@ const HELP = `narra — which meta is printing on Pons v2 / Robinhood Chain righ
   narra mcp                                     MCP server over stdio
   narra serve      [--port 4663]                local HTTP on 127.0.0.1
 
-  --rpc <url[,url#nologs]>  --db <path>  --no-color
+  --rpc <url[,url#nologs]>  --db <path>  --no-color  --offline  --no-semantic
+  semantic layer (off by default): NARRA_SEMANTIC=on  NARRA_SEMANTIC_EMBED=local|openai|off  NARRA_SEMANTIC_NAME=off|openai|anthropic
   env: NARRA_RPC_URL  NARRA_WS_URL  NARRA_DB  NARRA_RETENTION_H
 
 read-only · no key · IN means membership in a live meta, not a recommendation`;

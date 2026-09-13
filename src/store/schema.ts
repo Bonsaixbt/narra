@@ -127,6 +127,23 @@ CREATE TABLE IF NOT EXISTS hourly (
 );
 CREATE INDEX IF NOT EXISTS hourly_ts ON hourly(hour_ts);
 
+CREATE TABLE IF NOT EXISTS embeddings (
+  token TEXT NOT NULL,
+  model TEXT NOT NULL,
+  dim INTEGER NOT NULL,
+  vec BLOB NOT NULL,
+  PRIMARY KEY (token, model)
+);
+
+CREATE TABLE IF NOT EXISTS cluster_labels (
+  member_key TEXT NOT NULL,
+  model TEXT NOT NULL,
+  label TEXT NOT NULL,
+  summary TEXT NOT NULL,
+  ts INTEGER NOT NULL,
+  PRIMARY KEY (member_key, model)
+);
+
 CREATE TABLE IF NOT EXISTS kv (
   key TEXT PRIMARY KEY,
   value TEXT NOT NULL
