@@ -198,10 +198,20 @@ export async function refreshEthUsd(store: Store, fetchFn: typeof fetch = fetch,
   return Number(store.get("eth_usd")) || null;
 }
 
-function normalizePending(store: Store, sinceTs: number): void {
+/** Fills quote_norm for resolved trades that lack it, in batches so a deep backfill never holds one giant transaction. */
+export function normalizePending(store: Store, sinceTs: number, batch = 50_000): number {
   const pairs = store.pairs();
   const ethUsd = Number(store.get("eth_usd") ?? "") || null;
-  const rows = store.db.prepare(`SELECT t.tx_hash, t.log_index, t.quote_raw, l.pair FROM curve_trades t JOIN launches l ON l.token = t.token WHERE t.quote_norm IS NULL AND t.ts >= ?`).all(sinceTs) as { tx_hash: string; log_index: number; quote_raw: string; pair: string }[];
-  const upd = rows.map((r) => ({ tx_hash: r.tx_hash, log_index: r.log_index, quote_norm: normalizeQuote(r.quote_raw, pairs.get(r.pair), ethUsd) })).filter((r) => r.quote_norm !== null);
-  if (upd.length) store.setQuoteNorm(upd);
+  let total = 0;
+  for (;;) {
+    const rows = store.db.prepare(`SELECT t.rowid AS rid, t.quote_raw, l.pair FROM curve_trades t JOIN launches l ON l.token = t.token WHERE t.quote_norm IS NULL AND t.ts >= ? AND (l.pair = '0x0000000000000000000000000000000000000000' OR l.pair IN (SELECT address FROM pairs WHERE kind = 'stable')) LIMIT ?`).all(sinceTs, batch) as { rid: number; quote_raw: string; pair: string }[];
+    if (!rows.length) break;
+    const upd = rows.map((r) => ({ rid: r.rid, quote_norm: normalizeQuote(r.quote_raw, pairs.get(r.pair), ethUsd) }));
+    const st = store.db.prepare(`UPDATE curve_trades SET quote_norm = ? WHERE rowid = ?`);
+    store.db.transaction(() => { for (const u of upd) st.run(u.quote_norm ?? -1, u.rid); })(); // -1 marks "cannot normalise" so the loop terminates; read as null below
+    total += upd.length;
+    if (rows.length < batch) break;
+  }
+  store.db.prepare(`UPDATE curve_trades SET quote_norm = NULL WHERE quote_norm = -1 AND ts >= ?`).run(sinceTs);
+  return total;
 }

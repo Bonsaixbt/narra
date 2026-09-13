@@ -71,8 +71,12 @@ export class Store {
   launch(token: string): LaunchRow | undefined { return this.db.prepare(`SELECT * FROM launches WHERE token = ?`).get(lower(token)) as LaunchRow | undefined; }
   launchesSince(ts: number): LaunchRow[] { return this.db.prepare(`SELECT * FROM launches WHERE ts >= ? ORDER BY ts`).all(ts) as LaunchRow[]; }
   launchesFor(tokens: string[]): LaunchRow[] {
-    if (!tokens.length) return [];
-    return this.db.prepare(`SELECT * FROM launches WHERE token IN (${tokens.map(() => "?").join(",")})`).all(...tokens.map(lower)) as LaunchRow[];
+    const out: LaunchRow[] = [];
+    for (let i = 0; i < tokens.length; i += 500) {
+      const chunk = tokens.slice(i, i + 500).map(lower);
+      out.push(...(this.db.prepare(`SELECT * FROM launches WHERE token IN (${chunk.map(() => "?").join(",")})`).all(...chunk) as LaunchRow[]));
+    }
+    return out;
   }
   curveToToken(curves: string[]): Map<string, string> {
     const out = new Map<string, string>();
@@ -211,6 +215,8 @@ export class Store {
     const hours = this.compact(cutoff);
     const trades = this.db.prepare(`DELETE FROM curve_trades WHERE ts < ?`).run(cutoff).changes;
     const swaps = this.db.prepare(`DELETE FROM pool_swaps WHERE ts < ?`).run(cutoff).changes;
+    // keep the WAL from growing without bound after big writes
+    try { this.db.exec("PRAGMA wal_checkpoint(PASSIVE)"); } catch { /* another connection may hold it */ }
     return { trades, swaps, hours };
   }
   compact(beforeTs: number): number {

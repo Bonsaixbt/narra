@@ -29,8 +29,8 @@ test("embeddings are cached once and semantic pairs link same-meaning names acro
   const pairs = semanticPairs(store, st, tokens);
   assert.deepEqual(pairs.map(([a, b]) => [tokens[a].symbol, tokens[b].symbol]), [["GHOUND", "金狗"]]);
   // without semantic links these two never meet (no shared tag: the CJK dictionary maps 狗 → dog, hound is not dog)
-  const plain = buildClusters([...tokens, tok(5, "Golden Retriever", "GRET"), tok(6, "Gold Bar", "GBAR")], new Map(), { minTagSupport: 2, simThreshold: 0.35, minBuyerOverlap: 5, minBuyerShare: 0.2, minWalletPairsToMerge: 2, minSize: 2, maxSize: 60, semanticSplitFloor: 0.9, maxTokensPerWallet: 60 });
-  const withSem = buildClusters([...tokens, tok(5, "Golden Retriever", "GRET"), tok(6, "Gold Bar", "GBAR")], new Map(), { minTagSupport: 2, simThreshold: 0.35, minBuyerOverlap: 5, minBuyerShare: 0.2, minWalletPairsToMerge: 2, minSize: 2, maxSize: 60, semanticSplitFloor: 0.9, maxTokensPerWallet: 60 }, 4, pairs);
+  const plain = buildClusters([...tokens, tok(5, "Golden Retriever", "GRET"), tok(6, "Gold Bar", "GBAR")], new Map(), { minTagSupport: 2, simThreshold: 0.35, minBuyerOverlap: 5, minBuyerShare: 0.2, minWalletPairsToMerge: 2, minSize: 2, maxSize: 60, semanticSplitFloor: 0.9, maxDeployerFan: 8, maxTokensPerWallet: 60 });
+  const withSem = buildClusters([...tokens, tok(5, "Golden Retriever", "GRET"), tok(6, "Gold Bar", "GBAR")], new Map(), { minTagSupport: 2, simThreshold: 0.35, minBuyerOverlap: 5, minBuyerShare: 0.2, minWalletPairsToMerge: 2, minSize: 2, maxSize: 60, semanticSplitFloor: 0.9, maxDeployerFan: 8, maxTokensPerWallet: 60 }, 4, pairs);
   const has = (cl: ReturnType<typeof buildClusters>, a: string, b: string) => cl.some((c) => c.members.includes(a) && c.members.includes(b));
   assert.equal(has(plain, "0xt1", "0xt2"), false);
   assert.equal(has(withSem, "0xt1", "0xt2"), true);
@@ -67,6 +67,6 @@ test("categories come from the nearest anchor with a margin and never link token
   assert.equal(a.tags.get("cat:animal"), 0.8); assert.equal(b.tags.get("cat:stock"), 0.8); assert.equal(c.tags.has("cat:animal") || c.tags.has("cat:stock"), false);
   const d = tok(4, "Delta", "DDD"), e = tok(5, "Epsilon", "EEE"), f = tok(6, "Zeta", "ZZZ");
   for (const t of [d, e, f]) t.tags.set("cat:animal", 0.8);
-  const cl = buildClusters([d, e, f], new Map(), { minTagSupport: 2, simThreshold: 0.3, minBuyerOverlap: 5, minBuyerShare: 0.2, minWalletPairsToMerge: 2, minSize: 2, maxSize: 60, semanticSplitFloor: 0.9, maxTokensPerWallet: 60 });
+  const cl = buildClusters([d, e, f], new Map(), { minTagSupport: 2, simThreshold: 0.3, minBuyerOverlap: 5, minBuyerShare: 0.2, minWalletPairsToMerge: 2, minSize: 2, maxSize: 60, semanticSplitFloor: 0.9, maxDeployerFan: 8, maxTokensPerWallet: 60 });
   assert.equal(cl.length, 0, "a shared category alone must not form a cluster");
 });
