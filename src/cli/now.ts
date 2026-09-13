@@ -25,7 +25,7 @@ export function renderNow(r: NowOut, members: boolean): string {
       lines.push(table(mrows, [14, 15, 6, 5, 11, 0]));
     }
   }
-  lines.push("", c.dim(`${r.counts.clustered}/${r.counts.candidates} tokens clustered · ${r.counts.launches} launches · ${r.counts.trades} trades in window · narra why <slug> · narra coin <CA>`));
+  lines.push("", c.dim(`${r.counts.clustered}/${r.counts.candidates} tokens clustered · ${r.counts.launches} launches · ${r.counts.trades} trades · ${r.counts.sprayers} sprayer wallets ignored · narra why <slug> · narra coin <CA>`));
   return lines.join("\n");
 }
 

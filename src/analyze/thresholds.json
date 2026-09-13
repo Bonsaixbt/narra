@@ -1,10 +1,38 @@
 {
-  "_comment": "Status thresholds. Starting values, to be calibrated on a week of snapshots. calibrated_on: null",
+  "_comment": "Status thresholds and publication rules. Starting values, to be calibrated on a week of snapshots. sprayer_max_tokens: a wallet that buys more distinct tokens than this per window is a bot and does not vote in clustering or verdicts.",
   "calibrated_on": null,
-  "hot":      { "min_launches": 8, "min_quote_eth": 1.5, "min_graduations": 1 },
-  "emerging": { "max_launches": 8, "min_delta_pct": 100, "min_buyers": 30 },
-  "cooling":  { "min_launches": 8, "max_quote_eth": 0.5, "max_delta_pct": -50 },
-  "dead":     { "min_launches": 3 },
-  "rotating": { "min_wallets": 8 },
-  "alive_window_sec": 900
+  "hot": {
+    "min_launches": 8,
+    "min_quote_eth": 1.5,
+    "min_graduations": 1
+  },
+  "emerging": {
+    "max_launches": 8,
+    "min_delta_pct": 100,
+    "min_buyers": 30
+  },
+  "cooling": {
+    "min_launches": 8,
+    "max_quote_eth": 0.5,
+    "max_delta_pct": -50
+  },
+  "dead": {
+    "min_launches": 3
+  },
+  "rotating": {
+    "min_wallets": 8
+  },
+  "alive_window_sec": 900,
+  "publish": {
+    "min_buyers": 10,
+    "min_launches": 3
+  },
+  "sprayer_max_tokens": {
+    "15m": 8,
+    "60m": 20,
+    "4h": 50
+  },
+  "quiet": {
+    "min_quote_eth": 0.1
+  }
 }

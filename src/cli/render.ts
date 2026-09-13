@@ -25,13 +25,22 @@ export const ago = (ts: number, now = Date.now() / 1000) => {
 };
 export const utc = (ts = Date.now() / 1000) => new Date(ts * 1000).toISOString().slice(11, 19) + " UTC";
 
+/** Terminal width of a string: ANSI stripped, CJK and emoji count double. */
+export function visibleWidth(s: string): number {
+  let n = 0;
+  for (const ch of s.replace(/\x1b\[[0-9;]*m/g, "")) {
+    const cp = ch.codePointAt(0) ?? 0;
+    n += cp >= 0x1100 && (cp <= 0x115f || (cp >= 0x2e80 && cp <= 0xa4cf) || (cp >= 0xac00 && cp <= 0xd7a3) || (cp >= 0xf900 && cp <= 0xfaff) || (cp >= 0xfe30 && cp <= 0xfe4f) || (cp >= 0xff00 && cp <= 0xff60) || (cp >= 0xffe0 && cp <= 0xffe6) || (cp >= 0x1f300 && cp <= 0x1faff) || (cp >= 0x20000 && cp <= 0x3fffd)) ? 2 : 1;
+  }
+  return n;
+}
+
 /** Left-aligned columns with a width per column; a width of 0 means "rest of the line". */
 export function table(rows: string[][], widths: number[]): string {
-  const strip = (s: string) => s.replace(/\x1b\[[0-9;]*m/g, "");
   return rows.map((r) => r.map((cell, i) => {
     const w = widths[i] ?? 0;
     if (!w) return cell;
-    const pad = w - strip(cell).length;
+    const pad = w - visibleWidth(cell);
     return pad > 0 ? cell + " ".repeat(pad) : cell;
   }).join(" ").trimEnd()).join("\n");
 }

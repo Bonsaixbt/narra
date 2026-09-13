@@ -10,14 +10,14 @@ export function statusOf(h: Heat, edgesIn: Edge[], edgesOut: Edge[], t: Threshol
   const delta = h.delta_pct;
   const hot = h.n_launches >= t.hot.min_launches && h.quote_norm_in >= t.hot.min_quote_eth && h.n_graduated >= t.hot.min_graduations;
   const emerging = !hot && h.n_launches < t.emerging.max_launches && delta !== null && delta >= t.emerging.min_delta_pct && h.unique_buyers >= t.emerging.min_buyers;
-  if (h.n_alive === 0 && h.n_launches >= t.dead.min_launches) return "DEAD";
+  if (h.n_alive === 0) return "DEAD";
   if (outW >= t.rotating.min_wallets && delta !== null && delta < 0) return "ROTATING OUT";
   if ((hot || emerging) && inW >= t.rotating.min_wallets) return "ROTATING IN";
   if (hot) return "HOT";
   if (emerging) return "EMERGING";
   if (h.n_launches >= t.cooling.min_launches && h.quote_norm_in < t.cooling.max_quote_eth && delta !== null && delta < t.cooling.max_delta_pct) return "COOLING";
-  // Nothing decisive: a cluster with money still flowing reads as EMERGING-lite, otherwise COOLING.
-  return h.n_alive > 0 && h.quote_norm_in > 0 ? "EMERGING" : "COOLING";
+  // Nothing decisive: real money on at least two live curves reads as EMERGING, a trickle reads as COOLING.
+  return h.n_alive >= 2 && h.quote_norm_in >= t.quiet.min_quote_eth ? "EMERGING" : "COOLING";
 }
 
 export const STATUS_ORDER: Status[] = ["ROTATING IN", "HOT", "EMERGING", "ROTATING OUT", "COOLING", "DEAD"];

@@ -1,3 +1,5 @@
+/** SQLite schema, embedded so the published package needs no extra files. */
+export const SCHEMA = `
 PRAGMA journal_mode = WAL;
 PRAGMA synchronous = NORMAL;
 
@@ -115,3 +117,4 @@ CREATE TABLE IF NOT EXISTS kv (
   key TEXT PRIMARY KEY,
   value TEXT NOT NULL
 );
+`;

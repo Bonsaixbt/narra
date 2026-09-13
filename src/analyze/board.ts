@@ -2,7 +2,7 @@
 import type { LaunchRow, Store, TokenRow, TradeRow } from "../store/db.js";
 import { PHASE } from "../chain/constants.js";
 import { tokenize } from "./tokenize.js";
-import { buildClusters, buyersByToken, inheritSlugs, DEFAULT_CLUSTER_OPTIONS, type ClusterOptions } from "./cluster.js";
+import { buildClusters, buyersByToken, dropSprayers, inheritSlugs, DEFAULT_CLUSTER_OPTIONS, type ClusterOptions } from "./cluster.js";
 import { heatOf } from "./heat.js";
 import { statusOf, STATUS_ORDER, THRESHOLDS } from "./status.js";
 import { flowEdges } from "./flow.js";
@@ -20,7 +20,7 @@ export interface Analysis {
   buyers: Map<string, Set<string>>;
   trades: TradeRow[];
   launches: LaunchRow[];
-  counts: { candidates: number; clustered: number; trades: number; launches: number };
+  counts: { candidates: number; clustered: number; trades: number; launches: number; sprayers: number };
 }
 
 export function toTokenInfo(l: LaunchRow, t: TokenRow | undefined, pairKind: TokenInfo["pairKind"], pairSymbol: string): TokenInfo {
@@ -57,10 +57,12 @@ export function analyze(store: Store, windowKey: string, windowSec: number, nowT
     tokens.set(l.token, toTokenInfo(l, tokenRows.get(l.token), p?.kind ?? "other", p?.symbol ?? "?"));
   }
   const windowTrades = trades.filter((t) => t.ts >= from);
-  const buyers = buyersByToken(windowTrades);
-  for (const s of swaps) if (s.ts >= from && s.side === "buy") { let b = buyers.get(s.token); if (!b) { b = new Set(); buyers.set(s.token, b); } b.add(s.wallet); }
+  const rawBuyers = buyersByToken(windowTrades);
+  for (const s of swaps) if (s.ts >= from && s.side === "buy") { let b = rawBuyers.get(s.token); if (!b) { b = new Set(); rawBuyers.set(s.token, b); } b.add(s.wallet); }
+  const sprayerCap = (THRESHOLDS.sprayer_max_tokens as Record<string, number>)[windowKey] ?? 20;
+  const { buyers, dropped } = dropSprayers(rawBuyers, sprayerCap);
 
-  const raw = buildClusters([...tokens.values()], buyers, opts);
+  const raw = buildClusters([...tokens.values()], buyers, { ...opts, maxTokensPerWallet: sprayerCap });
   const prev = store.latestSnapshots(windowKey).map((s) => ({ slug: s.slug, members: (JSON.parse(s.payload) as { members: string[] }).members ?? [] }));
   inheritSlugs(prev, raw);
 
@@ -71,20 +73,23 @@ export function analyze(store: Store, windowKey: string, windowSec: number, nowT
 
   const allLaunches = [...launchRows.values()];
   const edges = flowEdges(membership, trades, allLaunches, { from, to });
-  const clusters: ClusterOut[] = raw.map((c) => {
+  const clusters: ClusterOut[] = raw.flatMap((c) => {
     const members = new Set(c.members);
     const heat = heatOf({ members, tokens, trades, swaps, launches: allLaunches, window: { from, to }, aliveWindowSec: THRESHOLDS.alive_window_sec });
     const ein = edges.filter((e) => e.to === c.slug), eout = edges.filter((e) => e.from === c.slug);
     const status = statusOf(heat, ein, eout);
-    return { slug: c.slug, label: c.top_tags.map((t) => t.tag).slice(0, 3).join(" · ") || c.slug, status, top_tags: c.top_tags, members: c.members, heat, rotating_from: ein[0]?.from ?? null, rotating_to: eout[0]?.to ?? null };
+    if (heat.unique_buyers < THRESHOLDS.publish.min_buyers && heat.n_launches < THRESHOLDS.publish.min_launches) return [];
+    return [{ slug: c.slug, label: c.top_tags.map((t) => t.tag).slice(0, 3).join(" · ") || c.slug, status, top_tags: c.top_tags, members: c.members, heat, links: c.links, rotating_from: ein[0]?.from ?? null, rotating_to: eout[0]?.to ?? null }];
   });
+  const published = new Set(clusters.map((c) => c.slug));
+  for (const [tok, slug] of membership) if (!published.has(slug)) { membership.delete(tok); memberScore.delete(tok); }
   clusters.sort((a, b) => STATUS_ORDER.indexOf(a.status) - STATUS_ORDER.indexOf(b.status) || b.heat.quote_norm_in - a.heat.quote_norm_in || b.heat.n_launches - a.heat.n_launches);
 
   store.saveSnapshots(clusters.map((c) => ({ slug: c.slug, window: windowKey, ts: to, status: c.status, payload: JSON.stringify({ members: c.members, heat: c.heat, top_tags: c.top_tags }) })));
 
   return {
     window: { key: windowKey, from, to, sec: windowSec }, clusters, edges, centroids, membership, memberScore, tokens, buyers, trades, launches: allLaunches,
-    counts: { candidates: tokens.size, clustered: membership.size, trades: windowTrades.length, launches: launchedInWindow.length },
+    counts: { candidates: tokens.size, clustered: membership.size, trades: windowTrades.length, launches: launchedInWindow.length, sprayers: dropped },
   };
 }
 

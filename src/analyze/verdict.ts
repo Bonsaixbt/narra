@@ -21,6 +21,8 @@ export interface VerdictCore {
 }
 
 const EARLY_BUYS = 100;
+/** IN needs capital evidence, not just a matching name. */
+const MIN_OVERLAP_FOR_IN = 2;
 
 export function verdictFor(t: TokenInfo, tokenTrades: TradeRow[], ctx: VerdictContext): VerdictCore {
   const early = new Set<string>();
@@ -75,9 +77,9 @@ export function verdictFor(t: TokenInfo, tokenTrades: TradeRow[], ctx: VerdictCo
   let verdict: VerdictKind;
   if (!isLive(c.status)) { verdict = "OUT"; reasons.push(`cluster status ${c.status} — names still print, capital does not`); }
   else if (dest && movedShare >= 0.3) { verdict = "OUT"; reasons.push(`${Math.round(movedShare * 100)}% of early buyers already moved to ${dest}`); }
-  else if (best.m >= 0.5) verdict = "IN";
+  else if (best.m >= 0.5 && best.overlap >= MIN_OVERLAP_FOR_IN) verdict = "IN";
   else verdict = "EDGE";
-  if (verdict === "EDGE") reasons.push(`membership ${best.m} is below 0.5: words fit, capital overlap is thin`);
+  if (verdict === "EDGE") reasons.push(best.m >= 0.5 ? `words fit but only ${best.overlap} early buyer${best.overlap === 1 ? "" : "s"} overlap with the cluster (IN needs ${MIN_OVERLAP_FOR_IN})` : `membership ${best.m} is below 0.5: words fit, capital overlap is thin`);
   return {
     verdict,
     cluster: { slug: c.slug, status: c.status, membership: best.m },

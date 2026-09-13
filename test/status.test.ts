@@ -14,3 +14,12 @@ test("status table", () => {
   assert.equal(statusOf(heat({ n_launches: 11, n_alive: 0 }), [], []), "DEAD");
   assert.equal(statusOf(heat({ n_launches: 18, quote_norm_in: 2.4, n_graduated: 3, delta_pct: -10 }), [], [e("x", "b", 9)]), "ROTATING OUT");
 });
+
+test("nothing alive is DEAD even for a small cluster", () => {
+  assert.equal(statusOf(heat({ n_launches: 1, n_alive: 0 }), [], []), "DEAD");
+});
+
+test("a trickle with nothing decisive is COOLING, real money on two live curves is EMERGING", () => {
+  assert.equal(statusOf(heat({ n_launches: 0, n_alive: 2, quote_norm_in: 0.004, unique_buyers: 3 }), [], []), "COOLING");
+  assert.equal(statusOf(heat({ n_launches: 0, n_alive: 2, quote_norm_in: 0.5, unique_buyers: 12 }), [], []), "EMERGING");
+});
