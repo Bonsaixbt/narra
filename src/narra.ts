@@ -205,7 +205,7 @@ Narra.prototype.coin = async function (this: Narra, address: string, opts: Query
   const pairRow = this.store.pair(launch.pair);
   const info = a.tokens.get(token) ?? toTokenInfo(launch, trow, pairRow?.kind ?? "other", pairRow?.symbol ?? "?");
   const trades = this.store.tradesForToken(token, 500);
-  const v = verdictFor(info, trades, { wallets: a.wallets, clusters: a.clusters, centroids: a.centroids, membership: a.membership, buyers: a.buyers, tokens: a.tokens, window: a.window });
+  const v = verdictFor(info, trades, { wallets: a.wallets, recentBuyers: a.recentBuyers, clusters: a.clusters, centroids: a.centroids, membership: a.membership, buyers: a.buyers, tokens: a.tokens, window: a.window });
   // live curve state for the card
   let curve: CoinOut["curve"] = null;
   const thresholdEth = Number(BigInt(launch.graduation_threshold)) / 10 ** (pairRow?.decimals ?? 18);

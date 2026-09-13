@@ -19,6 +19,8 @@ export interface Analysis {
   memberScore: Map<string, number>;
   tokens: Map<string, TokenInfo>;
   buyers: Map<string, Set<string>>;
+  /** buyers in the last 10 minutes of the window, for the rotation signal */
+  recentBuyers: Map<string, Set<string>>;
   trades: TradeRow[];
   launches: LaunchRow[];
   wallets: Map<string, WalletStat>;
@@ -64,6 +66,8 @@ export function analyze(store: Store, windowKey: string, windowSec: number, nowT
   const windowTrades = trades.filter((t) => t.ts >= from);
   const rawBuyers = buyersByToken(windowTrades);
   for (const s of swaps) if (s.ts >= from && s.side === "buy") { let b = rawBuyers.get(s.token); if (!b) { b = new Set(); rawBuyers.set(s.token, b); } b.add(s.wallet); }
+  const recentBuyers = buyersByToken(windowTrades.filter((t) => t.ts >= to - 600));
+  for (const s of swaps) if (s.ts >= to - 600 && s.side === "buy") { let b = recentBuyers.get(s.token); if (!b) { b = new Set(); recentBuyers.set(s.token, b); } b.add(s.wallet); }
   const sprayerCap = (THRESHOLDS.sprayer_max_tokens as Record<string, number>)[windowKey] ?? 20;
   const { buyers, dropped } = dropSprayers(rawBuyers, sprayerCap);
 
@@ -103,7 +107,7 @@ export function analyze(store: Store, windowKey: string, windowSec: number, nowT
   store.saveSnapshots(clusters.map((c) => ({ slug: c.slug, window: windowKey, ts: to, status: c.status, payload: JSON.stringify({ members: c.members, heat: c.heat, top_tags: c.top_tags }) })));
 
   return {
-    window: { key: windowKey, from, to, sec: windowSec }, clusters, edges, centroids, membership, memberScore, tokens, buyers, trades, launches: allLaunches, wallets, sprayerCap,
+    window: { key: windowKey, from, to, sec: windowSec }, clusters, edges, centroids, membership, memberScore, tokens, buyers, recentBuyers, trades, launches: allLaunches, wallets, sprayerCap,
     counts: { candidates: tokens.size, clustered: membership.size, trades: windowTrades.length, launches: launchedInWindow.length, sprayers: dropped },
   };
 }

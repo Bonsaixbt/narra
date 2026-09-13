@@ -54,3 +54,21 @@ test("a name match with a single overlapping buyer is EDGE, not IN", () => {
   assert.equal(v.verdict, "EDGE");
   assert.ok(v.reasons.some((r) => /only 1 early buyer overlap/.test(r)), v.reasons.join(" | "));
 });
+
+test("rotation risk is measured on the last 10 minutes when recent buyers are provided", () => {
+  const t = tok("x", "Hood Rat", "HOODRAT");
+  const trades = Array.from({ length: 10 }, (_, i) => buy("x", `w${i}`, 1500));
+  const base = ctx("HOT");
+  const other = tok("o1", "Frog One", "FROG1");
+  base.tokens.set(other.token, other); base.membership.set(other.token, "frog");
+  base.clusters.push({ ...base.clusters[0], slug: "frog", top_tags: [{ tag: "frog", weight: 1 }], members: [other.token] });
+  base.centroids.set("frog", centroidOf([other.tags]));
+  // whole window: 5 of 10 early buyers also bought the frog → OUT when no recent slice is given
+  base.buyers.set(other.token, new Set(["w0", "w1", "w2", "w3", "w4"]));
+  assert.equal(verdictFor(t, trades, base).verdict, "OUT");
+  // with a recent slice where only one of them moved in the last 10 minutes → stays IN
+  const recent = new Map<string, Set<string>>([[other.token, new Set(["w0"])]]);
+  const v = verdictFor(t, trades, { ...base, recentBuyers: recent });
+  assert.equal(v.verdict, "IN");
+  assert.ok(!v.watch.some((w) => /rotating out/.test(w)));
+});

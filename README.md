@@ -174,7 +174,7 @@ narra calibrate --window 60m --hours 168            # distribution + proposal
 narra calibrate --window 60m --hours 168 --write    # store it with today's date
 ```
 
-The proposal picks the HOT floor so that about 10 % of published clusters qualify at any time (`--hot-share`). It prints its evidence; nothing changes until `--write`.
+The proposal picks the HOT floor so that about 10 % of published clusters qualify at any time (`--hot-share`). It prints its evidence; nothing changes until `--write`. To keep snapshots flowing, run `narra serve` as a service: `integrations/launchd/` (macOS) and `integrations/systemd/` (Linux) hold ready units; `pm2 start narra -- serve` works too.
 
 ## Tests
 

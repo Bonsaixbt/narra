@@ -168,6 +168,13 @@ export class Store {
   latestSnapshots(window: string): SnapshotRow[] {
     return this.db.prepare(`SELECT s.* FROM cluster_snapshots s JOIN (SELECT slug, MAX(ts) ts FROM cluster_snapshots WHERE window = ? GROUP BY slug) m ON m.slug = s.slug AND m.ts = s.ts WHERE s.window = ?`).all(window, window) as SnapshotRow[];
   }
+  /** Reorg rewind: forget everything read at or after `block`; launches keep their rows (a re-read upserts them). */
+  dropFromBlock(block: number): { trades: number; swaps: number } {
+    const trades = this.db.prepare(`DELETE FROM curve_trades WHERE block >= ?`).run(block).changes;
+    const swaps = this.db.prepare(`DELETE FROM pool_swaps WHERE block >= ?`).run(block).changes;
+    this.db.prepare(`DELETE FROM launches WHERE block >= ?`).run(block);
+    return { trades, swaps };
+  }
   minBlock(table: "curve_trades" | "pool_swaps"): number | null { return (this.db.prepare(`SELECT MIN(block) b FROM ${table}`).get() as { b: number | null }).b; }
   get(key: string): string | undefined { return (this.db.prepare(`SELECT value FROM kv WHERE key = ?`).get(key) as { value: string } | undefined)?.value; }
   set(key: string, value: string): void { this.db.prepare(`INSERT OR REPLACE INTO kv (key, value) VALUES (?, ?)`).run(key, value); }
