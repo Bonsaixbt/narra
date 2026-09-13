@@ -7,6 +7,7 @@ import { heatOf } from "./heat.js";
 import { statusOf, STATUS_ORDER, THRESHOLDS } from "./status.js";
 import { flowEdges } from "./flow.js";
 import type { ClusterOut, Edge, MemberOut, TokenInfo } from "./types.js";
+import { walletStats, clusterStatuses, cohortMix, type WalletStat } from "./wallets.js";
 import type { Tags } from "./tokenize.js";
 
 export interface Analysis {
@@ -20,6 +21,8 @@ export interface Analysis {
   buyers: Map<string, Set<string>>;
   trades: TradeRow[];
   launches: LaunchRow[];
+  wallets: Map<string, WalletStat>;
+  sprayerCap: number;
   counts: { candidates: number; clustered: number; trades: number; launches: number; sprayers: number };
 }
 
@@ -83,12 +86,19 @@ export function analyze(store: Store, windowKey: string, windowSec: number, nowT
   });
   const published = new Set(clusters.map((c) => c.slug));
   for (const [tok, slug] of membership) if (!published.has(slug)) { membership.delete(tok); memberScore.delete(tok); }
+  // wallet cohorts over the window, then cohort mix per cluster (rawBuyers: sprayers included, they are a cohort too)
+  const wallets = walletStats({ trades, swaps, launches: launchRows, membership, statuses: clusterStatuses(clusters), window: { from, to }, sprayerCap });
+  for (const c of clusters) {
+    const set = new Set<string>();
+    for (const m of c.members) for (const w of rawBuyers.get(m) ?? []) set.add(w);
+    c.cohorts = cohortMix(set, wallets);
+  }
   clusters.sort((a, b) => STATUS_ORDER.indexOf(a.status) - STATUS_ORDER.indexOf(b.status) || b.heat.quote_norm_in - a.heat.quote_norm_in || b.heat.n_launches - a.heat.n_launches);
 
   store.saveSnapshots(clusters.map((c) => ({ slug: c.slug, window: windowKey, ts: to, status: c.status, payload: JSON.stringify({ members: c.members, heat: c.heat, top_tags: c.top_tags }) })));
 
   return {
-    window: { key: windowKey, from, to, sec: windowSec }, clusters, edges, centroids, membership, memberScore, tokens, buyers, trades, launches: allLaunches,
+    window: { key: windowKey, from, to, sec: windowSec }, clusters, edges, centroids, membership, memberScore, tokens, buyers, trades, launches: allLaunches, wallets, sprayerCap,
     counts: { candidates: tokens.size, clustered: membership.size, trades: windowTrades.length, launches: launchedInWindow.length, sprayers: dropped },
   };
 }

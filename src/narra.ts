@@ -98,7 +98,7 @@ function pick<T extends object, K extends keyof T>(o: T, keys: K[]): Pick<T, K> 
 // ------------------------------------------------------------------------------------------------------
 import { analyze, membersOf, toTokenInfo, type Analysis } from "./analyze/board.js";
 import { verdictFor } from "./analyze/verdict.js";
-import { SCHEMA_VERSION, type NowOut, type CoinOut, type NotPonsOut, type FlowOut, type WhyOut } from "./schemas.js";
+import { SCHEMA_VERSION, type NowOut, type CoinOut, type NotPonsOut, type FlowOut, type WhyOut, type WalletsOut, type WalletOut } from "./schemas.js";
 import { curveAbi } from "./chain/abi.js";
 import { enrichPending, ensurePairs } from "./ingest/enrich.js";
 import type { Address } from "viem";
@@ -115,6 +115,8 @@ declare module "./narra.js" {
     coin(address: string, opts?: QueryOptions): Promise<CoinOut | NotPonsOut>;
     flow(opts?: QueryOptions): Promise<FlowOut>;
     why(slug: string, opts?: QueryOptions): Promise<WhyOut | null>;
+    wallets(opts?: QueryOptions & { cohort?: "sniper" | "sprayer" | "rotator" | "early-in-hot"; sort?: "net_eth" | "tokens" | "buys" | "quote_in" }): Promise<WalletsOut>;
+    wallet(address: string, opts?: QueryOptions): Promise<WalletOut>;
   }
 }
 
@@ -141,7 +143,7 @@ Narra.prototype.now = async function (this: Narra, opts: QueryOptions = {}): Pro
   if (opts.top) clusters = clusters.slice(0, opts.top);
   return {
     ...meta, quote_unit: "ETH",
-    clusters: clusters.map((c) => ({ slug: c.slug, label: c.label, status: c.status, top_tags: c.top_tags, n_members: c.members.length, heat: c.heat, links: c.links, rotating_from: c.rotating_from, rotating_to: c.rotating_to, ...(opts.members ? { members: membersOf(a, c, this.store) } : {}) })),
+    clusters: clusters.map((c) => ({ slug: c.slug, label: c.label, status: c.status, top_tags: c.top_tags, n_members: c.members.length, heat: c.heat, links: c.links, cohorts: c.cohorts, rotating_from: c.rotating_from, rotating_to: c.rotating_to, ...(opts.members ? { members: membersOf(a, c, this.store) } : {}) })),
     counts: a.counts,
   };
 };
@@ -168,7 +170,7 @@ Narra.prototype.coin = async function (this: Narra, address: string, opts: Query
   const pairRow = this.store.pair(launch.pair);
   const info = a.tokens.get(token) ?? toTokenInfo(launch, trow, pairRow?.kind ?? "other", pairRow?.symbol ?? "?");
   const trades = this.store.tradesForToken(token, 500);
-  const v = verdictFor(info, trades, { clusters: a.clusters, centroids: a.centroids, membership: a.membership, buyers: a.buyers, tokens: a.tokens, window: a.window });
+  const v = verdictFor(info, trades, { wallets: a.wallets, clusters: a.clusters, centroids: a.centroids, membership: a.membership, buyers: a.buyers, tokens: a.tokens, window: a.window });
   // live curve state for the card
   let curve: CoinOut["curve"] = null;
   const thresholdEth = Number(BigInt(launch.graduation_threshold)) / 10 ** (pairRow?.decimals ?? 18);
@@ -199,8 +201,36 @@ Narra.prototype.why = async function (this: Narra, slug: string, opts: QueryOpti
   const tags = c.top_tags.map((t) => ({ ...t, examples: c.members.filter((m) => a.tokens.get(m)?.tags.has(t.tag)).slice(0, 5).map((m) => a.tokens.get(m)?.symbol || m.slice(0, 10)) }));
   return {
     ...meta,
-    cluster: { slug: c.slug, label: c.label, status: c.status, top_tags: c.top_tags, n_members: c.members.length, heat: c.heat, links: c.links, rotating_from: c.rotating_from, rotating_to: c.rotating_to, members: membersOf(a, c, this.store) },
+    cluster: { slug: c.slug, label: c.label, status: c.status, top_tags: c.top_tags, n_members: c.members.length, heat: c.heat, links: c.links, cohorts: c.cohorts, rotating_from: c.rotating_from, rotating_to: c.rotating_to, members: membersOf(a, c, this.store) },
     tags, edges_in: a.edges.filter((e) => e.to === c.slug), edges_out: a.edges.filter((e) => e.from === c.slug),
     rule: "two tokens are linked when weighted Jaccard of their tags ≥ 0.35, or they share ≥ 5 buyers, or they share a deployer and a tag; the cluster is the connected component; the slug is its two heaviest tags",
   };
+};
+
+Narra.prototype.wallets = async function (this: Narra, opts: QueryOptions & { cohort?: "sniper" | "sprayer" | "rotator" | "early-in-hot"; sort?: "net_eth" | "tokens" | "buys" | "quote_in" } = {}): Promise<WalletsOut> {
+  const { a, meta } = await this.prepare(opts);
+  const sort = opts.sort ?? "net_eth";
+  let list = [...a.wallets.values()];
+  const counts = { wallets: list.length, sniper: 0, sprayer: 0, rotator: 0, "early-in-hot": 0 };
+  for (const w of list) for (const c of w.cohorts) counts[c]++;
+  if (opts.cohort) list = list.filter((w) => w.cohorts.includes(opts.cohort!));
+  list.sort((x, y) => (y[sort] as number) - (x[sort] as number));
+  return { ...meta, cohort: opts.cohort ?? null, sort, wallets: list.slice(0, opts.top ?? 25), counts };
+};
+
+Narra.prototype.wallet = async function (this: Narra, address: string, opts: QueryOptions = {}): Promise<WalletOut> {
+  const w = address.toLowerCase();
+  const { a, meta } = await this.prepare(opts);
+  const trades = this.store.tradesForWallet(w, a.window.from - a.window.sec * 3);
+  const swaps = this.store.swapsForWallet(w, a.window.from - a.window.sec * 3);
+  const tokens = [...new Set([...trades.map((t) => t.token).filter((t): t is string => !!t), ...swaps.map((s) => s.token)])];
+  const launches = new Map(this.store.launchesFor(tokens).map((l) => [l.token, l]));
+  const meta2 = this.store.tokensFor(tokens);
+  const statuses = new Map(a.clusters.map((c) => [c.slug, c.status]));
+  const pos = new Map<string, WalletOut["positions"][number]>();
+  const get = (token: string) => { let p = pos.get(token); if (!p) { const slug = a.membership.get(token) ?? null; p = { token, symbol: meta2.get(token)?.symbol ?? "", cluster: slug, status: slug ? statuses.get(slug) ?? null : null, venue: "curve", buys: 0, sells: 0, quote_in: 0, quote_out: 0, first_buy_after_launch_sec: null, last_ts: 0 }; pos.set(token, p); } return p; };
+  for (const t of trades) { if (!t.token) continue; const p = get(t.token); if (t.side === "buy") { p.buys++; p.quote_in += t.quote_norm ?? 0; const l = launches.get(t.token); if (l && (p.first_buy_after_launch_sec === null || t.ts - l.ts < p.first_buy_after_launch_sec)) p.first_buy_after_launch_sec = t.ts - l.ts; } else { p.sells++; p.quote_out += t.quote_norm ?? 0; } p.last_ts = Math.max(p.last_ts, t.ts); }
+  for (const s of swaps) { const p = get(s.token); p.venue = p.buys + p.sells ? "both" : "pool"; if (s.side === "buy") { p.buys++; p.quote_in += s.quote_norm ?? 0; } else { p.sells++; p.quote_out += s.quote_norm ?? 0; } p.last_ts = Math.max(p.last_ts, s.ts); }
+  const positions = [...pos.values()].map((p) => ({ ...p, quote_in: Math.round(p.quote_in * 1000) / 1000, quote_out: Math.round(p.quote_out * 1000) / 1000 })).sort((x, y) => y.last_ts - x.last_ts);
+  return { ...meta, wallet: w, stat: a.wallets.get(w) ?? null, positions, note: "public on-chain activity over the cache; net flow ignores what the wallet still holds and is not a P&L claim" };
 };

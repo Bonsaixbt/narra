@@ -26,6 +26,12 @@ export function buildServer(n: Narra): McpServer {
   server.registerTool("narra_why", { title: "Explain a meta", description: "Why a cluster is named and grouped the way it is: tags with example tickers, members with membership scores, in/out flow, the linking rule.", inputSchema: { slug: z.string(), window: Window } },
     async ({ slug, window }) => { const w = window ?? "60m"; await sync(w); return text((await n.why(slug, { window: w, noSync: true })) ?? { error: `no cluster ${slug}` }); });
 
+  server.registerTool("narra_wallets", { title: "Wallet cohorts", description: "Wallets active in the window with buys/sells, ETH in/out, net flow, win count, median entry delay after launch and cohort labels: sniper (buys within 5 s of launch), sprayer (buys everything), rotator (≥3 metas, net positive), early-in-hot (early into live metas). Flow analysis, not a copytrade signal.", inputSchema: { window: Window, cohort: z.enum(["sniper", "sprayer", "rotator", "early-in-hot"]).optional(), sort: z.enum(["net_eth", "tokens", "buys", "quote_in"]).optional(), top: z.number().int().min(1).max(100).optional() } },
+    async ({ window, cohort, sort, top }) => { const w = window ?? "60m"; await sync(w); return text(await n.wallets({ window: w, cohort, sort, top, noSync: true })); });
+
+  server.registerTool("narra_wallet", { title: "One wallet", description: "Public on-chain activity of one wallet over the cache: cohorts, positions per token with cluster and status, entry delay after launch, ETH in/out. Net flow ignores what is still held.", inputSchema: { address: z.string().regex(/^0x[0-9a-fA-F]{40}$/), window: Window } },
+    async ({ address, window }) => { const w = window ?? "60m"; await sync(w); return text(await n.wallet(address, { window: w, noSync: true })); });
+
   server.registerTool("narra_doctor", { title: "Health check", description: "RPC reachability, chain id, live Pons parameters vs expectations, cache size and lag.", inputSchema: {} },
     async () => text(await n.doctor()));
 

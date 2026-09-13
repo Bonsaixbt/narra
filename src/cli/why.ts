@@ -6,7 +6,7 @@ import type { WhyOut } from "../schemas.js";
 export function renderWhy(r: WhyOut): string {
   const k = r.cluster, h = k.heat;
   const L = [`${c.bold(k.slug)}  ${STATUS_COLOR[k.status]?.(k.status) ?? k.status}   window ${r.window}   ${utc()}`,
-    c.dim(`${h.n_launches} CA launched · ${k.n_members} members · ${h.n_alive} alive · ${eth(h.quote_norm_in).trim()} ETH in · ${h.unique_buyers} buyers · ${h.n_graduated} grad · ${Math.round(h.graduated_share * 100)}% in pool · taxed ${Math.round(h.taxed_ratio * 100)}% · Δ ${h.delta_pct === null ? "n/a" : h.delta_pct + "%"}`),
+    c.dim(`${h.n_launches} CA launched · ${k.n_members} members · ${h.n_alive} alive · ${eth(h.quote_norm_in).trim()} ETH in · ${h.unique_buyers} buyers · ${h.n_graduated} grad · ${Math.round(h.graduated_share * 100)}% in pool · fast buys ${Math.round(h.taxed_ratio * 100)}% · Δ ${h.delta_pct === null ? "n/a" : h.delta_pct + "%"}`),
     c.dim(`pairs eth ${h.pair_mix.eth} · stable ${h.pair_mix.stable} · stock ${h.pair_mix.stock} · held together by ${k.links.text} name links, ${k.links.wallet} wallet links, ${k.links.deployer} same-deployer links`), "", "tags"];
   for (const t of r.tags) L.push(`  ${t.tag.padEnd(16)} ${t.weight.toFixed(2)}  ${c.dim(t.examples.map((e) => "$" + e).join(" "))}`);
   if (r.edges_in.length || r.edges_out.length) {

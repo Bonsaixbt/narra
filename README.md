@@ -58,12 +58,15 @@ First run reads the last hour from the public RPCs (about two minutes) into `~/.
 | `narra coin <CA…>` | IN / EDGE / OUT / ORPHAN / NOT_PONS for a token, with reasons | `--quiet`: 0 IN · 1 EDGE · 2 OUT · 3 ORPHAN · 4 NOT_PONS |
 | `narra flow` | which wallets and deployers moved from meta A to meta B | 0 |
 | `narra why <slug>` | why a cluster is named and grouped that way, members, links | 0 (3 if no such cluster) |
+| `narra wallets [--cohort sniper\|sprayer\|rotator\|early-in-hot] [--sort net_eth]` | which wallets carry capital between metas, with cohort labels | 0 |
+| `narra wallet <0x…>` | one wallet: cohorts, positions, entry delay after launch, ETH in/out | 0 |
+| `narra history <slug\|0x…> [--hours 24]` | status timeline of a meta, or hourly activity of a token | 0 / 3 |
 | `narra watch [--every 15] [--only STATUS,EDGE]` | live feed: LAUNCH, STATUS, EDGE, GRAD, JOIN | runs until ctrl-c |
 | `narra doctor` | RPC, chain id, live Pons parameters vs expectations, cache | 0 / 11 |
 | `narra serve [--port 4663]` | the same answers as JSON over local HTTP + SSE | runs |
 | `narra mcp` | MCP server over stdio for Claude, Cursor, Codex and friends | runs |
 | `narra schema [now\|coin\|flow\|why\|watch]` | JSON Schema of every output | 0 |
-| `narra backfill --window 4h` · `narra cache [path\|stats\|clear]` | maintenance | 0 |
+| `narra backfill --hours 24` · `narra cache [path\|stats\|clear]` | deep backfill (raises retention; older rows fold into hourly aggregates) · maintenance | 0 |
 
 Every command takes `--json` (streams take `--jsonl`), `--rpc <url,url#nologs>`, `--db <path>`, `--no-color`, `--offline` (analyse the cache without syncing). Addresses can come from stdin: `echo 0x… | narra coin -`.
 
@@ -116,6 +119,10 @@ Ready-made files for Claude Code skills, Cursor rules, `AGENTS.md`, OpenAI funct
 - **Verdict.** membership = ½ text similarity to the cluster + ½ share of the token's early buyers seen in other members. `IN` needs ≥ 0.5 and at least two overlapping buyers in a live cluster; `EDGE` is a name that fits without the capital; `OUT` is a cooling or dead cluster, or ≥ 30 % of early buyers already in another meta; `ORPHAN` matches nothing.
 
 Full description with formulas: [docs/STRATEGY.md](./docs/STRATEGY.md). What is read from the chain and how: [docs/PONS.md](./docs/PONS.md). What the tool does not do: [docs/SAFETY.md](./docs/SAFETY.md).
+
+## Wallets
+
+Cohorts are arithmetic over the cache, recomputed every tick: **sniper** (≥ 3 buys, half of them within 5 s of launch), **sprayer** (more distinct tokens than the window's cap; they do not vote in clustering), **rotator** (bought in ≥ 3 metas, net ETH out > in), **early-in-hot** (≥ 3 buys of live-meta members within 5 minutes of launch). Every cluster shows its cohort mix, and a token's verdict says how many rotators and early-in-hot wallets are among its early buyers. Net flow is out − in and ignores what is still held; it is a flow number, not a P&L claim, and there is no follow-this-wallet mode.
 
 ## After graduation
 

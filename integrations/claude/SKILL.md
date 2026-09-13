@@ -15,6 +15,9 @@ narra is a read-only terminal tool. It never signs or sends transactions.
 | pastes a `0x…` address (40 hex) | `narra coin <CA> --json` — always first, before any opinion |
 | "where is the money rotating" | `narra flow --json` |
 | "why is X grouped like that" | `narra why <slug> --json` |
+| "who is rotating / which wallets are early" | `narra wallets --cohort rotator --json` (flow cohorts, never a follow signal) |
+| pastes a wallet address and asks what it does | `narra wallet <0x…> --json` |
+| "history of this meta / token" | `narra history <slug|CA> --json` |
 | tool errors, weird numbers | `narra doctor --json` |
 
 If `narra` is not installed: `npx -y narra-cli <command>`.

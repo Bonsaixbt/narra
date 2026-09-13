@@ -121,6 +121,8 @@ export class Store {
   tradesSince(ts: number): TradeRow[] { return this.db.prepare(`SELECT * FROM curve_trades WHERE ts >= ? ORDER BY ts`).all(ts) as TradeRow[]; }
   tradesBetween(from: number, to: number): TradeRow[] { return this.db.prepare(`SELECT * FROM curve_trades WHERE ts >= ? AND ts < ? ORDER BY ts`).all(from, to) as TradeRow[]; }
   tradesForToken(token: string, limit = 500): TradeRow[] { return this.db.prepare(`SELECT * FROM curve_trades WHERE token = ? ORDER BY ts LIMIT ?`).all(lower(token), limit) as TradeRow[]; }
+  tradesForWallet(wallet: string, sinceTs: number): TradeRow[] { return this.db.prepare(`SELECT * FROM curve_trades WHERE recipient = ? AND ts >= ? ORDER BY ts`).all(lower(wallet), sinceTs) as TradeRow[]; }
+  swapsForWallet(wallet: string, sinceTs: number): SwapRow[] { return this.db.prepare(`SELECT * FROM pool_swaps WHERE wallet = ? AND ts >= ? ORDER BY ts`).all(lower(wallet), sinceTs) as SwapRow[]; }
   /** Curves with trades but no known launch. */
   unknownCurves(sinceTs: number): string[] {
     return (this.db.prepare(`SELECT DISTINCT curve FROM curve_trades WHERE token IS NULL AND ts >= ?`).all(sinceTs) as { curve: string }[]).map((r) => r.curve);
