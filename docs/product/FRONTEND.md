@@ -37,11 +37,11 @@ The `15m` and `4h` windows, flow, wallets, history and the undelayed live stream
 
 ## 2. Stack
 
-- Next.js 16, App Router, TypeScript. Deployed on Vercel.
+- Astro or Next.js (via `@opennextjs/cloudflare`), TypeScript. Deployed on **Cloudflare Pages** from the GitHub repository with automatic deploys and PR previews.
 - Tailwind CSS 4. No UI library: few components, a terminal style, kits only get in the way.
-- Data: `fetch` with `next: { revalidate: 15 }` for the board and cluster pages, server-rendered first screen, then live updates through SSE (`EventSource` on `/api/stream`) or polling every 30 s when SSE is unavailable.
+- Data: server-rendered first screen from the API with edge caching (15 s for the board and cluster pages), then live updates through SSE (`EventSource` on `/api/stream`) or polling every 30 s when SSE is unavailable.
 - Response types imported from the shared `narra-cli` zod schemas. One source of truth.
-- Env: `NEXT_PUBLIC_NARRA_API_URL`, `NARRA_API_URL` (server), `NEXT_PUBLIC_SITE_URL`.
+- Env (Pages dashboard): `NARRA_API_URL` (the backend), `PUBLIC_SITE_URL`.
 - No analytics, no cookies except the holder token, no external fonts except one monospace face with a local fallback.
 
 ---
@@ -198,7 +198,7 @@ Hook `useLiveBoard(window)`: SSE with reconnect, polling fallback, returns `clus
 
 ## 7. Holder mode
 
-- The token from `POST /api/holders/check` is stored in an httpOnly cookie `narra_holder` and sent to the backend as a header through a Next.js proxy route, so the client never sees the secret.
+- The token from `POST /api/holders/check` is stored in an httpOnly cookie `narra_holder` and forwarded to the backend by the Pages Function proxy, so the client never sees the secret.
 - The client-side gate only hides and shows; the real check is on the backend.
 - A `holder` mark in the header; a "forget" button removes the cookie.
 
@@ -240,12 +240,10 @@ Hook `useLiveBoard(window)`: SSE with reconnect, polling fallback, returns `clus
 
 ## 12. Deployment
 
-- Vercel, production on the product domain, previews on PRs.
-- `NARRA_API_URL` points at the VPS with the backend; `/api/*` proxy routes in Next.js forward requests so CORS and cookies stay on one origin.
+- Cloudflare Pages connected to the GitHub repository: production from the site branch, previews for every pull request, automatic on push.
+- A Pages Function (`functions/api/[[path]].ts`) proxies `/api/*` to `NARRA_API_URL` so cookies and the SSE stream stay on one origin; `/api/og/*` is proxied the same way for `og:image`.
 - Cache headers: `/` and `/cluster/*` — `s-maxage=15, stale-while-revalidate=60`; `/coin/*` — `s-maxage=30`; OG — `s-maxage=60`.
-- Vercel Firewall: a basic rate limit on `/api/*`, 120 requests/min per IP.
-
----
+- Cloudflare WAF rate-limit rule on `/api/*`: 120 requests/min per IP, in front of the backend's own limits.
 
 ## 13. Acceptance (day 0)
 
