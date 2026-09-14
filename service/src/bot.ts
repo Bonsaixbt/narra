@@ -64,19 +64,44 @@ export function formatWhy(r: WhyOut): string {
   return L.join("\n");
 }
 
-/** The card, shortened: verdict, meta, popularity, two reasons, one watch-out. */
+const ago = (ts: number, now = Date.now() / 1000) => { const m = Math.max(0, Math.round((now - ts) / 60)); return m < 90 ? `${m}m old` : m < 2880 ? `${(m / 60).toFixed(1)}h old` : `${Math.round(m / 1440)}d old`; };
+
+/** The card in sections: what it is, the verdict, activity, who is buying, why, words. Blank lines between sections. */
 export function formatCoin(r: CoinOut | NotPonsOut): string {
   if (r.verdict === "NOT_PONS") return `${ICON.NOT_PONS} <code>${esc(r.token)}</code>\nnot a Pons v2 launch`;
-  const L = [`<b>${esc(r.symbol ? "$" + r.symbol : r.name || "(no symbol)")}</b> · ${r.phase}${r.curve && r.phase === "curve" ? ` ${r.curve.real_quote_eth?.toFixed(2) ?? "?"}/${r.curve.threshold_eth} ${esc(r.pair.symbol)}` : ""}`, `<code>${esc(r.token)}</code>`, "",
-    `${ICON[r.verdict] ?? ""} <b>${r.verdict}</b>${r.cluster ? ` · ${esc(r.cluster.slug)} ${r.cluster.membership.toFixed(2)} (${r.cluster.status.toLowerCase()})` : ""}`];
-  L.push(esc(r.reading));
-  const ac = r.activity;
-  L.push(`<i>${ac.buys_10m} buys · ${ac.buyers_10m} buyers in 10m · ${ac.buyers_60m} buyers · ${eth(ac.eth_in_60m)} ETH in 60m${ac.sells_60m ? ` · ${ac.sells_60m} sells` : ""}</i>`);
-  if (r.nearest.length && !r.cluster) L.push(`<i>nearest: ${r.nearest.slice(0, 2).map((n) => `${esc(n.slug)} ${n.membership.toFixed(2)} (${n.overlap} shared buyers)`).join(" · ")}</i>`);
-  const reasons = r.reasons.filter((x) => !x.startsWith("popularity:") && !/^cluster .* is /.test(x)).slice(0, 2);
-  if (reasons.length) { L.push(""); for (const s of reasons) L.push(`· ${esc(s)}`); }
-  if (r.watch.length) L.push(`⚠ ${esc(r.watch[0])}`);
-  return L.join("\n") + FOOT;
+  const stage = r.phase === "pool" ? "in the pool" : r.phase === "swept" ? "swept, pool not open" : r.curve?.progress != null ? `curve ${Math.round(r.curve.progress * 100)}% → graduation` : "on the curve";
+  const S: string[][] = [];
+  S.push([`<b>${esc(r.symbol ? "$" + r.symbol : r.name || "(no symbol)")}</b> · ${stage} · ${esc(r.pair.symbol)} pair · ${ago(r.launched_at)}`, `<code>${esc(r.token)}</code>`]);
+  const v: string[] = [];
+  if (r.cluster) {
+    v.push(`${ICON[r.verdict] ?? ""} <b>${r.verdict}</b> — ${esc(r.cluster.slug)} ${r.cluster.membership.toFixed(2)} · ${r.cluster.status.toLowerCase()}`);
+    if (r.popularity?.cluster_rank) v.push(`meta #${r.popularity.cluster_rank} of ${r.popularity.clusters_total} · ${r.popularity.rank_in_cluster ? `token #${r.popularity.rank_in_cluster} of ${r.popularity.cluster_size} inside` : "joins it by wallets, not by name"}`);
+  } else {
+    v.push(`${ICON[r.verdict] ?? ""} <b>${r.verdict}</b> — standalone, no live meta around it`);
+    const n = r.nearest.filter((x) => x.membership >= 0.1).slice(0, 2);
+    if (n.length) v.push(`closest: ${n.map((x) => `${esc(x.slug)} ${x.membership.toFixed(2)} (${x.overlap} shared buyers)`).join(" · ")}`);
+  }
+  S.push(v);
+  const a = r.activity;
+  const act = [`📈 <b>activity</b>`];
+  act.push(a.buyers_60m ? `${a.buys_10m} buys · ${a.buyers_10m} buyers in 10m` : `no buys in the last hour${a.last_trade_ts ? " · last trade " + ago(a.last_trade_ts).replace(" old", " ago") : ""}`);
+  if (a.buyers_60m) act.push(`${a.buys_60m} buys · ${a.sells_60m} sells · ${a.buyers_60m} buyers · ${eth(a.eth_in_60m)} ETH in 60m`);
+  if (r.popularity) act.push(`more buyers than ${r.popularity.buyers_percentile}% of tokens in the window`);
+  S.push(act);
+  const ec = r.early_cohorts;
+  const bits: string[] = [];
+  if (ec.total >= 5) {
+    if (ec["early-in-hot"] >= 3) bits.push(`${ec["early-in-hot"]} early-in-hot`);
+    if (ec.rotator >= 3) bits.push(`${ec.rotator} rotators`);
+    if (ec.sniper / ec.total >= 0.3) bits.push(`${Math.round((ec.sniper / ec.total) * 100)}% snipers`);
+    if (ec.sprayer / ec.total >= 0.3) bits.push(`${Math.round((ec.sprayer / ec.total) * 100)}% sprayer bots`);
+  }
+  if (bits.length || r.deployer_launches_window >= 5) S.push([`👥 <b>early buyers</b> (${ec.total})`, ...(bits.length ? [bits.join(" · ")] : []), ...(r.deployer_launches_window >= 5 ? [`deployer is a launch farm: ${r.deployer_launches_window} tokens this window`] : [])]);
+  const why = r.reasons.filter((x) => !x.startsWith("popularity:") && !/^cluster .* is /.test(x) && !/^no live cluster/.test(x)).slice(0, 2);
+  const watch = r.watch.filter((x) => !/launch farm/.test(x)).slice(0, 2);
+  if (why.length || watch.length) S.push([`🔎 <b>why</b>`, ...why.map((x) => `· ${esc(x)}`), ...watch.map((x) => `⚠ ${esc(x)}`)]);
+  if (r.narratives.length || r.words.length) S.push([`📝 words: ${esc(r.words.slice(0, 6).join(" "))}${r.narratives.length ? ` → ${esc(r.narratives.join(", "))}` : ""}`]);
+  return S.map((sec) => sec.join("\n")).join("\n\n") + "\n" + FOOT;
 }
 
 export function formatFind(r: { query: string; clusters: { slug: string; status: string; narrative: string; eth: number; buyers: number }[]; tokens: { token: string; symbol: string; cluster: string | null; buyers: number }[] }): string {
