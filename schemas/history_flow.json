@@ -113,13 +113,17 @@
               ],
               "additionalProperties": false
             }
+          },
+          "flow_known": {
+            "type": "boolean"
           }
         },
         "required": [
           "ts",
           "from_ts",
           "nodes",
-          "edges"
+          "edges",
+          "flow_known"
         ],
         "additionalProperties": false
       }

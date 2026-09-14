@@ -92,7 +92,8 @@ app.get("/api/history/flow", gated, (c) => {
   const step = c.req.query("step") ?? "1h";
   if (step !== "15m" && step !== "1h" && step !== "4h") { const e = err("BAD_STEP", "step must be 15m, 1h or 4h", 400); return c.json(e.body, e.status); }
   const hours = Math.min(720, Math.max(1, Number(c.req.query("hours") ?? 24) || 24));
-  return c.json(engine.n.historyFlow(w, hours, step));
+  // reads only: recomputing old ticks here would write from the API process and race the workers (SQLITE_BUSY); the slow worker backfills
+  return c.json(engine.n.historyFlow(w, hours, step, { backfill: false }));
 });
 app.get("/api/trend", gated, (c) => {
   // served from the worker's cache: the aggregate takes seconds of SQL and used to block every other route while it ran

@@ -25,3 +25,14 @@ test("edges below the wallet threshold are dropped unless deployers carry them",
   const edges = flowEdges(membership, trades, launches, { from: 1000, to: 2000 });
   assert.equal(edges.length, 1); assert.equal(edges[0].deployers, 2);
 });
+
+test("each edge lists the buy that put a wallet on it: the earliest buy into the destination, oldest first", () => {
+  const membership = new Map([["a1", "frog"], ["a2", "frog"], ["b1", "hood"], ["b2", "hood"]]);
+  const trades: TradeRow[] = [];
+  for (let w = 0; w < 6; w++) { trades.push(buy("a1", `w${w}`, 100), buy("a2", `w${w}`, 150), buy("b2", `w${w}`, 1300 - w), buy("b1", `w${w}`, 1500)); }
+  const [e] = flowEdges(membership, trades, [], { from: 1000, to: 2000 });
+  assert.equal(e.moves?.length, 6);
+  assert.deepEqual(e.moves?.map((m) => m.wallet), ["w5", "w4", "w3", "w2", "w1", "w0"]);
+  assert.equal(e.moves?.[0].token, "b2", "the earliest buy into hood, not the later one");
+  assert.equal(e.moves?.[0].tx, "b2w51295");
+});

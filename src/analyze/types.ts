@@ -27,7 +27,9 @@ export interface Heat {
   pair_mix: { eth: number; stable: number; stock: number; other: number };
 }
 
-export interface Edge { from: string; to: string; wallets: number; quote_norm: number; deployers: number }
+/** One wallet's first buy into `to` inside the window: the trade that made it count on the edge. */
+export interface Move { wallet: string; token: string; symbol?: string; ts: number; eth: number; tx: string }
+export interface Edge { from: string; to: string; wallets: number; quote_norm: number; deployers: number; moves?: Move[] }
 
 export interface ClusterOut {
   slug: string; label: string; status: Status;
