@@ -29,6 +29,7 @@ export interface SwapRow {
   side: Side; quote_raw: string; tokens_raw: string; quote_norm: number | null;
 }
 export interface SnapshotRow { slug: string; window: string; ts: number; status: string; payload: string; meta_id?: string | null; first_seen?: number | null }
+export type FlowTradeRow = Pick<TradeRow, "ts" | "token" | "side" | "recipient" | "quote_norm" | "tx_hash">;
 export interface FlowSnapshotRow { window: string; ts: number; from_slug: string; to_slug: string; wallets: number; quote_norm: number; deployers: number }
 export interface HourlyRow { token: string; hour_ts: number; venue: "curve" | "pool"; buys: number; sells: number; quote_in: number; quote_out: number; unique_buyers: number; taxed: number }
 
@@ -133,6 +134,8 @@ export class Store {
     return n;
   }
   tradesSince(ts: number): TradeRow[] { return this.db.prepare(`SELECT * FROM curve_trades WHERE ts >= ? ORDER BY ts`).all(ts) as TradeRow[]; }
+  /** The columns flow edges need, nothing else: a quarter of the bytes of tradesBetween over the same span. */
+  tradesForFlow(from: number, to: number): FlowTradeRow[] { return this.db.prepare(`SELECT ts, token, side, recipient, quote_norm, tx_hash FROM curve_trades WHERE ts >= ? AND ts < ? AND token IS NOT NULL ORDER BY ts`).all(from, to) as FlowTradeRow[]; }
   tradesBetween(from: number, to: number): TradeRow[] { return this.db.prepare(`SELECT * FROM curve_trades WHERE ts >= ? AND ts < ? ORDER BY ts`).all(from, to) as TradeRow[]; }
   tradesForToken(token: string, limit = 500): TradeRow[] { return this.db.prepare(`SELECT * FROM curve_trades WHERE token = ? ORDER BY ts LIMIT ?`).all(lower(token), limit) as TradeRow[]; }
   tradesForWallet(wallet: string, sinceTs: number): TradeRow[] { return this.db.prepare(`SELECT * FROM curve_trades WHERE recipient = ? AND ts >= ? ORDER BY ts`).all(lower(wallet), sinceTs) as TradeRow[]; }

@@ -48,9 +48,10 @@ export async function runEngineWorker(role: Role): Promise<void> {
           send({ kind: "analysis", window: "4h", a: r.a, meta: r.meta, at: lastSlow, tick_ms: lastSlow - t1 });
         }
         if (!backfilled && lastSlow) {
-          // ticks from before the flow tables existed: recompute two days of sampled edges once, after the first 4h pass so the board is served first
+          // ticks from before the flow tables existed: recompute two days of sampled edges once, after the first 4h pass so the board is served first.
           backfilled = true;
-          for (const w of CONFIG.windows) { const t0 = Date.now(); const h = n.historyFlow(w, 48, "15m"); if (h.backfilled) console.log(`flow history: backfilled ${h.backfilled} ${w} ticks in ${Date.now() - t0} ms`); }
+          // 60m only: it is the window the site and the bot show; 15m and 4h accumulate live ticks from now on
+          if (CONFIG.windows.includes("60m")) { const t0 = Date.now(); const h = n.historyFlow("60m", 48, "15m"); if (h.backfilled) console.log(`flow history: backfilled ${h.backfilled} 60m ticks in ${Date.now() - t0} ms`); }
         }
         if (Date.now() - lastTrend >= CONFIG.trendEverySec * 1000) {
           // a 48 h aggregate over the trade tables (seconds of SQL): computed here so a request never waits on it
