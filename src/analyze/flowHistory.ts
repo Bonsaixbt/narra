@@ -35,20 +35,32 @@ export function sampleTicks(ticks: number[], since: number, stepSec: number, n: 
   return out;
 }
 
-/** Recomputes the edges of ticks that have cluster snapshots but no flow row. Returns how many ticks were filled. */
-export function backfillFlowHistory(store: Store, window: WindowKey, ticks: number[]): number {
+/**
+ * Recomputes the edges of ticks that have cluster snapshots but no flow row. Ticks are processed in time order and
+ * share one trade buffer per chunk (sampled ticks sit 15 min apart and each needs two windows of trades, so reading
+ * per tick would fetch the same rows eight times over). Returns how many ticks were filled.
+ */
+export function backfillFlowHistory(store: Store, window: WindowKey, ticks: number[], chunkSec = 6 * 3600): number {
   const have = new Set(store.flowTicks(window, ticks.length ? ticks[0] : 0));
   const windowSec = WINDOWS[window];
-  let n = 0;
-  for (const ts of ticks) {
-    if (have.has(ts)) continue;
-    const snaps = store.snapshotsAt(window, ts);
-    const membership = new Map<string, string>();
-    for (const s of snaps) for (const m of (JSON.parse(s.payload) as { members?: string[] }).members ?? []) membership.set(m, s.slug);
-    // launches since the previous window: a superset of what the live tick saw (it only knew launches of traded tokens)
-    const edges = membership.size ? flowEdges(membership, store.tradesBetween(ts - 2 * windowSec, ts + 1), store.launchesSince(ts - 2 * windowSec), { from: ts - windowSec, to: ts }) : [];
-    store.saveFlowSnapshot(window, ts, edges);
-    n++;
+  const todo = [...ticks].sort((a, b) => a - b).filter((t) => !have.has(t));
+  let n = 0, i = 0;
+  while (i < todo.length) {
+    const first = todo[i], end = Math.min(first + chunkSec, todo[todo.length - 1]);
+    const bufFrom = first - 2 * windowSec, bufTo = end + 1;
+    const trades = store.tradesForFlow(bufFrom, bufTo);
+    // launches since the buffer start: a superset of what the live tick saw (it only knew launches of traded tokens)
+    const launches = store.launchesSince(bufFrom).filter((l) => l.ts < bufTo);
+    for (; i < todo.length && todo[i] <= end; i++) {
+      const ts = todo[i];
+      const snaps = store.snapshotsAt(window, ts);
+      const membership = new Map<string, string>();
+      for (const s of snaps) for (const m of (JSON.parse(s.payload) as { members?: string[] }).members ?? []) membership.set(m, s.slug);
+      const lo = ts - 2 * windowSec;
+      const edges = membership.size ? flowEdges(membership, trades.filter((t) => t.ts >= lo && t.ts <= ts), launches, { from: ts - windowSec, to: ts }) : [];
+      store.saveFlowSnapshot(window, ts, edges);
+      n++;
+    }
   }
   return n;
 }

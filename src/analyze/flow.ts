@@ -2,14 +2,14 @@
  * Flow between clusters: wallets that bought ≥2 tokens of A in the previous window and ≥1 token of B in the current one,
  * plus deployers that launched in A before and in B now. Every edge is a count you can recompute from the trades table.
  */
-import type { LaunchRow, TradeRow } from "../store/db.js";
+import type { LaunchRow, FlowTradeRow } from "../store/db.js";
 import type { Edge, Move } from "./types.js";
 import type { Window } from "./heat.js";
 
 export interface FlowOptions { minWallets: number; minDeployers: number; maxTokensPerWallet: number }
 export const DEFAULT_FLOW_OPTIONS: FlowOptions = { minWallets: 5, minDeployers: 2, maxTokensPerWallet: 60 };
 
-export function flowEdges(membership: Map<string, string>, trades: TradeRow[], launches: LaunchRow[], window: Window, opts: FlowOptions = DEFAULT_FLOW_OPTIONS): Edge[] {
+export function flowEdges(membership: Map<string, string>, trades: FlowTradeRow[], launches: Pick<LaunchRow, "token" | "deployer" | "ts">[], window: Window, opts: FlowOptions = DEFAULT_FLOW_OPTIONS): Edge[] {
   const { from, to } = window;
   const prevFrom = from - (to - from);
   // wallet → cluster → set of tokens bought in the previous window
