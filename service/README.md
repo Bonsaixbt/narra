@@ -7,7 +7,7 @@ cd service && cp .env.example .env     # RPC comes from ../.env or ~/.narra/.env
 npm install && npm run dev             # http://127.0.0.1:4663/api/health
 ```
 
-Routes: `/api/health`, `/api/board`, `/api/coin/:ca`, `/api/find?q=`, `/api/cluster/:slug`, `/api/flow`*, `/api/wallets`*, `/api/wallet/:address`*, `/api/history/cluster/:slug`*, `/api/history/token/:ca`*, `/api/trend`*, `/api/stream` (SSE; anonymous viewers are delayed by `NARRA_PUBLIC_STREAM_DELAY_S`), `/api/schema/:name`, `/api/og/cluster/:slug` and `/api/og/coin/:ca` (SVG; append `/png` for PNG), `POST /api/holders/check`.
+Routes: `/api/health`, `/api/board`, `/api/coin/:ca`, `/api/find?q=`, `/api/cluster/:slug`, `/api/flow`*, `/api/wallets`*, `/api/wallet/:address`*, `/api/history/cluster/:slug`*, `/api/history/token/:ca`*, `/api/history/flow?window=&hours=&step=`*, `/api/trend`*, `/api/stream` (SSE; anonymous viewers are delayed by `NARRA_PUBLIC_STREAM_DELAY_S`), `/api/schema/:name`, `/api/og/cluster/:slug` and `/api/og/coin/:ca` (SVG; append `/png` for PNG), `POST /api/holders/check`.
 
 `*` would be holders-only once `NARRA_TOKEN_ADDRESS` and `NARRA_HOLDER_SECRET` are set; holder mode is postponed (roadmap), so leave them unset and every route stays open. The `15m` and `4h` windows on `/api/board` are gated the same way.
 
