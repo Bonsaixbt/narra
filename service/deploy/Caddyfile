@@ -1,5 +1,5 @@
 # TLS reverse proxy for the narra service. Replace the host. Caddy fetches certificates on its own.
-api.narra.example {
+api.narrahood.com {
   encode zstd gzip
   reverse_proxy 127.0.0.1:4663 {
     flush_interval -1          # SSE: do not buffer
