@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- service: Telegram alerts are one digest per `NARRA_TG_ALERT_BATCH_S` (5 min) — metas that turned HOT or started rotating, the biggest moves (≥10 wallets), graduations — instead of one message per event; nothing is sent during the first 90 s after a start, when the first tick replays every status; a 429 keeps the batch and retries after Telegram's pause.
 - Flow history: every analysis tick stores its edges (`flow_ticks`, `flow_snapshots`); `narra history flow` and `GET /api/history/flow?window&hours&step` return one sampled tick per step (the last inside it, never a sum: consecutive windows overlap and would count the same wallets many times). Ticks that predate the tables are recomputed from stored trades and cluster snapshots on first use; the service does that for the last 24 h at startup.
 - Flow edges carry `moves`: for every counted wallet, its earliest buy into the destination inside the window (`wallet, token, symbol, ts, eth, tx`), so a rotation can be traced to transactions. Flow history slots say `flow_known: false` for ticks whose edges were never computed.
 - Stable meta identity: clusters carry `id` (`slug@first_seen_ts`) and `first_seen_ts` on the board, the cluster card, flow nodes and flow history. The id follows the slug while it is inherited between ticks (shared members) and changes when a slug returns with different members. Stored in `cluster_snapshots.meta_id/first_seen` through an in-place migration.
