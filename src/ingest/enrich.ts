@@ -28,7 +28,8 @@ export async function enrichPending(store: Store, http: PublicClient, limit = 20
     ]);
     let results: { status: "success" | "failure"; result?: unknown }[];
     try {
-      results = (await http.multicall({ contracts, allowFailure: true })) as typeof results;
+      // batchSize 0: viem otherwise splits the aggregate into eth_calls of 1 KB of calldata each (dozens per 100 tokens)
+      results = (await http.multicall({ contracts, allowFailure: true, batchSize: 0 })) as typeof results;
     } catch (e) {
       failed += chunk.length;
       const now = Math.floor(Date.now() / 1000);
