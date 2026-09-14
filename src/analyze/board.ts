@@ -6,6 +6,7 @@ import { buildClusters, buyersByToken, dropSprayers, inheritSlugs, DEFAULT_CLUST
 import { heatOf } from "./heat.js";
 import { statusOf, STATUS_ORDER, THRESHOLDS } from "./status.js";
 import { flowEdges } from "./flow.js";
+import type { RawCluster } from "./cluster.js";
 import type { ClusterOut, Edge, MemberOut, TokenInfo } from "./types.js";
 import { walletStats, clusterStatuses, cohortMix, type WalletStat } from "./wallets.js";
 import { narrativeOf } from "./narrative.js";
@@ -80,8 +81,16 @@ export function analyze(store: Store, windowKey: string, windowSec: number, nowT
   extras.categorize?.(tokenList);
   const semantic = extras.semantic ? extras.semantic(tokenList) : [];
   const raw = buildClusters(tokenList, buyers, { ...opts, maxTokensPerWallet: sprayerCap }, 4, semantic);
-  const prev = store.latestSnapshots(windowKey).map((s) => ({ slug: s.slug, members: (JSON.parse(s.payload) as { members: string[] }).members ?? [] }));
+  const prev = store.latestSnapshots(windowKey).map((s) => ({ slug: s.slug, members: (JSON.parse(s.payload) as { members: string[] }).members ?? [], meta_id: s.meta_id ?? null, first_seen: s.first_seen ?? null, ts: s.ts }));
   inheritSlugs(prev, raw);
+  // identity: an inherited slug keeps the previous tick's id (snapshots from before ids existed get slug@their ts); a fresh slug is a new meta
+  const prevBySlug = new Map(prev.map((p) => [p.slug, p]));
+  const identity = (c: RawCluster): { id: string; first_seen_ts: number } => {
+    const p = c.inherited ? prevBySlug.get(c.slug) : undefined;
+    if (!p) return { id: `${c.slug}@${to}`, first_seen_ts: to };
+    const first = p.first_seen ?? p.ts;
+    return { id: p.meta_id ?? `${c.slug}@${first}`, first_seen_ts: first };
+  };
 
   const membership = new Map<string, string>();
   const memberScore = new Map<string, number>();
@@ -98,7 +107,7 @@ export function analyze(store: Store, windowKey: string, windowSec: number, nowT
     if (heat.unique_buyers < THRESHOLDS.publish.min_buyers && heat.n_launches < THRESHOLDS.publish.min_launches) return [];
     const nar = narrativeOf(c.members.map((m) => tokens.get(m)!).filter(Boolean));
     const flow = { in_wallets: ein.reduce((s, e) => s + e.wallets, 0), in_eth: r3(ein.reduce((s, e) => s + e.quote_norm, 0)), out_wallets: eout.reduce((s, e) => s + e.wallets, 0), out_eth: r3(eout.reduce((s, e) => s + e.quote_norm, 0)) };
-    return [{ slug: c.slug, label: c.top_tags.map((t) => t.tag).slice(0, 3).join(" · ") || c.slug, label_source: "tags" as const, status, top_tags: c.top_tags, members: c.members, heat, links: c.links,
+    return [{ slug: c.slug, ...identity(c), label: c.top_tags.map((t) => t.tag).slice(0, 3).join(" · ") || c.slug, label_source: "tags" as const, status, top_tags: c.top_tags, members: c.members, heat, links: c.links,
       narrative: nar.narrative, narrative_sub: nar.sub, narrative_mix: nar.mix, flow, rank: 0, rotating_from: ein[0]?.from ?? null, rotating_to: eout[0]?.to ?? null }];
   });
   const published = new Set(clusters.map((c) => c.slug));
@@ -113,7 +122,9 @@ export function analyze(store: Store, windowKey: string, windowSec: number, nowT
   clusters.sort((a, b) => STATUS_ORDER.indexOf(a.status) - STATUS_ORDER.indexOf(b.status) || b.heat.quote_norm_in - a.heat.quote_norm_in || b.heat.n_launches - a.heat.n_launches);
   clusters.forEach((c, i) => { c.rank = i + 1; });
 
-  store.saveSnapshots(clusters.map((c) => ({ slug: c.slug, window: windowKey, ts: to, status: c.status, payload: JSON.stringify({ members: c.members, heat: c.heat, top_tags: c.top_tags }) })));
+  store.saveSnapshots(clusters.map((c) => ({ slug: c.slug, window: windowKey, ts: to, status: c.status, payload: JSON.stringify({ members: c.members, heat: c.heat, top_tags: c.top_tags }), meta_id: c.id, first_seen: c.first_seen_ts })));
+  // the edges of this tick, for the flow history; only edges between published clusters are kept, like the board shows
+  store.saveFlowSnapshot(windowKey, to, edges.filter((e) => published.has(e.from) && published.has(e.to)));
 
   return {
     window: { key: windowKey, from, to, sec: windowSec }, clusters, edges, centroids, membership, memberScore, tokens, buyers, recentBuyers, trades, launches: allLaunches, wallets, sprayerCap, deployerFan,

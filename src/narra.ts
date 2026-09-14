@@ -110,7 +110,8 @@ import { TOPICS } from "./chain/topics.js";
 import { initSemantic, ensureEmbeddings, semanticPairs, nameCluster, categorize, type SemanticState } from "./semantic/index.js";
 import { applyCategories } from "./semantic/taxonomy.js";
 import { tokenNarratives } from "./analyze/narrative.js";
-import { readBoard, readWhy, readFlow, readWallets, readTrend, readClusterHistory, readTokenHistory } from "./analyze/readings.js";
+import { readBoard, readWhy, readFlow, readWallets, readTrend, readClusterHistory, readTokenHistory, readFlowHistory } from "./analyze/readings.js";
+import { flowHistory, type FlowStep, type FlowHistoryOut } from "./analyze/flowHistory.js";
 import { createHash } from "node:crypto";
 
 export interface QueryOptions {
@@ -186,7 +187,7 @@ Narra.prototype.now = async function (this: Narra, opts: QueryOptions = {}): Pro
   const lastTrades = opts.members ? lastTradeByToken(a) : undefined;
   const out: NowOut = {
     ...meta, quote_unit: "ETH",
-    clusters: clusters.map((c) => ({ slug: c.slug, label: c.label, status: c.status, top_tags: c.top_tags, n_members: c.members.length, heat: c.heat, links: c.links, summary: c.summary, label_source: c.label_source, narrative: c.narrative, narrative_sub: c.narrative_sub, narrative_mix: c.narrative_mix, flow: c.flow, rank: c.rank, cohorts: c.cohorts, rotating_from: c.rotating_from, rotating_to: c.rotating_to, ...(opts.members ? { members: membersOf(a, c, this.store, lastTrades) } : {}) })),
+    clusters: clusters.map((c) => ({ slug: c.slug, id: c.id, first_seen_ts: c.first_seen_ts, label: c.label, status: c.status, top_tags: c.top_tags, n_members: c.members.length, heat: c.heat, links: c.links, summary: c.summary, label_source: c.label_source, narrative: c.narrative, narrative_sub: c.narrative_sub, narrative_mix: c.narrative_mix, flow: c.flow, rank: c.rank, cohorts: c.cohorts, rotating_from: c.rotating_from, rotating_to: c.rotating_to, ...(opts.members ? { members: membersOf(a, c, this.store, lastTrades) } : {}) })),
     counts: a.counts,
   };
   out.reading = readBoard({ clusters: a.clusters.map((c) => ({ ...c, n_members: c.members.length, members: undefined })) as NowOut["clusters"], counts: a.counts, window: out.window });
@@ -288,7 +289,7 @@ export function buildReading(x: { verdict: string; cluster: { slug: string; stat
 
 Narra.prototype.flow = async function (this: Narra, opts: QueryOptions = {}): Promise<FlowOut> {
   const { a, meta } = await this.prepare(opts);
-  const out: FlowOut = { ...meta, nodes: a.clusters.map((c) => ({ slug: c.slug, status: c.status })), edges: a.edges };
+  const out: FlowOut = { ...meta, nodes: a.clusters.map((c) => ({ slug: c.slug, status: c.status, id: c.id, first_seen_ts: c.first_seen_ts })), edges: a.edges };
   out.reading = readFlow(out);
   return out;
 };
@@ -316,7 +317,7 @@ Narra.prototype.why = async function (this: Narra, slug: string, opts: QueryOpti
   });
   const out: WhyOut = {
     ...meta,
-    cluster: { slug: c.slug, label: c.label, status: c.status, top_tags: c.top_tags, n_members: c.members.length, heat: c.heat, links: c.links, summary: c.summary, label_source: c.label_source, narrative: c.narrative, narrative_sub: c.narrative_sub, narrative_mix: c.narrative_mix, flow: c.flow, rank: c.rank, cohorts: c.cohorts, rotating_from: c.rotating_from, rotating_to: c.rotating_to, members: membersOf(a, c, this.store) },
+    cluster: { slug: c.slug, id: c.id, first_seen_ts: c.first_seen_ts, label: c.label, status: c.status, top_tags: c.top_tags, n_members: c.members.length, heat: c.heat, links: c.links, summary: c.summary, label_source: c.label_source, narrative: c.narrative, narrative_sub: c.narrative_sub, narrative_mix: c.narrative_mix, flow: c.flow, rank: c.rank, cohorts: c.cohorts, rotating_from: c.rotating_from, rotating_to: c.rotating_to, members: membersOf(a, c, this.store) },
     tags, edges_in: a.edges.filter((e) => e.to === c.slug), edges_out: a.edges.filter((e) => e.from === c.slug),
     rule: "two tokens are linked when weighted Jaccard of their tags ≥ 0.35, or they share ≥ 5 buyers, or they share a deployer and a tag; the cluster is the connected component; the slug is its two heaviest tags",
   };
@@ -374,6 +375,12 @@ Narra.prototype.find = async function (this: Narra, text: string, opts: QueryOpt
 import { computeTrend, clusterHistory, tokenHistory, type TrendOut, type ClusterHistoryRow, type TokenHourRow } from "./analyze/trend.js";
 declare module "./narra.js" { interface Narra { trend(hours?: number, step?: number): TrendOut & { reading: string }; history(target: string, hours?: number): { slug?: string; token?: string; hours: number; snapshots?: ClusterHistoryRow[]; rows?: TokenHourRow[]; reading: string } } }
 Narra.prototype.trend = function (this: Narra, hours = 48, step = hours > 24 ? 4 : 1): TrendOut & { reading: string } { const t = computeTrend(this.store, hours, step); return { ...t, reading: readTrend(t) }; };
+declare module "./narra.js" { interface Narra { historyFlow(window?: WindowKey, hours?: number, step?: FlowStep): FlowHistoryOut & { reading: string } } }
+/** Sampled flow edges per step from the cache (reads only; fills missing ticks from stored trades on first use). */
+Narra.prototype.historyFlow = function (this: Narra, window: WindowKey = "60m", hours = 24, step: FlowStep = "1h"): FlowHistoryOut & { reading: string } {
+  const h = flowHistory(this.store, window, hours, step, this.store.stats().newest_trade_ts ?? Math.floor(Date.now() / 1000));
+  return { ...h, reading: readFlowHistory(h) };
+};
 Narra.prototype.history = function (this: Narra, target: string, hours = 24) {
   if (/^0x[0-9a-fA-F]{40}$/.test(target)) { const rows = tokenHistory(this.store, target, hours); return { token: target.toLowerCase(), hours, rows, reading: readTokenHistory(target, rows, hours) }; }
   const snapshots = clusterHistory(this.store, target, hours);

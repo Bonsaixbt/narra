@@ -28,7 +28,8 @@ export interface SwapRow {
   tx_hash: string; log_index: number; block: number; ts: number; pool_id: string; token: string; wallet: string;
   side: Side; quote_raw: string; tokens_raw: string; quote_norm: number | null;
 }
-export interface SnapshotRow { slug: string; window: string; ts: number; status: string; payload: string }
+export interface SnapshotRow { slug: string; window: string; ts: number; status: string; payload: string; meta_id?: string | null; first_seen?: number | null }
+export interface FlowSnapshotRow { window: string; ts: number; from_slug: string; to_slug: string; wallets: number; quote_norm: number; deployers: number }
 export interface HourlyRow { token: string; hour_ts: number; venue: "curve" | "pool"; buys: number; sells: number; quote_in: number; quote_out: number; unique_buyers: number; taxed: number }
 
 export const DEFAULT_DB_PATH = join(homedir(), ".narra", "narra.db");
@@ -50,6 +51,15 @@ export class Store {
     if (this.path !== ":memory:") mkdirSync(dirname(this.path), { recursive: true });
     this.db = new Database(this.path);
     this.db.exec(SCHEMA);
+    this.migrate();
+  }
+
+  /** Columns added after the first release; CREATE TABLE IF NOT EXISTS does not add them to an existing database. */
+  private migrate(): void {
+    const cols = new Set((this.db.prepare(`PRAGMA table_info(cluster_snapshots)`).all() as { name: string }[]).map((c) => c.name));
+    // meta_id: the identity a slug keeps while its members overlap tick to tick; first_seen: when that identity was born
+    if (!cols.has("meta_id")) this.db.exec(`ALTER TABLE cluster_snapshots ADD COLUMN meta_id TEXT`);
+    if (!cols.has("first_seen")) this.db.exec(`ALTER TABLE cluster_snapshots ADD COLUMN first_seen INTEGER`);
   }
 
   close(): void { this.db.close(); }
@@ -164,11 +174,32 @@ export class Store {
     this.db.prepare(`INSERT OR REPLACE INTO cursors (stream, last_block, last_block_hash) VALUES (?, ?, ?)`).run(stream, last_block, last_block_hash);
   }
   saveSnapshots(rows: SnapshotRow[]): void {
-    const st = this.db.prepare(`INSERT OR REPLACE INTO cluster_snapshots (slug, window, ts, status, payload) VALUES (@slug, @window, @ts, @status, @payload)`);
-    this.db.transaction(() => { for (const r of rows) st.run(r); })();
+    const st = this.db.prepare(`INSERT OR REPLACE INTO cluster_snapshots (slug, window, ts, status, payload, meta_id, first_seen) VALUES (@slug, @window, @ts, @status, @payload, @meta_id, @first_seen)`);
+    this.db.transaction(() => { for (const r of rows) st.run({ meta_id: null, first_seen: null, ...r }); })();
   }
   snapshots(slug: string, window: string, sinceTs: number): SnapshotRow[] {
     return this.db.prepare(`SELECT * FROM cluster_snapshots WHERE slug = ? AND window = ? AND ts >= ? ORDER BY ts`).all(slug, window, sinceTs) as SnapshotRow[];
+  }
+  /** Every cluster of one tick. */
+  snapshotsAt(window: string, ts: number): SnapshotRow[] {
+    return this.db.prepare(`SELECT * FROM cluster_snapshots WHERE window = ? AND ts = ? ORDER BY slug`).all(window, ts) as SnapshotRow[];
+  }
+  /** Tick times that have cluster snapshots, ascending. */
+  snapshotTicks(window: string, sinceTs: number): number[] {
+    return (this.db.prepare(`SELECT DISTINCT ts FROM cluster_snapshots WHERE window = ? AND ts >= ? ORDER BY ts`).all(window, sinceTs) as { ts: number }[]).map((r) => r.ts);
+  }
+  /** One tick's flow edges: the tick row plus its edges, atomically. */
+  saveFlowSnapshot(window: string, ts: number, edges: { from: string; to: string; wallets: number; quote_norm: number; deployers: number }[]): void {
+    const tick = this.db.prepare(`INSERT OR REPLACE INTO flow_ticks (window, ts, edges) VALUES (?, ?, ?)`);
+    const del = this.db.prepare(`DELETE FROM flow_snapshots WHERE window = ? AND ts = ?`);
+    const ins = this.db.prepare(`INSERT OR REPLACE INTO flow_snapshots (window, ts, from_slug, to_slug, wallets, quote_norm, deployers) VALUES (?, ?, ?, ?, ?, ?, ?)`);
+    this.db.transaction(() => { tick.run(window, ts, edges.length); del.run(window, ts); for (const e of edges) ins.run(window, ts, e.from, e.to, e.wallets, e.quote_norm, e.deployers); })();
+  }
+  flowTicks(window: string, sinceTs: number): number[] {
+    return (this.db.prepare(`SELECT ts FROM flow_ticks WHERE window = ? AND ts >= ? ORDER BY ts`).all(window, sinceTs) as { ts: number }[]).map((r) => r.ts);
+  }
+  flowEdgesAt(window: string, ts: number): FlowSnapshotRow[] {
+    return this.db.prepare(`SELECT * FROM flow_snapshots WHERE window = ? AND ts = ? ORDER BY wallets DESC, deployers DESC`).all(window, ts) as FlowSnapshotRow[];
   }
   latestSnapshots(window: string): SnapshotRow[] {
     return this.db.prepare(`SELECT s.* FROM cluster_snapshots s JOIN (SELECT slug, MAX(ts) ts FROM cluster_snapshots WHERE window = ? GROUP BY slug) m ON m.slug = s.slug AND m.ts = s.ts WHERE s.window = ?`).all(window, window) as SnapshotRow[];
@@ -218,6 +249,7 @@ export class Store {
     const swaps = this.db.prepare(`DELETE FROM pool_swaps WHERE ts < ?`).run(cutoff).changes;
     // cluster snapshots: 15m ticks are noise after two days, everything after 30 days; calibration reads 60m/4h within that
     this.db.prepare(`DELETE FROM cluster_snapshots WHERE ts < ? OR (window = '15m' AND ts < ?)`).run(now - 30 * 86_400, now - 2 * 86_400);
+    for (const t of ["flow_snapshots", "flow_ticks"]) this.db.prepare(`DELETE FROM ${t} WHERE ts < ? OR (window = '15m' AND ts < ?)`).run(now - 30 * 86_400, now - 2 * 86_400);
     // keep the WAL from growing without bound after big writes
     try { this.db.exec("PRAGMA wal_checkpoint(PASSIVE)"); } catch { /* another connection may hold it */ }
     return { trades, swaps, hours };

@@ -4,6 +4,7 @@
  */
 import type { NowOut, WhyOut, FlowOut, WalletsOut } from "../schemas.js";
 import type { TrendOut, ClusterHistoryRow, TokenHourRow } from "./trend.js";
+import type { FlowHistoryOut } from "./flowHistory.js";
 
 const eth = (v: number) => (v >= 10 ? v.toFixed(1) : v.toFixed(2));
 const n = (v: number) => v.toLocaleString("en-US");
@@ -85,4 +86,17 @@ export function readTokenHistory(token: string, rows: TokenHourRow[], hours: num
   const peak = [...rows].sort((a, b) => b.curve_in_eth + b.pool_in_eth - a.curve_in_eth - a.pool_in_eth)[0];
   const active = rows.filter((r) => r.curve_buys + r.pool_buys > 0).length;
   return `${eth(totalIn)} ETH in over ${hours}h, active in ${active} of ${rows.length} hours, busiest hour ${peak.hour.slice(11, 16)} UTC with ${eth(peak.curve_in_eth + peak.pool_in_eth)} ETH and ${peak.buyers} buyers.`;
+}
+
+export function readFlowHistory(h: FlowHistoryOut): string {
+  const filled = h.slots.filter((s) => s.ts !== null);
+  if (!filled.length) return `No ticks in the last ${h.hours}h: the cache has no snapshots for the ${h.window} window yet.`;
+  const withEdges = filled.filter((s) => s.edges.length);
+  if (!withEdges.length) return `${filled.length} of ${h.slots.length} steps sampled over the last ${h.hours}h; no rotation above the threshold in any of them.`;
+  const busiest = withEdges.reduce((b, s) => (s.edges.reduce((n, e) => n + e.wallets, 0) > b.edges.reduce((n, e) => n + e.wallets, 0) ? s : b));
+  const moved = busiest.edges.reduce((n, e) => n + e.wallets, 0);
+  const dest = new Map<string, number>(); for (const s of withEdges) for (const e of s.edges) dest.set(e.to, (dest.get(e.to) ?? 0) + 1);
+  const top = [...dest].sort((a, b) => b[1] - a[1])[0];
+  const when = new Date((busiest.ts as number) * 1000).toISOString().slice(11, 16);
+  return `${withEdges.length} of ${h.slots.length} steps show rotation over the last ${h.hours}h. Busiest sample at ${when} UTC: ${moved} wallets across ${busiest.edges.length} edges, led by ${busiest.edges[0].from} → ${busiest.edges[0].to}. ${top[0]} is the most frequent destination (${top[1]} of ${withEdges.length} samples).`;
 }

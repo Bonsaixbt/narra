@@ -1,0 +1,139 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "window": {
+      "type": "string",
+      "enum": [
+        "15m",
+        "60m",
+        "4h"
+      ]
+    },
+    "hours": {
+      "type": "number"
+    },
+    "step": {
+      "type": "string",
+      "enum": [
+        "15m",
+        "1h",
+        "4h"
+      ]
+    },
+    "step_s": {
+      "type": "number"
+    },
+    "since": {
+      "type": "number"
+    },
+    "until": {
+      "type": "number"
+    },
+    "backfilled": {
+      "type": "number"
+    },
+    "reading": {
+      "type": "string"
+    },
+    "slots": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "ts": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "from_ts": {
+            "type": "number"
+          },
+          "nodes": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "slug": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string"
+                },
+                "id": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "first_seen_ts": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "slug",
+                "status",
+                "id",
+                "first_seen_ts"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "edges": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "from": {
+                  "type": "string"
+                },
+                "to": {
+                  "type": "string"
+                },
+                "wallets": {
+                  "type": "number"
+                },
+                "eth": {
+                  "type": "number"
+                },
+                "deployers": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "from",
+                "to",
+                "wallets",
+                "eth",
+                "deployers"
+              ],
+              "additionalProperties": false
+            }
+          }
+        },
+        "required": [
+          "ts",
+          "from_ts",
+          "nodes",
+          "edges"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "window",
+    "hours",
+    "step",
+    "step_s",
+    "since",
+    "until",
+    "backfilled",
+    "slots"
+  ],
+  "additionalProperties": false
+}

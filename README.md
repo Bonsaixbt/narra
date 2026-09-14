@@ -99,6 +99,7 @@ First run reads the last hour from the public RPCs (about two minutes) into `~/.
 | `narra wallets [--cohort sniper\|sprayer\|rotator\|early-in-hot] [--sort net_eth]` | which wallets carry capital between metas, with cohort labels | 0 |
 | `narra wallet <0x…>` | one wallet: cohorts, positions, entry delay after launch, ETH in/out | 0 |
 | `narra history <slug\|0x…> [--hours 24]` | status timeline of a meta, or hourly activity of a token | 0 / 3 |
+| `narra history flow [--hours 24] [--step 1h] [--window 60m]` | flow edges sampled per step from the cache (one tick per step) | 0 |
 | `narra watch [--every 15] [--only STATUS,EDGE]` | live feed: LAUNCH, STATUS, EDGE, GRAD, JOIN | runs until ctrl-c |
 | `narra doctor` | RPC, chain id, live Pons parameters vs expectations, cache | 0 / 11 |
 | `narra serve [--port 4663]` | the same answers as JSON over local HTTP + SSE | runs |

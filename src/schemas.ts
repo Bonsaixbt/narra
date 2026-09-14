@@ -31,6 +31,8 @@ export const Member = z.object({
 });
 export const Cluster = z.object({
   slug: z.string(), label: z.string(), status: Status, top_tags: z.array(z.object({ tag: z.string(), weight: z.number() })),
+  // identity across ticks: `slug@first_seen`; a slug that returns with different members is a new id
+  id: z.string(), first_seen_ts: z.number(),
   n_members: z.number(), heat: Heat, links: z.object({ text: z.number(), wallet: z.number(), deployer: z.number(), semantic: z.number() }),
   summary: z.string().optional(), label_source: z.enum(["tags", "model", "cache"]).optional(),
   narrative: z.string(), narrative_sub: z.string().nullable(), narrative_mix: z.record(z.string(), z.number()),
@@ -67,7 +69,15 @@ export const CoinOut = Meta.extend({
   evidence: z.object({ early_buyers: z.number(), overlap_buyers: z.number(), text_score: z.number(), wallet_score: z.number(), launch_tx: z.string().nullable(), launch_block: z.number().nullable() }),
 });
 export const NotPonsOut = Meta.extend({ token: z.string(), verdict: z.literal("NOT_PONS"), reasons: z.array(z.string()) });
-export const FlowOut = Meta.extend({ reading: z.string().optional(), nodes: z.array(z.object({ slug: z.string(), status: Status })), edges: z.array(Edge) });
+export const FlowOut = Meta.extend({ reading: z.string().optional(), nodes: z.array(z.object({ slug: z.string(), status: Status, id: z.string(), first_seen_ts: z.number() })), edges: z.array(Edge) });
+export const FlowHistoryOut = z.object({
+  window: z.enum(["15m", "60m", "4h"]), hours: z.number(), step: z.enum(["15m", "1h", "4h"]), step_s: z.number(), since: z.number(), until: z.number(), backfilled: z.number(), reading: z.string().optional(),
+  slots: z.array(z.object({
+    ts: z.number().nullable(), from_ts: z.number(),
+    nodes: z.array(z.object({ slug: z.string(), status: z.string(), id: z.string().nullable(), first_seen_ts: z.number().nullable() })),
+    edges: z.array(z.object({ from: z.string(), to: z.string(), wallets: z.number(), eth: z.number(), deployers: z.number() })),
+  })),
+});
 export const WhyOut = Meta.extend({
   reading: z.string().optional(),
   cluster: Cluster, tags: z.array(z.object({ tag: z.string(), weight: z.number(), examples: z.array(z.string()) })),
@@ -108,11 +118,12 @@ export const HealthOut = z.object({
   narra: z.string().optional(), gate: z.boolean().optional(), stream_clients: z.number().optional(), alerts: z.unknown().optional(), bot: z.unknown().optional(),
 });
 
-export const SCHEMAS = { now: NowOut, coin: CoinOut, not_pons: NotPonsOut, find: FindOut, flow: FlowOut, why: WhyOut, watch: WatchEvent, wallets: WalletsOut, wallet: WalletOut, trend: TrendOut, history_cluster: ClusterHistoryOut, history_token: TokenHistoryOut, holders_check: HoldersCheckOut, health: HealthOut, error: ErrorOut } as const;
+export const SCHEMAS = { now: NowOut, coin: CoinOut, not_pons: NotPonsOut, find: FindOut, flow: FlowOut, why: WhyOut, watch: WatchEvent, wallets: WalletsOut, wallet: WalletOut, trend: TrendOut, history_cluster: ClusterHistoryOut, history_token: TokenHistoryOut, history_flow: FlowHistoryOut, holders_check: HoldersCheckOut, health: HealthOut, error: ErrorOut } as const;
 export type NowOut = z.infer<typeof NowOut>;
 export type CoinOut = z.infer<typeof CoinOut>;
 export type NotPonsOut = z.infer<typeof NotPonsOut>;
 export type FlowOut = z.infer<typeof FlowOut>;
+export type FlowHistoryOut = z.infer<typeof FlowHistoryOut>;
 export type WhyOut = z.infer<typeof WhyOut>;
 export type WatchEvent = z.infer<typeof WatchEvent>;
 export type WalletsOut = z.infer<typeof WalletsOut>;

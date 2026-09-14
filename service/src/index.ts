@@ -85,6 +85,15 @@ app.get("/api/wallets", gated, async (c) => { const rw = resolveWindow(c); if (r
 app.get("/api/wallet/:address", gated, async (c) => { const a = c.req.param("address"); if (!/^0x[0-9a-fA-F]{40}$/.test(a)) { const e = err("BAD_ADDRESS", "expected 0x + 40 hex", 400); return c.json(e.body, e.status); } const rw = resolveWindow(c); if (rw instanceof Response) return rw; const { w, cached } = rw; return c.json(await engine.n.wallet(a, { analysis: cached, window: w })); });
 app.get("/api/history/cluster/:slug", gated, (c) => c.json(engine.n.history(c.req.param("slug"), Number(c.req.query("hours") ?? 24))));
 app.get("/api/history/token/:ca", gated, (c) => c.json(engine.n.history(c.req.param("ca"), Number(c.req.query("hours") ?? 24))));
+app.get("/api/history/flow", gated, (c) => {
+  // sampled ticks from the cache: one tick per step, never a sum (consecutive windows overlap)
+  const w = windowOf(c.req.query("window"));
+  if (!w) { const e = err("BAD_WINDOW", "window must be 15m, 60m or 4h", 400); return c.json(e.body, e.status); }
+  const step = c.req.query("step") ?? "1h";
+  if (step !== "15m" && step !== "1h" && step !== "4h") { const e = err("BAD_STEP", "step must be 15m, 1h or 4h", 400); return c.json(e.body, e.status); }
+  const hours = Math.min(720, Math.max(1, Number(c.req.query("hours") ?? 24) || 24));
+  return c.json(engine.n.historyFlow(w, hours, step));
+});
 app.get("/api/trend", gated, (c) => {
   // served from the worker's cache: the aggregate takes seconds of SQL and used to block every other route while it ran
   const hours = Number(c.req.query("hours") ?? TREND.hours), step = Number(c.req.query("step") ?? TREND.step);

@@ -104,6 +104,12 @@
               "additionalProperties": false
             }
           },
+          "id": {
+            "type": "string"
+          },
+          "first_seen_ts": {
+            "type": "number"
+          },
           "n_members": {
             "type": "number"
           },
@@ -368,6 +374,8 @@
           "label",
           "status",
           "top_tags",
+          "id",
+          "first_seen_ts",
           "n_members",
           "heat",
           "links",

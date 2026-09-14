@@ -28,6 +28,11 @@ export async function runEngineWorker(role: Role): Promise<void> {
     // the fast worker syncs; wait for its first analysis before reading the store, or the first 4h pass sees a stale cursor
     await new Promise<void>((r) => process.on("message", (m: { kind?: string }) => { if (m?.kind === "go") r(); }));
   }
+  if (!fast) {
+    // ticks from before flow_snapshots existed: recompute the last day's sampled edges once, so /history/flow is not empty
+    try { for (const w of CONFIG.windows) { const t0 = Date.now(); const h = n.historyFlow(w, 24, "15m"); if (h.backfilled) console.log(`flow history: backfilled ${h.backfilled} ${w} ticks in ${Date.now() - t0} ms`); } }
+    catch (e) { send({ kind: "error", error: `flow backfill: ${(e as Error).message.split("\n")[0]}` }); }
+  }
   let lastSlow = 0, lastTrend = 0;
   while (!stop) {
     const t0 = Date.now();

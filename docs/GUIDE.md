@@ -204,6 +204,7 @@ Cohorts:
 narra trend --hours 48 --step 4  # ETH per step, narrative shares
 narra history cat-fart --hours 6 # a meta's statuses from snapshots
 narra history 0xADDRESS --hours 24   # a token's hourly activity
+narra history flow --hours 24 --step 1h  # who moved where, one sampled tick per hour
 narra backfill --hours 72        # fetch more history
 ```
 
