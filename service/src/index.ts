@@ -100,7 +100,13 @@ app.post("/api/holders/check", async (c) => {
 
 app.get("/api/stream", (c) => {
   const holder = !!c.get("holder") || !gateEnabled();
+  // proxies and CDNs (Cloudflare included) buffer and compress small streamed responses unless told not to;
+  // the leading 2 KB comment pushes the first bytes through their buffers so `hello` arrives at once
+  c.header("cache-control", "no-cache, no-transform");
+  c.header("x-accel-buffering", "no");
+  c.header("content-encoding", "identity");
   return streamSSE(c, async (stream) => {
+    await stream.write(": " + " ".repeat(2048) + "\n\n");
     await stream.writeSSE({ event: "hello", data: JSON.stringify({ delayed_s: holder ? 0 : CONFIG.publicStreamDelaySec }) });
     let open = true;
     const remove = hub.add({ holder, write: (e: WatchEvent) => { if (open) void stream.writeSSE({ event: e.type, data: JSON.stringify(e) }); } });
