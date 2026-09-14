@@ -1,5 +1,5 @@
 /** Share cards as SVG (1200×630). PNG for X previews comes from the same SVG through a rasteriser at the edge. */
-import type { NowOut, CoinOut, NotPonsOut } from "narra-cli";
+import type { NowOut, CoinOut, NotPonsOut } from "narrahood";
 
 const esc = (s: string) => s.replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]!));
 const COLOR: Record<string, string> = { HOT: "#FF5A36", "ROTATING IN": "#FF5A36", EMERGING: "#FFB020", COOLING: "#4F8CFF", DEAD: "#4A4F58", "ROTATING OUT": "#B66CFF", IN: "#3DDC97", EDGE: "#FFB020", OUT: "#B66CFF", ORPHAN: "#8A8F99", NOT_PONS: "#FF5A36" };

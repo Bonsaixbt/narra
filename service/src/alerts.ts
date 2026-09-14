@@ -4,7 +4,7 @@
  * graduations. One entry per slug per `dedupeSec`, nothing during the first `warmupSec` after a start (the first
  * tick replays every status), never a URL to a trade. Public chats can be delayed like the public stream.
  */
-import type { WatchEvent } from "narra-cli";
+import type { WatchEvent } from "narrahood";
 
 export interface AlertConfig { token: string; chats: string[]; events: Set<string>; dedupeSec: number; perMinute: number; delaySec: number; batchSec: number; warmupSec: number; siteUrl: string }
 

@@ -1,6 +1,6 @@
 # narra service
 
-The narra engine as a hosted service: HTTP + SSE for the site, a holder gate, rate limits, share cards, history beyond the local retention. Same code as `narra-cli`; nothing is computed here that the terminal does not compute.
+The narra engine as a hosted service: HTTP + SSE for the site, a holder gate, rate limits, share cards, history beyond the local retention. Same code as `narrahood`; nothing is computed here that the terminal does not compute.
 
 ```sh
 cd service && cp .env.example .env     # RPC comes from ../.env or ~/.narra/.env

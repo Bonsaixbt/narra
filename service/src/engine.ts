@@ -1,7 +1,7 @@
 /** The engine seen from the API process: a cache of analyses filled by the child, a Narra that only reads. */
 import { fork, type ChildProcess } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { Narra, diffEvents, type Analysis, type WatchEvent, type QueryOptions } from "narra-cli";
+import { Narra, diffEvents, type Analysis, type WatchEvent, type QueryOptions } from "narrahood";
 import { CONFIG } from "./config.js";
 import type { WorkerMsg, Role } from "./engineWorker.js";
 

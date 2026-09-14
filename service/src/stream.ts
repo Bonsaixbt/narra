@@ -1,5 +1,5 @@
 /** SSE hub. Holders see events as they happen; anonymous viewers see them `delaySec` later. */
-import type { WatchEvent } from "narra-cli";
+import type { WatchEvent } from "narrahood";
 
 type Sink = { write: (e: WatchEvent) => void; holder: boolean };
 

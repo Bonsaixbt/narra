@@ -1,7 +1,7 @@
 /**
  * narra as a library.
  *
- *   import { createNarra } from "narra-cli";
+ *   import { createNarra } from "narrahood";
  *   const narra = createNarra();                 // public RPCs, cache in ~/.narra
  *   const board = await narra.now();             // same object as `narra now --json`
  *   const card  = await narra.coin("0x…");

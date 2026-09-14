@@ -1,4 +1,4 @@
-import { loadEnv } from "narra-cli";
+import { loadEnv } from "narrahood";
 loadEnv();
 const num = (k: string, d: number) => Number(process.env[k] ?? d);
 export const CONFIG = {

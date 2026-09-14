@@ -1,4 +1,4 @@
-"""narra as LangChain tools. Requires the narra CLI on PATH (npm i -g narra-cli) or npx.
+"""narra as LangChain tools. Requires the narra CLI on PATH (npm i -g narrahood) or npx.
 
     from narra_tool import narra_now, narra_coin, narra_flow, narra_why
     agent = create_react_agent(llm, [narra_now, narra_coin, narra_flow, narra_why])
@@ -9,7 +9,7 @@ import subprocess
 
 from langchain_core.tools import tool
 
-_BIN = ["narra"] if shutil.which("narra") else ["npx", "-y", "narra-cli"]
+_BIN = ["narra"] if shutil.which("narra") else ["npx", "-y", "narrahood"]
 
 
 def _run(*args: str) -> str:

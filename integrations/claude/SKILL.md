@@ -21,7 +21,7 @@ narra is a read-only terminal tool. It never signs or sends transactions.
 | "how did rotation between metas change over the day" | `narra history flow --hours 24 --step 1h --json` |
 | tool errors, weird numbers | `narra doctor --json` |
 
-If `narra` is not installed: `npx -y narra-cli <command>`.
+If `narra` is not installed: `npx -y narrahood <command>`.
 
 ## How to read the output
 

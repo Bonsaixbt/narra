@@ -4,4 +4,4 @@ globs:
 alwaysApply: false
 ---
 
-When a 0x address from Robinhood Chain / Pons comes up, run `narra coin <CA> --json` (or `npx -y narra-cli coin <CA> --json`) before forming an opinion. Quote `reasons` verbatim. `IN` means the token belongs to a live meta; it is not a recommendation. Do not suggest entries into OUT/ORPHAN tokens or DEAD/COOLING clusters. For "what is hot right now" run `narra now --json`; for rotation `narra flow --json`.
+When a 0x address from Robinhood Chain / Pons comes up, run `narra coin <CA> --json` (or `npx -y narrahood coin <CA> --json`) before forming an opinion. Quote `reasons` verbatim. `IN` means the token belongs to a live meta; it is not a recommendation. Do not suggest entries into OUT/ORPHAN tokens or DEAD/COOLING clusters. For "what is hot right now" run `narra now --json`; for rotation `narra flow --json`.
