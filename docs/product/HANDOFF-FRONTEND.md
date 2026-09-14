@@ -39,6 +39,7 @@ Every response is validated against zod schemas; the JSON Schemas are checked in
 | GET | `/history/token/:ca?hours=24` | `{ token, hours, rows: [{hour, curve_buys, curve_in_eth, pool_buys, pool_in_eth, buyers}] }` | holders |
 | GET | `/trend?hours=48&step=4` | `{ narratives: string[], rows: [{from, launches, buys, eth, narratives: {name: pct}}] }` | holders |
 | GET | `/stream` | SSE: `hello`, then `LAUNCH`, `STATUS`, `EDGE`, `GRAD`, `JOIN`, `SYNC`, `ping`; `data:` is a `WatchEvent` | anonymous viewers get events 5 minutes late |
+| GET | `/events?since=<unix\|ms\|iso>` | `{ since, until, delayed_s, events: WatchEvent[] }` — the polling twin of `/stream`; pass the returned `until` as the next `since`. Use this behind proxies that buffer SSE (Cloudflare quick tunnels do) | same delay rule |
 | GET | `/schema/:name` | JSON Schema | no |
 | GET | `/og/cluster/:slug`, `/og/coin/:ca` | SVG 1200×630 share card; add `/png` for `image/png` (X previews need PNG) | no |
 | POST | `/holders/check` `{ address }` | `{ address, balance, threshold, ok, token? }` and sets the `narra_holder` cookie when `ok` | no |
