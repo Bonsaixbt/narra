@@ -54,7 +54,7 @@ export class Engine {
     const age = c ? Math.round((Date.now() - c.at) / 1000) : null;
     const stats = this.n.store.stats();
     const cursor = this.n.store.getCursor("main")?.last_block ?? null;
-    const lag = c?.meta.head_block !== null && c?.meta.head_block !== undefined && cursor !== null ? c.meta.head_block - cursor : null;
+    const lag = c?.meta.head_block !== null && c?.meta.head_block !== undefined && cursor !== null ? Math.max(0, c.meta.head_block - cursor) : null;
     const ok = !!c && age !== null && age <= CONFIG.staleAfterSec && (lag === null || lag <= CONFIG.maxLagBlocks) && !this.lastError;
     return { ok, snapshot_age_s: age, head_block: c?.meta.head_block ?? null, cursor_block: cursor, lag_blocks: lag, ticks: this.ticks, last_error: this.lastError || null, windows: [...this.cache.keys()], ...stats };
   }

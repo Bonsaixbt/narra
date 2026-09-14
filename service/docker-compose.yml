@@ -8,5 +8,6 @@ services:
   backup:
     image: alpine:3.20
     volumes: ["./data:/data", "./backups:/backups"]
-    entrypoint: ["/bin/sh", "-c", "apk add --no-cache sqlite >/dev/null && while true; do sqlite3 /data/narra.db \".backup /backups/narra-$(date +%Y%m%d%H).db\"; find /backups -name 'narra-*.db' -mtime +7 -delete; sleep 3600; done"]
+    # every 6 h: consistent copy → gzip; keep 3 days (≈ 12 files × ~0.5 GB). A raw hourly copy of a 2 GB database fills a disk in a day.
+    entrypoint: ["/bin/sh", "-c", "apk add --no-cache sqlite gzip >/dev/null && while true; do f=/backups/narra-$(date +%Y%m%d%H).db; sqlite3 /data/narra.db \".backup $f\" && gzip -1 -f $f; find /backups -name 'narra-*.db*' -mtime +3 -delete; sleep 21600; done"]
     restart: unless-stopped
