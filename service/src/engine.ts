@@ -21,6 +21,9 @@ export class Engine {
   private started = false;
   lastError = "";
   ticks = 0;
+  /** The fast worker's RPC gate counters and live-trigger state, as of its last tick: the quota meter. */
+  rpc: unknown = null;
+  live: unknown = null;
   private stats: { at: number; v: ReturnType<Narra["store"]["stats"]> } | null = null;
   tickMs: Record<string, number> = {};
   constructor(private onEvent: (e: WatchEvent) => void) {}
@@ -47,7 +50,7 @@ export class Engine {
         }
         this.lastError = "";
       } else if (m.kind === "trend") { this.trendCache = { t: m.t as TrendCached["t"], at: m.at, ms: m.ms }; this.tickMs.trend = m.ms; }
-      else if (m.kind === "tick") this.ticks = m.ticks;
+      else if (m.kind === "tick") { this.ticks = m.ticks; this.rpc = m.rpc ?? null; this.live = m.live ?? null; }
       else if (m.kind === "error") this.lastError = m.error;
     });
     child.on("exit", (code) => {
@@ -70,7 +73,7 @@ export class Engine {
     const cursor = this.n.store.getCursor("main")?.last_block ?? null;
     const lag = c?.meta.head_block !== null && c?.meta.head_block !== undefined && cursor !== null ? Math.max(0, c.meta.head_block - cursor) : null;
     const ok = !!c && age !== null && age <= CONFIG.staleAfterSec && (lag === null || lag <= CONFIG.maxLagBlocks) && !this.lastError;
-    return { ok, snapshot_age_s: age, head_block: c?.meta.head_block ?? null, cursor_block: cursor, lag_blocks: lag, ticks: this.ticks, tick_ms: this.tickMs, worker_restarts: this.restarts, last_error: this.lastError || null, windows: [...this.cache.keys()], ...stats };
+    return { ok, snapshot_age_s: age, head_block: c?.meta.head_block ?? null, cursor_block: cursor, lag_blocks: lag, ticks: this.ticks, tick_ms: this.tickMs, worker_restarts: this.restarts, last_error: this.lastError || null, windows: [...this.cache.keys()], rpc: this.rpc, live: this.live, ...stats };
   }
 
   close(): void { this.stopped = true; for (const c of Object.values(this.children)) { try { c.disconnect(); } catch { /* gone */ } } this.n.close(); }
