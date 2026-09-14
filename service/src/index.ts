@@ -65,7 +65,7 @@ const bot = botCfg ? new CommunityBot(botCfg, {
   trend: async () => engine.trend()?.t ?? null,
 }) : null;
 
-app.get("/api/health", (c) => { const h = engine.health(); return c.json({ ...h, narra: "service 0.1.0", gate: gateEnabled(), stream_clients: hub.size, alerts: alerter ? { sent: alerter.sent, dropped: alerter.dropped, errors: alerter.errors } : null, bot: bot ? { sent: bot.sent, errors: bot.errors } : null }, h.ok ? 200 : 503); });
+app.get("/api/health", (c) => { const h = engine.health(); return c.json({ ...h, narra: "service 0.1.0", gate: gateEnabled(), stream_clients: hub.size, alerts: alerter ? { sent: alerter.sent, dropped: alerter.dropped, errors: alerter.errors, last_error: alerter.lastError || null } : null, bot: bot ? { sent: bot.sent, errors: bot.errors, last_error: bot.lastError || null, poll_age_s: bot.lastPollAt ? Math.round((Date.now() - bot.lastPollAt) / 1000) : null } : null }, h.ok ? 200 : 503); });
 
 app.get("/api/board", async (c) => {
   const rw = resolveWindow(c); if (rw instanceof Response) return rw; const { w, cached } = rw;

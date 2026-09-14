@@ -144,6 +144,9 @@ export class CommunityBot {
   private stopped = false;
   private perUser = new RateLimiter(10);
   sent = 0; errors = 0;
+  /** The last Telegram refusal, and when getUpdates last succeeded: a stuck poll shows up as a growing poll age in health. */
+  lastError = "";
+  lastPollAt = 0;
   constructor(private cfg: BotConfig, private api: BotApi, private fetchFn: typeof fetch = fetch) {}
 
   private pausedUntil = 0;
@@ -153,8 +156,9 @@ export class CommunityBot {
       const r = await this.fetchFn(`https://api.telegram.org/bot${this.cfg.token}/sendMessage`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ chat_id: chat, text: text.slice(0, 4000), parse_mode: "HTML", disable_web_page_preview: true, ...(replyTo ? { reply_parameters: { message_id: replyTo, allow_sending_without_reply: true } } : {}) }), signal: AbortSignal.timeout(10_000) });
       if (r.ok) { this.sent++; return; }
       this.errors++;
+      this.lastError = `${r.status} ${((await r.clone().json().catch(() => ({}))) as { description?: string }).description ?? ""}`.trim();
       if (r.status === 429) { const j = (await r.json().catch(() => ({}))) as { parameters?: { retry_after?: number } }; this.pausedUntil = Date.now() + ((j.parameters?.retry_after ?? 5) * 1000); }
-    } catch { this.errors++; }
+    } catch (e) { this.errors++; this.lastError = (e as Error).message; }
   }
 
   async answer(text: string): Promise<string | null> {
@@ -206,9 +210,11 @@ export class CommunityBot {
       while (!this.stopped) {
         try {
           const r = await this.fetchFn(`https://api.telegram.org/bot${this.cfg.token}/getUpdates?offset=${this.offset}&timeout=25&allowed_updates=%5B%22message%22%5D`, { signal: AbortSignal.timeout(35_000) });
-          const j = (await r.json()) as { ok: boolean; result?: { update_id: number; message?: { text?: string; chat: { id: number }; from?: { id: number } } }[] };
+          const j = (await r.json()) as { ok: boolean; description?: string; result?: { update_id: number; message?: { text?: string; chat: { id: number }; from?: { id: number } } }[] };
+          if (!j.ok) { this.errors++; this.lastError = `getUpdates ${r.status} ${j.description ?? ""}`.trim(); await new Promise((res) => setTimeout(res, 5_000)); continue; }
+          this.lastPollAt = Date.now();
           for (const u of j.result ?? []) { this.offset = u.update_id + 1; await this.handle(u as Parameters<CommunityBot["handle"]>[0]); }
-        } catch { this.errors++; await new Promise((res) => setTimeout(res, 5_000)); }
+        } catch (e) { this.errors++; this.lastError = `getUpdates ${(e as Error).message}`; await new Promise((res) => setTimeout(res, 5_000)); }
         if (Date.now() >= nextDigest) { nextDigest = Date.now() + this.cfg.digestEverySec * 1000; await this.digest(); }
       }
     })();
