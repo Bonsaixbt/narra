@@ -215,6 +215,8 @@ export class Store {
     const hours = this.compact(cutoff);
     const trades = this.db.prepare(`DELETE FROM curve_trades WHERE ts < ?`).run(cutoff).changes;
     const swaps = this.db.prepare(`DELETE FROM pool_swaps WHERE ts < ?`).run(cutoff).changes;
+    // cluster snapshots: 15m ticks are noise after two days, everything after 30 days; calibration reads 60m/4h within that
+    this.db.prepare(`DELETE FROM cluster_snapshots WHERE ts < ? OR (window = '15m' AND ts < ?)`).run(now - 30 * 86_400, now - 2 * 86_400);
     // keep the WAL from growing without bound after big writes
     try { this.db.exec("PRAGMA wal_checkpoint(PASSIVE)"); } catch { /* another connection may hold it */ }
     return { trades, swaps, hours };
