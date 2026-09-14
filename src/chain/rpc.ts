@@ -32,6 +32,8 @@ export interface GateStats {
   maxLogRange: number;
   calls: number;
   refusals: number;
+  /** calls per JSON-RPC method since start: what the quota is spent on */
+  by_method: Record<string, number>;
   endpoints: { label: string; logs: boolean; benched: boolean; calls: number; refusals: number; concurrency: number }[];
 }
 
@@ -57,6 +59,7 @@ export function createGate(specs: EndpointSpec[] = DEFAULT_ENDPOINTS, opts: Gate
   const eps: EndpointState[] = specs.map((s) => ({ ...s, active: 0, queue: [], benchedUntil: 0, lastLogsAt: 0, calls: 0, refusals: 0 }));
   let nextId = 1;
   let totalCalls = 0;
+  const byMethod = new Map<string, number>();
   let totalRefusals = 0;
 
   const candidates = (method: string): EndpointState[] => {
@@ -117,7 +120,7 @@ export function createGate(specs: EndpointSpec[] = DEFAULT_ENDPOINTS, opts: Gate
       if (!list.length) throw new RpcError(`${method}: no endpoint serves this method (eth_getLogs needs an endpoint with logs=true)`);
       const ep = list[Math.min(attempt, list.length - 1)];
       await acquire(ep, method);
-      ep.calls++; totalCalls++;
+      ep.calls++; totalCalls++; byMethod.set(method, (byMethod.get(method) ?? 0) + 1);
       let status = 0; let text = "";
       try {
         const res = await fetchFn(ep.url, { method: "POST", headers: { "content-type": "application/json", "user-agent": "narra/0.1" }, body, signal: AbortSignal.timeout(timeoutMs) });
@@ -172,6 +175,7 @@ export function createGate(specs: EndpointSpec[] = DEFAULT_ENDPOINTS, opts: Gate
       maxLogRange: learnedMaxRange,
       calls: totalCalls,
       refusals: totalRefusals,
+      by_method: Object.fromEntries(byMethod),
       endpoints: eps.map((e) => ({ label: e.label, logs: e.logs, benched: e.benchedUntil > now(), calls: e.calls, refusals: e.refusals, concurrency: e.concurrency })),
     }),
     labels: () => eps.map((e) => e.label).join("+"),
