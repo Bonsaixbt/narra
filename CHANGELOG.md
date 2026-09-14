@@ -4,6 +4,7 @@
 
 - `trend`: the hourly aggregate forces the `ts` indexes; the planner used to walk `(token, ts)` in token order and touch the whole trade table through random pages (65 s on 2.4M rows, now ~7 s). Token history reads a token's pool swaps by index instead of scanning a day of swaps (0.9 s → 2 ms).
 - service: `/api/trend` is precomputed in the engine worker every `NARRA_TREND_EVERY_S` (900 s) and served from cache; it used to run on the request and block every other route (and the site's 8 s fetches) for as long as it took. Non-default spans answer `BAD_TREND`.
+- service: the engine runs two children — fast (sync, 60m, 15m every tick) and slow (4h, trend) — so a 200 s 4h pass no longer ages the 60m analysis past `NARRA_STALE_AFTER_S` and flips health to 503 every 15 minutes; a restart is healthy after the first fast tick instead of after the first 4h pass.
 - service: `/api/health` refreshes the table counts once a minute instead of running `COUNT(*)` over three million trades on every call (the site asks for health on every home render).
 
 ## 0.2.0 — 2026-09-13
