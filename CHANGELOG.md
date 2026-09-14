@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+- Status thresholds calibrated on the server's snapshots (160k snapshots, 2036 ticks, 2501 clusters over the 60m window): HOT is the top decile of ETH inflow (≥20 ETH, ≥9 launches) and no longer requires a graduation, which lagged the money and kept HOT at 1% of published metas; EMERGING needs 38 buyers, COOLING starts at 3 launches under 0.25 ETH, publication from 8 buyers. `calibrated_on` is set.
+
 ## 0.3.0 — 2026-09-14
 
 - store: the SQLite busy timeout is 30 s (was the 5 s default); on the server three processes write to one file and the fast worker hit `database is locked` while the slow one saved a 4h pass.
