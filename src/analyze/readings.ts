@@ -95,7 +95,8 @@ export function readFlowHistory(h: FlowHistoryOut): string {
   if (!withEdges.length) return `${filled.length} of ${h.slots.length} steps sampled over the last ${h.hours}h; no rotation above the threshold in any of them.`;
   const busiest = withEdges.reduce((b, s) => (s.edges.reduce((n, e) => n + e.wallets, 0) > b.edges.reduce((n, e) => n + e.wallets, 0) ? s : b));
   const moved = busiest.edges.reduce((n, e) => n + e.wallets, 0);
-  const dest = new Map<string, number>(); for (const s of withEdges) for (const e of s.edges) dest.set(e.to, (dest.get(e.to) ?? 0) + 1);
+  // how many samples name a meta as a destination (a sample with three edges into it counts once)
+  const dest = new Map<string, number>(); for (const s of withEdges) for (const to of new Set(s.edges.map((e) => e.to))) dest.set(to, (dest.get(to) ?? 0) + 1);
   const top = [...dest].sort((a, b) => b[1] - a[1])[0];
   const when = new Date((busiest.ts as number) * 1000).toISOString().slice(11, 16);
   return `${withEdges.length} of ${h.slots.length} steps show rotation over the last ${h.hours}h. Busiest sample at ${when} UTC: ${moved} wallets across ${busiest.edges.length} edges, led by ${busiest.edges[0].from} → ${busiest.edges[0].to}. ${top[0]} is the most frequent destination (${top[1]} of ${withEdges.length} samples).`;
