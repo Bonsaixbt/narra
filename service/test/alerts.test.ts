@@ -1,22 +1,25 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { Alerter, formatAlert, alertConfig } from "../src/alerts.ts";
+import { Alerter, formatAlert, alertConfig, alertLine } from "../src/alerts.ts";
 
 const ev = (over: Record<string, unknown>) => ({ schema_version: "1.0.0" as const, ts: "t", type: "STATUS" as const, ...over }) as Parameters<typeof formatAlert>[0];
 
 test("only status flips to HOT/ROTATING and big edges and graduations become alerts", () => {
-  assert.ok(formatAlert(ev({ type: "STATUS", slug: "x", to: "HOT", from: "EMERGING" }))?.text.includes("x → HOT"));
+  const hot = formatAlert(ev({ type: "STATUS", slug: "x", to: "HOT", from: "EMERGING" }));
+  assert.equal(hot?.kind, "hot"); assert.equal(alertLine(hot!, ""), "x → HOT (was EMERGING)");
+  assert.equal(alertLine(hot!, "https://narrahood.com"), '<a href="https://narrahood.com/cluster/x">x</a> → HOT (was EMERGING)');
   assert.equal(formatAlert(ev({ type: "STATUS", slug: "x", to: "COOLING" })), null);
   assert.equal(formatAlert(ev({ type: "EDGE", from: "a", to: "b", wallets: 3 })), null);
-  assert.ok(formatAlert(ev({ type: "EDGE", from: "a", to: "b", wallets: 12 }))?.text.includes("12 wallets"));
-  assert.ok(formatAlert(ev({ type: "GRAD", token: "0xabc", symbol: "SOUP", slug: "soup" }))?.text.includes("$SOUP"));
+  assert.ok(alertLine(formatAlert(ev({ type: "EDGE", from: "a", to: "b", wallets: 12 }))!, "").includes("12 wallets"));
+  const grad = formatAlert(ev({ type: "GRAD", token: "0xabc", symbol: "SOUP", slug: "soup" }));
+  assert.ok(alertLine(grad!, "https://narrahood.com").startsWith('<a href="https://narrahood.com/coin/0xabc">$SOUP</a> · meta <a href='));
   assert.equal(formatAlert(ev({ type: "SYNC" })), null);
 });
 
 test("alerter dedupes per key, batches everything into one message per chat, and skips the warm-up replay", async () => {
   const calls: { chat: string; text: string }[] = [];
   const fetchFn = (async (_u: string, init: RequestInit) => { const b = JSON.parse(String(init.body)); calls.push({ chat: b.chat_id, text: b.text }); return { ok: true } as Response; }) as unknown as typeof fetch;
-  const a = new Alerter({ token: "t", chats: ["1", "2"], events: new Set(["STATUS", "EDGE"]), dedupeSec: 600, perMinute: 20, delaySec: 0, batchSec: 300, warmupSec: 90 }, fetchFn, 0);
+  const a = new Alerter({ token: "t", chats: ["1", "2"], events: new Set(["STATUS", "EDGE"]), dedupeSec: 600, perMinute: 20, delaySec: 0, batchSec: 300, warmupSec: 90, siteUrl: "" }, fetchFn, 0);
   assert.equal(a.offer(ev({ slug: "early", to: "HOT" }), 10_000), false, "inside the warm-up: the first tick replays every status");
   const t0 = 100_000;
   assert.equal(a.offer(ev({ slug: "x", to: "HOT" }), t0), true);
@@ -28,9 +31,9 @@ test("alerter dedupes per key, batches everything into one message per chat, and
   assert.equal(await a.flush(t0 + 300_000), 2, "one message per chat");
   assert.deepEqual(calls.map((c) => c.chat), ["1", "2"]);
   const text = calls[0].text;
-  assert.ok(text.startsWith("narra · last 5 min\n\n🔥 now HOT or rotating in\nx → HOT"), text);
-  assert.ok(text.includes("\n\n🟣 rotating out\ny → ROTATING OUT (was EMERGING)"), text);
-  assert.ok(text.indexOf("30 wallets a → c") < text.indexOf("12 wallets a → b"), "biggest move first");
+  assert.ok(text.startsWith("<b>narra · last 5 min</b>\n\n<b>🔥 now HOT or rotating in</b>\nx → HOT"), text);
+  assert.ok(text.includes("\n\n<b>🟣 rotating out</b>\ny → ROTATING OUT (was EMERGING)"), text);
+  assert.ok(text.indexOf("30 wallets a → <b>c</b>") < text.indexOf("12 wallets a → <b>b</b>"), "biggest move first");
   assert.ok(!text.includes("early"));
   assert.equal(await a.flush(t0 + 400_000), 0, "nothing new, nothing sent");
   a.stop();
@@ -42,7 +45,7 @@ test("alerter dedupes per key, batches everything into one message per chat, and
 test("a 429 keeps the batch and retries after the pause", async () => {
   let n = 0;
   const fetchFn = (async () => { n++; return n === 1 ? { ok: false, status: 429, json: async () => ({ description: "Too Many Requests: retry after 3", parameters: { retry_after: 3 } }) } as unknown as Response : { ok: true } as Response; }) as unknown as typeof fetch;
-  const a = new Alerter({ token: "t", chats: ["1"], events: new Set(["STATUS"]), dedupeSec: 600, perMinute: 20, delaySec: 0, batchSec: 60, warmupSec: 0 }, fetchFn, 0);
+  const a = new Alerter({ token: "t", chats: ["1"], events: new Set(["STATUS"]), dedupeSec: 600, perMinute: 20, delaySec: 0, batchSec: 60, warmupSec: 0, siteUrl: "" }, fetchFn, 0);
   a.offer(ev({ slug: "x", to: "HOT" }), 1000);
   assert.equal(await a.flush(61_000), 0);
   assert.equal(a.lastError, "429 Too Many Requests: retry after 3");

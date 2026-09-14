@@ -5,6 +5,7 @@ export const CONFIG = {
   port: num("NARRA_API_PORT", 4663),
   host: process.env.NARRA_API_HOST ?? "0.0.0.0",
   origin: process.env.NARRA_API_ORIGIN ?? "",               // CORS: the site's origin; empty = any (dev)
+  siteUrl: (process.env.NARRA_SITE_URL ?? process.env.NARRA_API_ORIGIN ?? "").replace(/\/$/, ""), // links in Telegram messages point here; empty = plain text
   tokenAddress: (process.env.NARRA_TOKEN_ADDRESS ?? "").toLowerCase(),
   holderThreshold: num("NARRA_HOLDER_THRESHOLD", 500_000),   // whole tokens
   holderSecret: process.env.NARRA_HOLDER_SECRET ?? "",

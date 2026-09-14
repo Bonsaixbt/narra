@@ -19,6 +19,10 @@ export function botConfig(env: NodeJS.ProcessEnv = process.env): BotConfig | nul
 }
 
 const esc = (s: string) => s.replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]!));
+/** Links into the site when it is configured (NARRA_SITE_URL, else NARRA_API_ORIGIN); plain text otherwise. */
+export const SITE = { url: (process.env.NARRA_SITE_URL ?? process.env.NARRA_API_ORIGIN ?? "").replace(/\/$/, "") };
+export const metaLink = (slug: string) => (SITE.url ? `<a href="${SITE.url}/cluster/${encodeURIComponent(slug)}">${esc(slug)}</a>` : esc(slug));
+export const coinLink = (token: string, label: string) => (SITE.url ? `<a href="${SITE.url}/coin/${token}">${esc(label)}</a>` : esc(label));
 const eth = (v: number) => (v >= 10 ? v.toFixed(1) : v.toFixed(2));
 const ICON: Record<string, string> = { HOT: "🔥", "ROTATING IN": "🔥", EMERGING: "🟡", "ROTATING OUT": "🟣", COOLING: "🔵", DEAD: "⚫", IN: "🟢", EDGE: "🟡", OUT: "🟣", ORPHAN: "⚪", NOT_PONS: "🚫" };
 const FOOT = "\n<i>IN = belongs to a live meta, not a recommendation</i>";
@@ -30,7 +34,7 @@ export function formatDigest(r: NowOut, top = 5): string {
   if (!cl.length) return `${head}\n\nno live meta right now — ${r.counts.launches} launches, none clustered`;
   const S: string[][] = [[head]];
   if (r.reading) S.push(r.reading.split(/(?<=\.)\s+(?=[A-Z0-9])/).map(esc));
-  S.push(cl.slice(0, top).map((k) => `${ICON[k.status] ?? "·"} <b>${esc(k.slug)}</b> · ${k.status.toLowerCase()} · ${esc(k.narrative)}${k.narrative_sub ? "·" + esc(k.narrative_sub) : ""}\n    ${k.heat.n_launches} CA · ${eth(k.heat.quote_norm_in)} ETH · ${k.heat.unique_buyers} buyers${k.flow.in_wallets ? ` · ⇦${k.flow.in_wallets}` : ""}${k.flow.out_wallets ? ` · ⇨${k.flow.out_wallets}` : ""}${k.rotating_from ? ` · from ${esc(k.rotating_from)}` : ""}`));
+  S.push(cl.slice(0, top).map((k) => `${ICON[k.status] ?? "·"} <b>${metaLink(k.slug)}</b> · ${k.status.toLowerCase()} · ${esc(k.narrative)}${k.narrative_sub ? "·" + esc(k.narrative_sub) : ""}\n    ${k.heat.n_launches} CA · ${eth(k.heat.quote_norm_in)} ETH · ${k.heat.unique_buyers} buyers${k.flow.in_wallets ? ` · ⇦${k.flow.in_wallets}` : ""}${k.flow.out_wallets ? ` · ⇨${k.flow.out_wallets}` : ""}${k.rotating_from ? ` · from ${esc(k.rotating_from)}` : ""}`));
   S.push(["/coin 0x… · /why meta · /find word · /flow · /trend"]);
   return S.map((x) => x.join("\n")).join("\n\n");
 }
@@ -46,7 +50,7 @@ export function digestSignature(r: NowOut, top = 5): string {
 /** A meta: reading, numbers, what holds it, flow, tags, members — as sections. */
 export function formatWhy(r: WhyOut): string {
   const k = r.cluster, h = k.heat;
-  const S: string[][] = [[`<b>${esc(k.slug)}</b> ${ICON[k.status] ?? ""} ${k.status.toLowerCase()} · ${esc(k.narrative)}${k.narrative_sub ? " · " + esc(k.narrative_sub) : ""} · #${k.rank} on the board`, ...(k.summary ? [`<i>${esc(k.summary)}</i>`] : [])]];
+  const S: string[][] = [[`<b>${metaLink(k.slug)}</b> ${ICON[k.status] ?? ""} ${k.status.toLowerCase()} · ${esc(k.narrative)}${k.narrative_sub ? " · " + esc(k.narrative_sub) : ""} · #${k.rank} on the board`, ...(k.summary ? [`<i>${esc(k.summary)}</i>`] : [])]];
   if (r.reading) S.push(r.reading.split(/(?<=\.)\s+(?=[A-Z0-9])/).map(esc));
   S.push([`📊 ${h.n_launches} CA · ${k.n_members} members · ${h.n_alive} alive · ${eth(h.quote_norm_in)} ETH · ${h.unique_buyers} buyers · ${h.n_graduated} grad · ${Math.round(h.graduated_share * 100)}% in pool`, `🧩 ${k.links.text} name · ${k.links.semantic} meaning · ${k.links.wallet} wallet · ${k.links.deployer} deployer links`]);
   const flow: string[] = [];
@@ -66,10 +70,10 @@ export function formatCoin(r: CoinOut | NotPonsOut): string {
   if (r.verdict === "NOT_PONS") return `${ICON.NOT_PONS} <code>${esc(r.token)}</code>\nnot a Pons v2 launch`;
   const stage = r.phase === "pool" ? "in the pool" : r.phase === "swept" ? "swept, pool not open" : r.curve?.progress != null ? `curve ${Math.round(r.curve.progress * 100)}% → graduation` : "on the curve";
   const S: string[][] = [];
-  S.push([`<b>${esc(r.symbol ? "$" + r.symbol : r.name || "(no symbol)")}</b> · ${stage} · ${esc(r.pair.symbol)} pair · ${ago(r.launched_at)}`, `<code>${esc(r.token)}</code>`]);
+  S.push([`<b>${coinLink(r.token, r.symbol ? "$" + r.symbol : r.name || "(no symbol)")}</b> · ${stage} · ${esc(r.pair.symbol)} pair · ${ago(r.launched_at)}`, `<code>${esc(r.token)}</code>`]);
   const v: string[] = [];
   if (r.cluster) {
-    v.push(`${ICON[r.verdict] ?? ""} <b>${r.verdict}</b> — ${esc(r.cluster.slug)} ${r.cluster.membership.toFixed(2)} · ${r.cluster.status.toLowerCase()}`);
+    v.push(`${ICON[r.verdict] ?? ""} <b>${r.verdict}</b> — ${metaLink(r.cluster.slug)} ${r.cluster.membership.toFixed(2)} · ${r.cluster.status.toLowerCase()}`);
     if (r.popularity?.cluster_rank) v.push(`meta #${r.popularity.cluster_rank} of ${r.popularity.clusters_total} · ${r.popularity.rank_in_cluster ? `token #${r.popularity.rank_in_cluster} of ${r.popularity.cluster_size} inside` : "joins it by wallets, not by name"}`);
   } else {
     v.push(`${ICON[r.verdict] ?? ""} <b>${r.verdict}</b> — standalone, no live meta around it`);
@@ -101,7 +105,7 @@ export function formatCoin(r: CoinOut | NotPonsOut): string {
 
 export function formatFind(r: { query: string; clusters: { slug: string; status: string; narrative: string; eth: number; buyers: number }[]; tokens: { token: string; symbol: string; cluster: string | null; buyers: number }[] }): string {
   const S: string[][] = [[`<b>find "${esc(r.query)}"</b>`]];
-  if (r.clusters.length) S.push(["🗂 <b>metas</b>", ...r.clusters.slice(0, 5).map((c) => `${ICON[c.status] ?? "·"} ${esc(c.slug)} · ${esc(c.narrative)} · ${eth(c.eth)} ETH · ${c.buyers} buyers`)]);
+  if (r.clusters.length) S.push(["🗂 <b>metas</b>", ...r.clusters.slice(0, 5).map((c) => `${ICON[c.status] ?? "·"} ${metaLink(c.slug)} · ${esc(c.narrative)} · ${eth(c.eth)} ETH · ${c.buyers} buyers`)]);
   if (r.tokens.length) S.push(["🪙 <b>tokens</b>", ...r.tokens.slice(0, 5).map((t) => `${esc(t.symbol ? "$" + t.symbol : "?")} <code>${esc(t.token.slice(0, 10))}…</code> · ${t.buyers} buyers${t.cluster ? " · in " + esc(t.cluster) : " · no meta"}`)]);
   if (S.length === 1) S.push(["nothing in this window matches"]);
   else S.push(["/why meta · /coin 0x…"]);
@@ -112,7 +116,7 @@ export function formatFlow(r: FlowOut): string {
   const S: string[][] = [[`<b>flow · where repeat buyers moved · ${r.window}</b>`]];
   if (r.reading) S.push(r.reading.split(/(?<=\.)\s+(?=[A-Z0-9])/).map(esc));
   if (!r.edges.length) return S.map((x) => x.join("\n")).join("\n\n");
-  S.push(r.edges.slice(0, 8).map((e) => `${esc(e.from)} → <b>${esc(e.to)}</b> · ${e.wallets} wallets · ${eth(e.quote_norm)} ETH${e.deployers ? ` · ${e.deployers} deployers` : ""}`));
+  S.push(r.edges.slice(0, 8).map((e) => `${metaLink(e.from)} → <b>${metaLink(e.to)}</b> · ${e.wallets} wallets · ${eth(e.quote_norm)} ETH${e.deployers ? ` · ${e.deployers} deployers` : ""}`));
   return S.map((x) => x.join("\n")).join("\n\n");
 }
 
