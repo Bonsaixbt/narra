@@ -428,6 +428,40 @@
           },
           "deployers": {
             "type": "number"
+          },
+          "moves": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "wallet": {
+                  "type": "string"
+                },
+                "token": {
+                  "type": "string"
+                },
+                "symbol": {
+                  "type": "string"
+                },
+                "ts": {
+                  "type": "number"
+                },
+                "eth": {
+                  "type": "number"
+                },
+                "tx": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "wallet",
+                "token",
+                "ts",
+                "eth",
+                "tx"
+              ],
+              "additionalProperties": false
+            }
           }
         },
         "required": [
@@ -459,6 +493,40 @@
           },
           "deployers": {
             "type": "number"
+          },
+          "moves": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "wallet": {
+                  "type": "string"
+                },
+                "token": {
+                  "type": "string"
+                },
+                "symbol": {
+                  "type": "string"
+                },
+                "ts": {
+                  "type": "number"
+                },
+                "eth": {
+                  "type": "number"
+                },
+                "tx": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "wallet",
+                "token",
+                "ts",
+                "eth",
+                "tx"
+              ],
+              "additionalProperties": false
+            }
           }
         },
         "required": [

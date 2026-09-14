@@ -24,7 +24,7 @@ export const Heat = z.object({
   n_graduated: z.number(), graduated_share: z.number(), taxed_ratio: z.number(), pool_volume_norm: z.number(), delta_pct: z.number().nullable(),
   pair_mix: z.object({ eth: z.number(), stable: z.number(), stock: z.number(), other: z.number() }),
 });
-export const Edge = z.object({ from: z.string(), to: z.string(), wallets: z.number(), quote_norm: z.number(), deployers: z.number() });
+export const Edge = z.object({ from: z.string(), to: z.string(), wallets: z.number(), quote_norm: z.number(), deployers: z.number(), moves: z.array(z.object({ wallet: z.string(), token: z.string(), symbol: z.string().optional(), ts: z.number(), eth: z.number(), tx: z.string() })).optional() });
 export const Member = z.object({
   token: z.string(), symbol: z.string(), name: z.string(), phase: Phase, curve_progress: z.number().nullable(),
   membership: z.number(), buyers_overlap: z.number(), last_trade_ts: z.number().nullable(), launched_ts: z.number(),
@@ -76,6 +76,7 @@ export const FlowHistoryOut = z.object({
     ts: z.number().nullable(), from_ts: z.number(),
     nodes: z.array(z.object({ slug: z.string(), status: z.string(), id: z.string().nullable(), first_seen_ts: z.number().nullable() })),
     edges: z.array(z.object({ from: z.string(), to: z.string(), wallets: z.number(), eth: z.number(), deployers: z.number() })),
+    flow_known: z.boolean(),
   })),
 });
 export const WhyOut = Meta.extend({

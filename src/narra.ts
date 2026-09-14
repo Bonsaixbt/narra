@@ -289,7 +289,9 @@ export function buildReading(x: { verdict: string; cluster: { slug: string; stat
 
 Narra.prototype.flow = async function (this: Narra, opts: QueryOptions = {}): Promise<FlowOut> {
   const { a, meta } = await this.prepare(opts);
-  const out: FlowOut = { ...meta, nodes: a.clusters.map((c) => ({ slug: c.slug, status: c.status, id: c.id, first_seen_ts: c.first_seen_ts })), edges: a.edges };
+  // moves carry the buy that put each wallet on the edge; the symbol is looked up here, where the tokens are
+  const edges = a.edges.map((e) => ({ ...e, moves: (e.moves ?? []).map((m) => ({ ...m, symbol: a.tokens.get(m.token)?.symbol ?? "" })) }));
+  const out: FlowOut = { ...meta, nodes: a.clusters.map((c) => ({ slug: c.slug, status: c.status, id: c.id, first_seen_ts: c.first_seen_ts })), edges };
   out.reading = readFlow(out);
   return out;
 };
@@ -375,10 +377,10 @@ Narra.prototype.find = async function (this: Narra, text: string, opts: QueryOpt
 import { computeTrend, clusterHistory, tokenHistory, type TrendOut, type ClusterHistoryRow, type TokenHourRow } from "./analyze/trend.js";
 declare module "./narra.js" { interface Narra { trend(hours?: number, step?: number): TrendOut & { reading: string }; history(target: string, hours?: number): { slug?: string; token?: string; hours: number; snapshots?: ClusterHistoryRow[]; rows?: TokenHourRow[]; reading: string } } }
 Narra.prototype.trend = function (this: Narra, hours = 48, step = hours > 24 ? 4 : 1): TrendOut & { reading: string } { const t = computeTrend(this.store, hours, step); return { ...t, reading: readTrend(t) }; };
-declare module "./narra.js" { interface Narra { historyFlow(window?: WindowKey, hours?: number, step?: FlowStep): FlowHistoryOut & { reading: string } } }
+declare module "./narra.js" { interface Narra { historyFlow(window?: WindowKey, hours?: number, step?: FlowStep, opts?: { backfill?: boolean }): FlowHistoryOut & { reading: string } } }
 /** Sampled flow edges per step from the cache (reads only; fills missing ticks from stored trades on first use). */
-Narra.prototype.historyFlow = function (this: Narra, window: WindowKey = "60m", hours = 24, step: FlowStep = "1h"): FlowHistoryOut & { reading: string } {
-  const h = flowHistory(this.store, window, hours, step, this.store.stats().newest_trade_ts ?? Math.floor(Date.now() / 1000));
+Narra.prototype.historyFlow = function (this: Narra, window: WindowKey = "60m", hours = 24, step: FlowStep = "1h", opts: { backfill?: boolean } = {}): FlowHistoryOut & { reading: string } {
+  const h = flowHistory(this.store, window, hours, step, this.store.stats().newest_trade_ts ?? Math.floor(Date.now() / 1000), opts);
   return { ...h, reading: readFlowHistory(h) };
 };
 Narra.prototype.history = function (this: Narra, target: string, hours = 24) {

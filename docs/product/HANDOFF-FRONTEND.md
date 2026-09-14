@@ -32,12 +32,12 @@ Every response is validated against zod schemas; the JSON Schemas are checked in
 | GET | `/coin/:ca?window=60m` | `CoinOut` or `NotPonsOut` | no |
 | GET | `/find?q=word` | `{ clusters: [{slug,status,narrative,rank,eth,buyers,why}], tokens: [{token,symbol,name,cluster,status,buyers,launched_at,phase}] }` | no |
 | GET | `/cluster/:slug?window=60m` | `WhyOut` (slug, or any word from its name/tags/tickers; `400 AMBIGUOUS` lists the matches) | no |
-| GET | `/flow?window=60m` | `FlowOut` | holders |
+| GET | `/flow?window=60m` | `FlowOut` — every edge also carries `moves: [{ wallet, token, symbol, ts, eth, tx }]`, one per counted wallet: its earliest buy into `to` inside the window, oldest first (the transaction to link) | holders |
 | GET | `/wallets?cohort=rotator&sort=net_eth&top=25` | `WalletsOut` | holders |
 | GET | `/wallet/:address` | `WalletOut` | holders |
 | GET | `/history/cluster/:slug?hours=24` | `{ slug, hours, snapshots: [{ts, status, n_launches, quote_eth, buyers, graduations, members}] }` | holders |
 | GET | `/history/token/:ca?hours=24` | `{ token, hours, rows: [{hour, curve_buys, curve_in_eth, pool_buys, pool_in_eth, buyers}] }` | holders |
-| GET | `/history/flow?window=60m&hours=24&step=1h` | `{ window, hours, step, step_s, since, until, slots: [{ ts, from_ts, nodes: [{slug, status, id, first_seen_ts}], edges: [{from, to, wallets, eth, deployers}] }], reading }` — one sampled tick per step (the last inside it), never a sum, because consecutive windows overlap; `ts: null` for a step without a tick; `step` 15m \| 1h \| 4h; ticks older than the flow tables are recomputed from stored trades on first request | holders |
+| GET | `/history/flow?window=60m&hours=24&step=1h` | `{ window, hours, step, step_s, since, until, slots: [{ ts, from_ts, nodes: [{slug, status, id, first_seen_ts}], edges: [{from, to, wallets, eth, deployers}] }], reading }` — one sampled tick per step (the last inside it), never a sum, because consecutive windows overlap; `ts: null` for a step without a tick; `flow_known: false` when the tick predates the flow tables and the worker has not recomputed it yet (edges unknown, not empty; the service backfills two days after each start); `step` 15m \| 1h \| 4h | holders |
 
 **Meta identity.** Every cluster carries `id` (`slug@first_seen_ts`) and `first_seen_ts` on `/board`, `/cluster/:slug`, `/flow` nodes and `/history/flow` nodes. A slug is inherited tick to tick while at least half of the smaller member set is shared; when a slug comes back after a gap with different members it gets a new id, so a time view should key on `id`, not on `slug`. Snapshots taken before 2026-09-14 have no stored id and answer `null`.
 | GET | `/trend` | `{ narratives: string[], rows: [{from, launches, buys, eth, narratives: {name: pct}}] }` — precomputed for 48 h in 4 h steps (recomputed every 15 min); other `hours`/`step` values return `BAD_TREND` | holders |

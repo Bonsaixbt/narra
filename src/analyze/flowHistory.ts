@@ -17,6 +17,8 @@ export interface FlowHistorySlot {
   from_ts: number;
   nodes: { slug: string; status: string; id: string | null; first_seen_ts: number | null }[];
   edges: { from: string; to: string; wallets: number; eth: number; deployers: number }[];
+  /** false when the tick predates the flow tables and has not been recomputed yet: its edges are unknown, not empty */
+  flow_known: boolean;
 }
 export interface FlowHistoryOut { window: WindowKey; hours: number; step: FlowStep; step_s: number; since: number; until: number; slots: FlowHistorySlot[]; backfilled: number }
 
@@ -60,11 +62,12 @@ export function flowHistory(store: Store, window: WindowKey, hours: number, step
   const wanted = sampled.filter((t): t is number => t !== null);
   const backfilled = opts.backfill === false ? 0 : backfillFlowHistory(store, window, wanted);
   const r3 = (x: number) => Math.round(x * 1000) / 1000;
+  const known = new Set(store.flowTicks(window, since));
   const slots = sampled.map((ts, k) => {
-    if (ts === null) return { ts: null, from_ts: since + k * stepSec, nodes: [], edges: [] };
+    if (ts === null) return { ts: null, from_ts: since + k * stepSec, nodes: [], edges: [], flow_known: false };
     const nodes = store.snapshotsAt(window, ts).map((s) => ({ slug: s.slug, status: s.status, id: s.meta_id ?? null, first_seen_ts: s.first_seen ?? null }));
     const edges = store.flowEdgesAt(window, ts).map((e) => ({ from: e.from_slug, to: e.to_slug, wallets: e.wallets, eth: r3(e.quote_norm), deployers: e.deployers }));
-    return { ts, from_ts: since + k * stepSec, nodes, edges };
+    return { ts, from_ts: since + k * stepSec, nodes, edges, flow_known: known.has(ts) };
   });
   return { window, hours, step, step_s: stepSec, since, until, slots, backfilled };
 }
