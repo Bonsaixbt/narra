@@ -31,6 +31,7 @@ export function renderNow(r: NowOut, opts: { members?: boolean; all?: boolean; t
   L.push(`  ${c.dim("hottest   ")} ${c.bold(hottest.slug)}  ${STATUS_COLOR[hottest.status]?.(hottest.status) ?? hottest.status}  ${ethf(hottest.heat.quote_norm_in)} ETH · ${num(hottest.heat.unique_buyers)} buyers · ${hottest.heat.n_launches} CA  ${c.dim(hottest.narrative)}`);
   if (draining && draining.flow.out_wallets >= 8) L.push(`  ${c.dim("draining  ")} ${c.bold(draining.slug)}  ${STATUS_COLOR[draining.status]?.(draining.status) ?? draining.status}  ${num(draining.flow.out_wallets)} wallets left → ${cl.filter((k) => k.rotating_from === draining.slug).length} metas  ${c.dim("(narra flow)")}`);
   L.push(`  ${c.dim("narratives")} ${nar}`);
+  if (r.reading) L.push("", `  ${r.reading}`);
   L.push("");
   // table, adapted to the terminal width
   const wide = W >= 118, mid = W >= 92;

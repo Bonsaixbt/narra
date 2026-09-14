@@ -110,6 +110,7 @@ import { TOPICS } from "./chain/topics.js";
 import { initSemantic, ensureEmbeddings, semanticPairs, nameCluster, categorize, type SemanticState } from "./semantic/index.js";
 import { applyCategories } from "./semantic/taxonomy.js";
 import { tokenNarratives } from "./analyze/narrative.js";
+import { readBoard, readWhy, readFlow, readWallets, readTrend, readClusterHistory, readTokenHistory } from "./analyze/readings.js";
 import { createHash } from "node:crypto";
 
 export interface QueryOptions {
@@ -181,11 +182,13 @@ Narra.prototype.now = async function (this: Narra, opts: QueryOptions = {}): Pro
   const pair = opts.pair ?? "all";
   let clusters = a.clusters.filter((c) => pair === "all" || (c.heat.pair_mix[pair] ?? 0) > 0);
   if (opts.top) clusters = clusters.slice(0, opts.top);
-  return {
+  const out: NowOut = {
     ...meta, quote_unit: "ETH",
     clusters: clusters.map((c) => ({ slug: c.slug, label: c.label, status: c.status, top_tags: c.top_tags, n_members: c.members.length, heat: c.heat, links: c.links, summary: c.summary, label_source: c.label_source, narrative: c.narrative, narrative_sub: c.narrative_sub, narrative_mix: c.narrative_mix, flow: c.flow, rank: c.rank, cohorts: c.cohorts, rotating_from: c.rotating_from, rotating_to: c.rotating_to, ...(opts.members ? { members: membersOf(a, c, this.store) } : {}) })),
     counts: a.counts,
   };
+  out.reading = readBoard({ clusters: a.clusters.map((c) => ({ ...c, n_members: c.members.length, members: undefined })) as NowOut["clusters"], counts: a.counts, window: out.window });
+  return out;
 };
 
 Narra.prototype.coin = async function (this: Narra, address: string, opts: QueryOptions = {}): Promise<CoinOut | NotPonsOut> {
@@ -283,7 +286,9 @@ export function buildReading(x: { verdict: string; cluster: { slug: string; stat
 
 Narra.prototype.flow = async function (this: Narra, opts: QueryOptions = {}): Promise<FlowOut> {
   const { a, meta } = await this.prepare(opts);
-  return { ...meta, nodes: a.clusters.map((c) => ({ slug: c.slug, status: c.status })), edges: a.edges };
+  const out: FlowOut = { ...meta, nodes: a.clusters.map((c) => ({ slug: c.slug, status: c.status })), edges: a.edges };
+  out.reading = readFlow(out);
+  return out;
 };
 
 /** Exact slug, else the single cluster whose slug, label, tags or member tickers contain the text; several matches → an error listing them. */
@@ -307,12 +312,14 @@ Narra.prototype.why = async function (this: Narra, slug: string, opts: QueryOpti
     for (const m of c.members) if (a.tokens.get(m)?.tags.has(t.tag)) { const sym = a.tokens.get(m)?.symbol || m.slice(0, 10); counts.set(sym, (counts.get(sym) ?? 0) + 1); }
     return { ...t, examples: [...counts].sort((x, y) => y[1] - x[1]).slice(0, 5).map(([sym, n]) => (n > 1 ? `${sym} ×${n}` : sym)) };
   });
-  return {
+  const out: WhyOut = {
     ...meta,
     cluster: { slug: c.slug, label: c.label, status: c.status, top_tags: c.top_tags, n_members: c.members.length, heat: c.heat, links: c.links, summary: c.summary, label_source: c.label_source, narrative: c.narrative, narrative_sub: c.narrative_sub, narrative_mix: c.narrative_mix, flow: c.flow, rank: c.rank, cohorts: c.cohorts, rotating_from: c.rotating_from, rotating_to: c.rotating_to, members: membersOf(a, c, this.store) },
     tags, edges_in: a.edges.filter((e) => e.to === c.slug), edges_out: a.edges.filter((e) => e.from === c.slug),
     rule: "two tokens are linked when weighted Jaccard of their tags ≥ 0.35, or they share ≥ 5 buyers, or they share a deployer and a tag; the cluster is the connected component; the slug is its two heaviest tags",
   };
+  out.reading = readWhy(out);
+  return out;
 };
 
 Narra.prototype.wallets = async function (this: Narra, opts: QueryOptions & { cohort?: "sniper" | "sprayer" | "rotator" | "early-in-hot"; sort?: "net_eth" | "tokens" | "buys" | "quote_in" } = {}): Promise<WalletsOut> {
@@ -324,7 +331,9 @@ Narra.prototype.wallets = async function (this: Narra, opts: QueryOptions & { co
   if (opts.cohort) list = list.filter((w) => w.cohorts.includes(opts.cohort!));
   if (!opts.all) list = list.filter((w) => w.buys > 0); // sellers of old bags have no entry in the window; --all shows them
   list.sort((x, y) => (y[sort] as number) - (x[sort] as number));
-  return { ...meta, cohort: opts.cohort ?? null, sort, wallets: list.slice(0, opts.top ?? 25), counts };
+  const out: WalletsOut = { ...meta, cohort: opts.cohort ?? null, sort, wallets: list.slice(0, opts.top ?? 25), counts };
+  out.reading = readWallets(out);
+  return out;
 };
 
 Narra.prototype.wallet = async function (this: Narra, address: string, opts: QueryOptions = {}): Promise<WalletOut> {
@@ -361,9 +370,10 @@ Narra.prototype.find = async function (this: Narra, text: string, opts: QueryOpt
 };
 
 import { computeTrend, clusterHistory, tokenHistory, type TrendOut, type ClusterHistoryRow, type TokenHourRow } from "./analyze/trend.js";
-declare module "./narra.js" { interface Narra { trend(hours?: number, step?: number): TrendOut; history(target: string, hours?: number): { slug?: string; token?: string; hours: number; snapshots?: ClusterHistoryRow[]; rows?: TokenHourRow[] } } }
-Narra.prototype.trend = function (this: Narra, hours = 48, step = hours > 24 ? 4 : 1): TrendOut { return computeTrend(this.store, hours, step); };
+declare module "./narra.js" { interface Narra { trend(hours?: number, step?: number): TrendOut & { reading: string }; history(target: string, hours?: number): { slug?: string; token?: string; hours: number; snapshots?: ClusterHistoryRow[]; rows?: TokenHourRow[]; reading: string } } }
+Narra.prototype.trend = function (this: Narra, hours = 48, step = hours > 24 ? 4 : 1): TrendOut & { reading: string } { const t = computeTrend(this.store, hours, step); return { ...t, reading: readTrend(t) }; };
 Narra.prototype.history = function (this: Narra, target: string, hours = 24) {
-  if (/^0x[0-9a-fA-F]{40}$/.test(target)) return { token: target.toLowerCase(), hours, rows: tokenHistory(this.store, target, hours) };
-  return { slug: target, hours, snapshots: clusterHistory(this.store, target, hours) };
+  if (/^0x[0-9a-fA-F]{40}$/.test(target)) { const rows = tokenHistory(this.store, target, hours); return { token: target.toLowerCase(), hours, rows, reading: readTokenHistory(target, rows, hours) }; }
+  const snapshots = clusterHistory(this.store, target, hours);
+  return { slug: target, hours, snapshots, reading: readClusterHistory(target, snapshots, hours) };
 };

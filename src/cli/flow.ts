@@ -4,7 +4,7 @@ import { c, table, utc, STATUS_COLOR } from "./render.js";
 import type { FlowOut } from "../schemas.js";
 
 export function renderFlow(r: FlowOut): string {
-  const L = [`${c.bold("NARRA flow")}  ${utc()}   window ${r.window}   ${c.dim("repeat buyers and deployers moving between clusters")}`, ""];
+  const L = [`${c.bold("NARRA flow")}  ${utc()}   window ${r.window}   ${c.dim("repeat buyers and deployers moving between clusters")}`, ...(r.reading ? ["", `  ${r.reading}`] : []), ""];
   if (!r.edges.length) { L.push(c.dim("no edges above threshold (≥ 5 wallets or ≥ 2 deployers) in this window")); return L.join("\n"); }
   const st = new Map(r.nodes.map((n) => [n.slug, n.status]));
   const rows = r.edges.map((e) => [e.from, "→", e.to, `${e.wallets} w`, `${e.quote_norm.toFixed(2)} ETH`, `${e.deployers} dev`, c.dim(`${st.get(e.from) ?? "?"} → ${STATUS_COLOR[st.get(e.to) ?? ""]?.(st.get(e.to) ?? "?") ?? st.get(e.to)}`)]);

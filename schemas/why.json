@@ -56,6 +56,9 @@
       ],
       "additionalProperties": false
     },
+    "reading": {
+      "type": "string"
+    },
     "cluster": {
       "type": "object",
       "properties": {
