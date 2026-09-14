@@ -1,19 +1,19 @@
 {
-  "_comment": "Status thresholds and publication rules. Starting values, to be calibrated on a week of snapshots. sprayer_max_tokens: a wallet that buys more distinct tokens than this per window is a bot and does not vote in clustering or verdicts.",
-  "calibrated_on": null,
+  "_comment": "Status thresholds and publication rules, calibrated on the server's snapshots (narra calibrate --window 60m --hours 168: 160k snapshots, 2036 ticks, 2501 clusters). HOT = the top decile of a window's ETH inflow with at least nine launches; graduations no longer required (they are rare on Pons v2 and lagged the money). sprayer_max_tokens: a wallet that buys more distinct tokens than this per window is a bot and does not vote in clustering or verdicts.",
+  "calibrated_on": "2026-09-14",
   "hot": {
-    "min_launches": 8,
-    "min_quote_eth": 1.5,
-    "min_graduations": 1
+    "min_launches": 9,
+    "min_quote_eth": 20,
+    "min_graduations": 0
   },
   "emerging": {
-    "max_launches": 8,
+    "max_launches": 9,
     "min_delta_pct": 100,
-    "min_buyers": 30
+    "min_buyers": 38
   },
   "cooling": {
-    "min_launches": 8,
-    "max_quote_eth": 0.5,
+    "min_launches": 3,
+    "max_quote_eth": 0.25,
     "max_delta_pct": -50
   },
   "dead": {
@@ -24,7 +24,7 @@
   },
   "alive_window_sec": 900,
   "publish": {
-    "min_buyers": 10,
+    "min_buyers": 8,
     "min_launches": 3
   },
   "sprayer_max_tokens": {
@@ -33,6 +33,6 @@
     "4h": 50
   },
   "quiet": {
-    "min_quote_eth": 0.1
+    "min_quote_eth": 0.25
   }
 }

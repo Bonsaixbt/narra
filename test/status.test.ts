@@ -7,12 +7,12 @@ const heat = (p: Partial<Heat>): Heat => ({ n_launches: 0, n_members: 5, n_alive
 const e = (from: string, to: string, wallets: number) => ({ from, to, wallets, quote_norm: 0, deployers: 0 });
 
 test("status table", () => {
-  assert.equal(statusOf(heat({ n_launches: 18, quote_norm_in: 2.4, n_graduated: 3 }), [], []), "HOT");
-  assert.equal(statusOf(heat({ n_launches: 18, quote_norm_in: 2.4, n_graduated: 3 }), [e("a", "x", 11)], []), "ROTATING IN");
+  assert.equal(statusOf(heat({ n_launches: 18, quote_norm_in: 24, n_graduated: 3 }), [], []), "HOT");
+  assert.equal(statusOf(heat({ n_launches: 18, quote_norm_in: 24, n_graduated: 3 }), [e("a", "x", 11)], []), "ROTATING IN");
   assert.equal(statusOf(heat({ n_launches: 7, quote_norm_in: 0.8, delta_pct: 150, unique_buyers: 40 }), [], []), "EMERGING");
   assert.equal(statusOf(heat({ n_launches: 22, quote_norm_in: 0.2, delta_pct: -70 }), [], []), "COOLING");
   assert.equal(statusOf(heat({ n_launches: 11, n_alive: 0 }), [], []), "DEAD");
-  assert.equal(statusOf(heat({ n_launches: 18, quote_norm_in: 2.4, n_graduated: 3, delta_pct: -10 }), [], [e("x", "b", 9)]), "ROTATING OUT");
+  assert.equal(statusOf(heat({ n_launches: 18, quote_norm_in: 24, n_graduated: 3, delta_pct: -10 }), [], [e("x", "b", 9)]), "ROTATING OUT");
 });
 
 test("nothing alive is DEAD even for a small cluster", () => {
