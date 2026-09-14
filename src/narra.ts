@@ -99,6 +99,7 @@ function pick<T extends object, K extends keyof T>(o: T, keys: K[]): Pick<T, K> 
 // Queries. Each one syncs the cache first (cold start prints progress through onProgress), then analyses.
 // ------------------------------------------------------------------------------------------------------
 import { analyze, membersOf, lastTradeByToken, toTokenInfo, type Analysis } from "./analyze/board.js";
+import { isLive } from "./analyze/status.js";
 import { verdictFor } from "./analyze/verdict.js";
 import { SCHEMA_VERSION, type NowOut, type CoinOut, type NotPonsOut, type FlowOut, type WhyOut, type WalletsOut, type WalletOut } from "./schemas.js";
 import { curveAbi } from "./chain/abi.js";
@@ -112,7 +113,6 @@ import { applyCategories } from "./semantic/taxonomy.js";
 import { tokenNarratives } from "./analyze/narrative.js";
 import { readBoard, readWhy, readFlow, readWallets, readTrend, readClusterHistory, readTokenHistory, readFlowHistory } from "./analyze/readings.js";
 import { flowHistory, type FlowStep, type FlowHistoryOut } from "./analyze/flowHistory.js";
-import { createHash } from "node:crypto";
 
 export interface QueryOptions {
   /** A ready analysis to answer from (the service keeps one per window); skips sync and analyze. */
@@ -163,10 +163,11 @@ Narra.prototype.prepare = async function (this: Narra, opts: QueryOptions) {
   }
   const a = analyze(this.store, window, WINDOWS[window], nowTs, undefined, extras);
   if (sem.namer) {
-    for (const c of a.clusters.slice(0, 30)) {
-      const top = c.members.slice(0, 12).sort();
-      const key = createHash("sha1").update(top.join(",")).digest("hex").slice(0, 16);
-      const r = await nameCluster(this.store, sem, { slug: c.slug, tags: c.top_tags.map((t) => t.tag), members: c.members.slice(0, 12).map((m) => { const t = a.tokens.get(m)!; return { symbol: t.symbol, name: t.name, description: t.description }; }), heat: c.heat }, key);
+    // one name per meta id (stable across ticks); the model is asked only for live metas with enough members to
+    // describe, everything else is served from the cache — with member-set keys the 40-call budget was gone in two ticks
+    for (const c of a.clusters.slice(0, 60)) {
+      const allowModel = isLive(c.status) && c.members.length >= 5;
+      const r = await nameCluster(this.store, sem, { slug: c.slug, tags: c.top_tags.map((t) => t.tag), members: c.members.slice(0, 12).map((m) => { const t = a.tokens.get(m)!; return { symbol: t.symbol, name: t.name, description: t.description }; }), heat: c.heat }, `id:${c.id}`, { allowModel });
       if (r) { c.label = r.label; c.summary = r.summary; c.label_source = r.source; }
     }
   }

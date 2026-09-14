@@ -81,16 +81,21 @@ export function budgetLeft(store: Store, st: SemanticState): number {
 }
 function spend(store: Store, n = 1): void { const k = `semantic_calls:${today()}`; store.set(k, String(Number(store.get(k) ?? 0) + n)); }
 
-/** Label + summary for a cluster, cached by the set of its top members. */
-export async function nameCluster(store: Store, st: SemanticState, input: ClusterNamingInput, memberKey: string): Promise<{ label: string; summary: string; source: "cache" | "model" } | null> {
+/**
+ * Label + summary for a cluster, cached by `key` (the meta's stable id: a meta is named once, however its member list
+ * churns tick to tick). `allowModel: false` only reads the cache — the daily budget goes to live metas, not to every
+ * cooling one on the board.
+ */
+export async function nameCluster(store: Store, st: SemanticState, input: ClusterNamingInput, key: string, opts: { allowModel?: boolean } = {}): Promise<{ label: string; summary: string; source: "cache" | "model" } | null> {
   if (!st.namer) return null;
-  const cached = store.getClusterLabel(memberKey, st.namer.model);
+  const cached = store.getClusterLabel(key, st.namer.model);
   if (cached) return { ...cached, source: "cache" };
+  if (opts.allowModel === false) return null;
   if (budgetLeft(store, st) <= 0) return null;
   spend(store);
   try {
     const r = await st.namer.name(input);
-    store.putClusterLabel(memberKey, st.namer.model, r.label, r.summary);
+    store.putClusterLabel(key, st.namer.model, r.label, r.summary);
     return { ...r, source: "model" };
   } catch (e) { st.errors.push(`naming: ${(e as Error).message.split("\n")[0]}`); return null; }
 }
