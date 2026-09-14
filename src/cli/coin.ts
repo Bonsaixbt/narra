@@ -16,7 +16,7 @@ export function renderCoin(r: CoinOut | NotPonsOut): string {
   if (r.cluster) L.push(`${v} ${c.bold(r.cluster.slug)}   ${r.cluster.membership.toFixed(2)}   (cluster ${STATUS_COLOR[r.cluster.status]?.(r.cluster.status) ?? r.cluster.status})`);
   else L.push(`${v} ${c.dim("no cluster")}`);
   for (const a of r.alternatives) L.push(c.dim(`alt     ${a.slug}   ${a.membership.toFixed(2)}`));
-  if (r.popularity && r.popularity.cluster_rank !== null) L.push(`${c.cyan("popular")} meta #${r.popularity.cluster_rank} of ${r.popularity.clusters_total} on the board · ${r.popularity.rank_in_cluster ? `token #${r.popularity.rank_in_cluster} of ${r.popularity.cluster_size} inside` : `joins it by wallets`} · ${r.popularity.buyers} buyers, more than ${r.popularity.buyers_percentile}% of tokens`);
+  if (r.popularity && r.popularity.cluster_rank !== null) L.push(`${c.cyan("popular")} meta #${r.popularity.cluster_rank} of ${r.popularity.clusters_total} on the board · ${r.popularity.rank_in_cluster ? `token #${r.popularity.rank_in_cluster} of ${r.popularity.cluster_size} inside` : `joins it by wallets`} · ${r.popularity.buyers > 0 ? `${r.popularity.buyers} buyers, more than ${r.popularity.buyers_percentile}% of tokens` : "no buyers in this window"}`);
   if (r.narratives.length) L.push(c.dim(`narrative ${r.narratives.join(", ")}`));
   L.push("", c.bold("reading"));
   for (const sentence of r.reading.split(/(?<=\.)\s+(?=[A-Z0-9])/)) L.push(`  ${sentence}`);

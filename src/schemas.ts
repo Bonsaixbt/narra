@@ -91,7 +91,24 @@ export const WalletOut = Meta.extend({
   positions: z.array(z.object({ token: z.string(), symbol: z.string(), cluster: z.string().nullable(), status: Status.nullable(), venue: z.enum(["curve", "pool", "both"]), buys: z.number(), sells: z.number(), quote_in: z.number(), quote_out: z.number(), first_buy_after_launch_sec: z.number().nullable(), last_ts: z.number() })),
   note: z.string(),
 });
-export const SCHEMAS = { now: NowOut, coin: CoinOut, flow: FlowOut, why: WhyOut, watch: WatchEvent, wallets: WalletsOut, wallet: WalletOut } as const;
+export const ErrorOut = z.object({ error: z.object({ code: z.string(), message: z.string() }) });
+export const FindOut = z.object({
+  schema_version: z.literal(SCHEMA_VERSION), query: z.string(), window: z.enum(["15m", "60m", "4h"]),
+  clusters: z.array(z.object({ slug: z.string(), status: Status, narrative: z.string(), rank: z.number(), eth: z.number(), buyers: z.number(), why: z.string() })),
+  tokens: z.array(z.object({ token: z.string(), symbol: z.string(), name: z.string(), cluster: z.string().nullable(), status: Status.nullable(), buyers: z.number(), launched_at: z.number(), phase: z.string() })),
+});
+export const TrendOut = z.object({ hours: z.number(), step: z.number(), since: z.number(), narratives: z.array(z.string()), reading: z.string().optional(), rows: z.array(z.object({ from: z.string(), from_ts: z.number(), launches: z.number(), buys: z.number(), eth: z.number(), narratives: z.record(z.string(), z.number()) })) });
+export const ClusterHistoryOut = z.object({ slug: z.string(), hours: z.number(), reading: z.string().optional(), snapshots: z.array(z.object({ ts: z.string(), ts_unix: z.number(), window: z.string(), status: z.string(), n_launches: z.number(), quote_eth: z.number(), buyers: z.number(), graduations: z.number(), members: z.number() })) });
+export const TokenHistoryOut = z.object({ token: z.string(), hours: z.number(), reading: z.string().optional(), rows: z.array(z.object({ hour: z.string(), hour_ts: z.number(), curve_buys: z.number(), curve_in_eth: z.number(), pool_buys: z.number(), pool_in_eth: z.number(), buyers: z.number() })) });
+export const HoldersCheckOut = z.object({ address: z.string(), balance: z.number().nullable(), threshold: z.number(), ok: z.boolean(), token: z.string().optional(), note: z.string().optional() });
+export const HealthOut = z.object({
+  ok: z.boolean(), snapshot_age_s: z.number().nullable(), head_block: z.number().nullable(), cursor_block: z.number().nullable(), lag_blocks: z.number().nullable(), ticks: z.number(),
+  tick_ms: z.record(z.string(), z.number()).optional(), worker_restarts: z.number().optional(), last_error: z.string().nullable(), windows: z.array(z.string()),
+  launches: z.number(), tokens: z.number(), trades: z.number(), swaps: z.number(), pools: z.number(), snapshots: z.number(), hourly: z.number(), oldest_trade_ts: z.number().nullable(), newest_trade_ts: z.number().nullable(),
+  narra: z.string().optional(), gate: z.boolean().optional(), stream_clients: z.number().optional(), alerts: z.unknown().optional(), bot: z.unknown().optional(),
+});
+
+export const SCHEMAS = { now: NowOut, coin: CoinOut, not_pons: NotPonsOut, find: FindOut, flow: FlowOut, why: WhyOut, watch: WatchEvent, wallets: WalletsOut, wallet: WalletOut, trend: TrendOut, history_cluster: ClusterHistoryOut, history_token: TokenHistoryOut, holders_check: HoldersCheckOut, health: HealthOut, error: ErrorOut } as const;
 export type NowOut = z.infer<typeof NowOut>;
 export type CoinOut = z.infer<typeof CoinOut>;
 export type NotPonsOut = z.infer<typeof NotPonsOut>;

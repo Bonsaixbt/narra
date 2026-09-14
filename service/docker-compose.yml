@@ -11,3 +11,21 @@ services:
     # every 6 h: consistent copy → gzip; keep 3 days (≈ 12 files × ~0.5 GB). A raw hourly copy of a 2 GB database fills a disk in a day.
     entrypoint: ["/bin/sh", "-c", "apk add --no-cache sqlite gzip >/dev/null && while true; do f=/backups/narra-$$(date +%Y%m%d%H).db; sqlite3 /data/narra.db \".backup $$f\" && gzip -1 -f $$f; find /backups -name 'narra-*.db*' -mtime +3 -delete; sleep 21600; done"]
     restart: unless-stopped
+
+  # Public entry through Cloudflare, no open ports needed.
+  # Quick tunnel (no domain, random *.trycloudflare.com URL, fine for the frontend to develop against):
+  #   docker compose --profile quick up -d tunnel-quick && docker compose logs tunnel-quick | grep trycloudflare
+  # Named tunnel (your domain): create it in Cloudflare Zero Trust → Tunnels, route api.<domain> → http://narra:4663,
+  #   put the token in .env as CF_TUNNEL_TOKEN, then: docker compose --profile tunnel up -d tunnel
+  tunnel-quick:
+    image: cloudflare/cloudflared:latest
+    profiles: ["quick"]
+    command: tunnel --no-autoupdate --url http://narra:4663
+    depends_on: [narra]
+    restart: unless-stopped
+  tunnel:
+    image: cloudflare/cloudflared:latest
+    profiles: ["tunnel"]
+    command: tunnel --no-autoupdate run --token ${CF_TUNNEL_TOKEN}
+    depends_on: [narra]
+    restart: unless-stopped

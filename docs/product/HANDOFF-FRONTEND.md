@@ -173,3 +173,18 @@ Run `npx tsx bin/narra.ts terminal` in the repo once: it is the reference for de
 ## 7. How to hand it back
 
 A repository with `README.md` (how to run, env vars), the Vercel project linked, and a short `NOTES.md`: what deviates from this file and why. Open questions go to us before you build around them — the API is ours to extend, so ask for a field rather than deriving it on the client.
+
+## 8. Answers to `NOTES.md` (site branch, 2026-09-14)
+
+1. **npm**: `narra-cli` is not published yet (owner's call); until then generate types from `schemas/*.json` as you do, or add the repo as a git dependency. The schemas folder now covers every response.
+2. **Schemas**: added `not_pons`, `find`, `trend`, `history_cluster`, `history_token`, `holders_check`, `health`, `error` — `schemas/*.json` in the repo and `/api/schema/<name>` on the service.
+3. **`NOISE`**: reserved for the social-signal module (X mentions vs on-chain); nothing assigns it today. Render it like `ORPHAN` with the label "social only" if it ever appears.
+4. **`popularity.buyers` 52 → 0**: `buyers` and the percentile are counted inside the requested window; early buyers are all-time. A token whose buys fell out of the window shows 0 — correct, but the wording was misleading. Cards and readings now say "no buyers in this window" instead of "more than 0% of tokens". Show the percentile only when `buyers > 0`.
+5. **Disclaimer**: use *"IN means this token belongs to a live meta. It is not a recommendation."* — the same sentence the CLI, the bot and the terminal print.
+6. **Windows**: fixed. An unknown value or one the service does not compute answers `400 BAD_WINDOW`; a configured window that is not ready answers `503 WARMING_UP`. The service never substitutes 60m any more.
+7. **Pons links**: fixed to `https://www.ponsfamily.com/launchpad/<ca>` in the engine.
+8. **Runtime validation**: `schemas/*.json` are JSON Schema 2020-12; validate with any JSON-Schema library, or wait for the npm package and use the zod objects.
+9. **Totals**: aligned. The CLI answer block now counts live metas only (DEAD excluded), exactly like `reading`. The count of metas by status still lists DEAD separately.
+10. **Readings on `/api/history/*` and `/api/trend`**: covered by the schemas in (2).
+
+Repository note: the `site` branch removed the engine and the service. Keep the site in `web/` next to them (or in its own repository) so one checkout runs both; nothing from `site` should be merged into `master`.

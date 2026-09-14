@@ -36,3 +36,7 @@ gcloud compute ssh narra-1 --zone europe-west3-a      # then the steps above; do
 `service/.env` on the box must not carry inline `# comments` — docker compose interpolates `$` inside them. Seed the cache by uploading a `sqlite3 .backup` of a machine that already has history (`gzip -1`, `gcloud compute scp`, stop the container, replace `data/narra.db`, start).
 
 Update: `gcloud compute ssh narra-1 --zone europe-west3-a --command "cd ~/narra && git pull && cd service && sudo docker compose up -d --build"`.
+
+## Cloudflare Tunnel instead of open ports
+
+The compose file carries two optional services. Without a domain: `docker compose --profile quick up -d tunnel-quick`, then `docker compose logs tunnel-quick | grep trycloudflare` prints a temporary public URL (it changes on restart). With a domain on Cloudflare: Zero Trust → Networks → Tunnels → create, add a public hostname `api.<domain>` → `http://narra:4663`, copy the token into `service/.env` as `CF_TUNNEL_TOKEN`, then `docker compose --profile tunnel up -d tunnel`. TLS, DDoS protection and the WAF come from Cloudflare; the VM keeps 80/443 closed. Set `NARRA_API_ORIGIN` to the site's origin once it exists.

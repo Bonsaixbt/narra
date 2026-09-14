@@ -27,8 +27,17 @@ type Env = { Variables: { holder: { address: string; balance: number } | null; i
 const app = new Hono<Env>();
 
 const err = (code: string, message: string, status: 400 | 401 | 404 | 429 | 500 | 503) => ({ body: { error: { code, message } }, status });
-const windowOf = (v: string | undefined): Window => (v === "15m" || v === "4h" ? v : "60m");
-const ready = (w: Window) => engine.get(w) ?? engine.get("60m");
+const windowOf = (v: string | undefined): Window | null => (v === undefined || v === "" || v === "60m" ? "60m" : v === "15m" || v === "4h" ? v : null);
+const ready = (w: Window) => engine.get(w);
+/** Resolves the window or writes the error: 400 for an unknown value, 400 for one the service is not configured to compute, 503 while warming up. */
+const resolveWindow = (c: { req: { query: (k: string) => string | undefined }; json: (b: unknown, s: 400 | 503) => Response }): { w: Window; cached: NonNullable<ReturnType<typeof ready>> } | Response => {
+  const w = windowOf(c.req.query("window"));
+  if (!w) { const e = err("BAD_WINDOW", "window must be 15m, 60m or 4h", 400); return c.json(e.body, e.status as 400); }
+  if (!CONFIG.windows.includes(w)) { const e = err("BAD_WINDOW", `this service computes ${CONFIG.windows.join(", ")} only`, 400); return c.json(e.body, e.status as 400); }
+  const cached = ready(w);
+  if (!cached) { const e = err("WARMING_UP", `${w} analysis not ready yet`, 503); return c.json(e.body, e.status as 503); }
+  return { w, cached };
+};
 
 app.use("*", cors({ origin: CONFIG.origin ? [CONFIG.origin] : "*", credentials: !!CONFIG.origin }));
 app.use("*", async (c, next) => {
@@ -58,22 +67,21 @@ const bot = botCfg ? new CommunityBot(botCfg, {
 app.get("/api/health", (c) => { const h = engine.health(); return c.json({ ...h, narra: "service 0.1.0", gate: gateEnabled(), stream_clients: hub.size, alerts: alerter ? { sent: alerter.sent, dropped: alerter.dropped, errors: alerter.errors } : null, bot: bot ? { sent: bot.sent, errors: bot.errors } : null }, h.ok ? 200 : 503); });
 
 app.get("/api/board", async (c) => {
-  const w = windowOf(c.req.query("window"));
+  const rw = resolveWindow(c); if (rw instanceof Response) return rw; const { w, cached } = rw;
   if (w !== "60m" && gateEnabled() && !c.get("holder")) { const e = err("HOLDER_REQUIRED", "15m and 4h windows are for holders", 401); return c.json(e.body, e.status); }
-  const cached = ready(w); if (!cached) { const e = err("WARMING_UP", "first analysis not ready yet", 503); return c.json(e.body, e.status); }
   return c.json(await engine.n.now({ analysis: cached, window: w, pair: (c.req.query("pair") ?? "all") as "all", members: c.req.query("members") === "1", top: Number(c.req.query("top") ?? 0) || undefined, all: c.req.query("all") === "1" }));
 });
 app.get("/api/coin/:ca", async (c) => {
   const ca = c.req.param("ca");
   if (!/^0x[0-9a-fA-F]{40}$/.test(ca)) { const e = err("BAD_ADDRESS", "expected 0x + 40 hex", 400); return c.json(e.body, e.status); }
-  const w = windowOf(c.req.query("window")); const cached = ready(w); if (!cached) { const e = err("WARMING_UP", "first analysis not ready yet", 503); return c.json(e.body, e.status); }
+  const rw = resolveWindow(c); if (rw instanceof Response) return rw; const { w, cached } = rw;
   return c.json(await engine.n.coin(ca, { analysis: cached, window: w }));
 });
-app.get("/api/find", async (c) => { const q = (c.req.query("q") ?? "").trim(); if (!q) { const e = err("BAD_QUERY", "q is required", 400); return c.json(e.body, e.status); } const w = windowOf(c.req.query("window")); const cached = ready(w); if (!cached) { const e = err("WARMING_UP", "not ready", 503); return c.json(e.body, e.status); } return c.json(await engine.n.find(q, { analysis: cached, window: w })); });
-app.get("/api/cluster/:slug", async (c) => { const w = windowOf(c.req.query("window")); const cached = ready(w); if (!cached) { const e = err("WARMING_UP", "not ready", 503); return c.json(e.body, e.status); } try { const r = await engine.n.why(c.req.param("slug"), { analysis: cached, window: w }); if (!r) { const e = err("NO_CLUSTER", "no such meta in this window", 404); return c.json(e.body, e.status); } return c.json(r); } catch (ex) { const e = err("AMBIGUOUS", (ex as Error).message, 400); return c.json(e.body, e.status); } });
-app.get("/api/flow", gated, async (c) => { const w = windowOf(c.req.query("window")); const cached = ready(w); if (!cached) { const e = err("WARMING_UP", "not ready", 503); return c.json(e.body, e.status); } return c.json(await engine.n.flow({ analysis: cached, window: w })); });
-app.get("/api/wallets", gated, async (c) => { const w = windowOf(c.req.query("window")); const cached = ready(w); if (!cached) { const e = err("WARMING_UP", "not ready", 503); return c.json(e.body, e.status); } return c.json(await engine.n.wallets({ analysis: cached, window: w, cohort: c.req.query("cohort") as "rotator" | undefined, sort: c.req.query("sort") as "net_eth" | undefined, top: Number(c.req.query("top") ?? 25) })); });
-app.get("/api/wallet/:address", gated, async (c) => { const a = c.req.param("address"); if (!/^0x[0-9a-fA-F]{40}$/.test(a)) { const e = err("BAD_ADDRESS", "expected 0x + 40 hex", 400); return c.json(e.body, e.status); } const w = windowOf(c.req.query("window")); const cached = ready(w); if (!cached) { const e = err("WARMING_UP", "not ready", 503); return c.json(e.body, e.status); } return c.json(await engine.n.wallet(a, { analysis: cached, window: w })); });
+app.get("/api/find", async (c) => { const q = (c.req.query("q") ?? "").trim(); if (!q) { const e = err("BAD_QUERY", "q is required", 400); return c.json(e.body, e.status); } const rw = resolveWindow(c); if (rw instanceof Response) return rw; const { w, cached } = rw; return c.json(await engine.n.find(q, { analysis: cached, window: w })); });
+app.get("/api/cluster/:slug", async (c) => { const rw = resolveWindow(c); if (rw instanceof Response) return rw; const { w, cached } = rw; try { const r = await engine.n.why(c.req.param("slug"), { analysis: cached, window: w }); if (!r) { const e = err("NO_CLUSTER", "no such meta in this window", 404); return c.json(e.body, e.status); } return c.json(r); } catch (ex) { const e = err("AMBIGUOUS", (ex as Error).message, 400); return c.json(e.body, e.status); } });
+app.get("/api/flow", gated, async (c) => { const rw = resolveWindow(c); if (rw instanceof Response) return rw; const { w, cached } = rw; return c.json(await engine.n.flow({ analysis: cached, window: w })); });
+app.get("/api/wallets", gated, async (c) => { const rw = resolveWindow(c); if (rw instanceof Response) return rw; const { w, cached } = rw; return c.json(await engine.n.wallets({ analysis: cached, window: w, cohort: c.req.query("cohort") as "rotator" | undefined, sort: c.req.query("sort") as "net_eth" | undefined, top: Number(c.req.query("top") ?? 25) })); });
+app.get("/api/wallet/:address", gated, async (c) => { const a = c.req.param("address"); if (!/^0x[0-9a-fA-F]{40}$/.test(a)) { const e = err("BAD_ADDRESS", "expected 0x + 40 hex", 400); return c.json(e.body, e.status); } const rw = resolveWindow(c); if (rw instanceof Response) return rw; const { w, cached } = rw; return c.json(await engine.n.wallet(a, { analysis: cached, window: w })); });
 app.get("/api/history/cluster/:slug", gated, (c) => c.json(engine.n.history(c.req.param("slug"), Number(c.req.query("hours") ?? 24))));
 app.get("/api/history/token/:ca", gated, (c) => c.json(engine.n.history(c.req.param("ca"), Number(c.req.query("hours") ?? 24))));
 app.get("/api/trend", gated, (c) => c.json(engine.n.trend(Number(c.req.query("hours") ?? 48), Number(c.req.query("step") ?? 4))));

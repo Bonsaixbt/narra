@@ -1,0 +1,137 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "1.0.0"
+    },
+    "query": {
+      "type": "string"
+    },
+    "window": {
+      "type": "string",
+      "enum": [
+        "15m",
+        "60m",
+        "4h"
+      ]
+    },
+    "clusters": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "slug": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "HOT",
+              "EMERGING",
+              "ROTATING IN",
+              "ROTATING OUT",
+              "COOLING",
+              "DEAD"
+            ]
+          },
+          "narrative": {
+            "type": "string"
+          },
+          "rank": {
+            "type": "number"
+          },
+          "eth": {
+            "type": "number"
+          },
+          "buyers": {
+            "type": "number"
+          },
+          "why": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "slug",
+          "status",
+          "narrative",
+          "rank",
+          "eth",
+          "buyers",
+          "why"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "tokens": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "token": {
+            "type": "string"
+          },
+          "symbol": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "cluster": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "HOT",
+                  "EMERGING",
+                  "ROTATING IN",
+                  "ROTATING OUT",
+                  "COOLING",
+                  "DEAD"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "buyers": {
+            "type": "number"
+          },
+          "launched_at": {
+            "type": "number"
+          },
+          "phase": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "token",
+          "symbol",
+          "name",
+          "cluster",
+          "status",
+          "buyers",
+          "launched_at",
+          "phase"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "schema_version",
+    "query",
+    "window",
+    "clusters",
+    "tokens"
+  ],
+  "additionalProperties": false
+}

@@ -248,7 +248,7 @@ Narra.prototype.coin = async function (this: Narra, address: string, opts: Query
   const deployerFan = a.deployerFan.get(launch.deployer) ?? 0;
   const words = [...info.tags.keys()].filter((t) => !t.startsWith("pair:") && !t.startsWith("cat:")).slice(0, 8);
   const reading = buildReading({ verdict: v.verdict, cluster: v.cluster, clusters_total: a.clusters.length, nearest: v.nearest, popularity, activity, early_cohorts, deployerFan, phase: info.phase, curve, pairSymbol: pairRow?.symbol ?? "?", launchedAt: launch.ts, nowTs, narratives: tokenNarratives(info) });
-  if (cl) v.reasons.push(`popularity: meta #${cl.rank} of ${a.clusters.length} on the board (${cl.narrative}${cl.narrative_sub ? " · " + cl.narrative_sub : ""}); ${popularity.rank_in_cluster ? `token #${popularity.rank_in_cluster} of ${cl.members.length} inside it by buyers` : `joins it by wallets, not a member by name`}; more buyers than ${popularity.buyers_percentile}% of tokens in the window`);
+  if (cl) v.reasons.push(`popularity: meta #${cl.rank} of ${a.clusters.length} on the board (${cl.narrative}${cl.narrative_sub ? " · " + cl.narrative_sub : ""}); ${popularity.rank_in_cluster ? `token #${popularity.rank_in_cluster} of ${cl.members.length} inside it by buyers` : `joins it by wallets, not a member by name`}; ${popularity.buyers > 0 ? `more buyers than ${popularity.buyers_percentile}% of tokens in the window` : "no buyers inside this window"}`);
   return {
     ...meta, token, symbol: info.symbol, name: info.name, phase: info.phase, curve, pool,
     pair: { address: launch.pair, symbol: pairRow?.symbol ?? "?", kind: pairRow?.kind ?? "other" },
@@ -268,7 +268,7 @@ export function buildReading(x: { verdict: string; cluster: { slug: string; stat
   else parts.push(`Standalone: no live meta shares its words or its buyers${x.nearest[0] && x.nearest[0].membership >= 0.1 ? `; closest is ${x.nearest[0].slug} at ${x.nearest[0].membership.toFixed(2)}` : ""}.`);
   const act = x.activity;
   if (act.buyers_60m === 0) parts.push(`No buys in the last hour${act.last_trade_ts ? `, last trade ${Math.round((x.nowTs - act.last_trade_ts) / 60)}m ago` : ""}.`);
-  else parts.push(`${act.buyers_60m} buyers and ${act.eth_in_60m.toFixed(2)} ETH in the last hour${act.buys_10m ? `, ${act.buys_10m} buys in the last 10 minutes` : ", nothing in the last 10 minutes"}${act.sells_60m > act.buys_60m ? ", more sells than buys" : ""}; more buyers than ${x.popularity.buyers_percentile}% of tokens in the window.`);
+  else parts.push(`${act.buyers_60m} buyers and ${act.eth_in_60m.toFixed(2)} ETH in the last hour${act.buys_10m ? `, ${act.buys_10m} buys in the last 10 minutes` : ", nothing in the last 10 minutes"}${act.sells_60m > act.buys_60m ? ", more sells than buys" : ""}${x.popularity.buyers > 0 ? `; more buyers than ${x.popularity.buyers_percentile}% of tokens in the window` : ""}.`);
   const ec = x.early_cohorts;
   if (ec.total >= 5) {
     const bits: string[] = [];
