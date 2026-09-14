@@ -2,13 +2,14 @@
  * Backfill and incremental sync of factory + curve logs into the store.
  * One cursor for both streams; chunks of `chunkBlocks`; timestamps interpolated between chunk edges.
  */
-import type { PublicClient } from "viem";
+import type { PublicClient, Address } from "viem";
 import { ADDR } from "../chain/constants.js";
 import { TOPICS } from "../chain/topics.js";
 import type { Gate } from "../chain/rpc.js";
 import type { Store, TradeRow } from "../store/db.js";
 import { BlockClock } from "./blocks.js";
 import { decodeLaunch, decodeLifecycle, decodeTrade, interpolator, type RawLog } from "./decode.js";
+import { curveAbi, factoryAbi } from "../chain/abi.js";
 import { enrichPending, ensurePairs, normalizeQuote } from "./enrich.js";
 import { syncPools } from "./pools.js";
 
@@ -124,10 +125,10 @@ export async function sync(ctx: SyncContext, opts: SyncOptions): Promise<SyncPro
   const searched: Record<string, number> = JSON.parse(store.get("unresolved_curves") ?? "{}");
   const unknown = store.unknownCurves(nowTs - opts.windowSec).filter((c) => !(searched[c] && head - searched[c] < 600_000));
   if (unknown.length) {
-    // Timestamps for old launches come from the measured block rate, not one block read per launch.
+    // Launch blocks for old curves come from the measured block rate, not one block read per launch.
     const rate = (nowTs - (await clock.timestamp(Math.max(0, head - 50_000)))) / Math.min(head, 50_000);
-    const tsOfOld = (block: number) => Math.round(nowTs - (head - block) * rate);
-    const found = await resolveCurves(ctx, unknown, from - 1, pairAddrs, tsOfOld);
+    const blockOfOld = (ts: number) => Math.max(0, Math.round(head - (nowTs - ts) / rate));
+    const found = await resolveCurves(ctx, unknown, pairAddrs, blockOfOld);
     p.launches += found;
     store.resolveTradeTokens();
     const still = new Set(store.unknownCurves(nowTs - opts.windowSec));
@@ -163,23 +164,36 @@ export async function sync(ctx: SyncContext, opts: SyncOptions): Promise<SyncPro
  * TokenLaunched has the curve as its 2nd indexed topic, so a filtered query per chunk finds old launches cheaply.
  * Public nodes cap the number of values in one topic filter, so curves go in batches of `batch`.
  */
-async function resolveCurves(ctx: SyncContext, curves: string[], beforeBlock: number, pairAddrs: Set<string>, tsOf: (block: number) => number, maxBack = 600_000, step = 100_000, batch = 40): Promise<number> {
-  const want = new Set(curves.map((c) => c.toLowerCase()));
+/**
+ * Launch rows for curves that traded inside the window but were launched before the cache began. The curve itself
+ * knows its token and launch time (`token()`, `launchedAt()`) and the factory knows the rest (`getLaunchedToken`):
+ * two multicalls per hundred curves. Walking factory logs backwards cost about a hundred eth_getLogs a tick.
+ */
+export async function resolveCurves(ctx: Pick<SyncContext, "store" | "http">, curves: string[], pairAddrs: Set<string>, blockOf: (ts: number) => number, batch = 100): Promise<number> {
   let found = 0;
-  const floor = Math.max(0, beforeBlock - maxBack);
-  for (let to = beforeBlock; want.size && to > floor; to -= step) {
-    const from = Math.max(floor, to - step + 1);
-    const list = [...want];
-    for (let i = 0; i < list.length; i += batch) {
-      const topicCurves = list.slice(i, i + batch).map((c) => ("0x" + c.slice(2).padStart(64, "0")) as `0x${string}`);
-      const logs = (await ctx.gate.request("eth_getLogs", [{ address: ADDR.ponsFactory, topics: [TOPICS.tokenLaunched, null, topicCurves], fromBlock: hex(from), toBlock: hex(to) }])) as RawLog[];
-      const rows = [];
-      for (const l of logs) {
-        const L = decodeLaunch(l, tsOf(Number(BigInt(l.blockNumber))));
-        if (L) { rows.push(L); want.delete(L.curve); pairAddrs.add(L.pair); }
-      }
-      found += ctx.store.upsertLaunches(rows);
-    }
+  for (let i = 0; i < curves.length; i += batch) {
+    const chunk = curves.slice(i, i + batch);
+    const reads = chunk.flatMap((c) => [
+      { address: c as Address, abi: curveAbi, functionName: "token" as const },
+      { address: c as Address, abi: curveAbi, functionName: "launchedAt" as const },
+    ]);
+    let r: { status: "success" | "failure"; result?: unknown }[];
+    try { r = (await ctx.http.multicall({ contracts: reads, allowFailure: true, batchSize: 0 })) as typeof r; } catch { continue; }
+    const known: { curve: string; token: string; ts: number }[] = [];
+    chunk.forEach((curve, k) => {
+      const t = r[2 * k], at = r[2 * k + 1];
+      if (t?.status === "success" && typeof t.result === "string") known.push({ curve, token: t.result.toLowerCase(), ts: at?.status === "success" ? Number(at.result) : 0 });
+    });
+    if (!known.length) continue;
+    let infos: { status: "success" | "failure"; result?: unknown }[];
+    try { infos = (await ctx.http.multicall({ contracts: known.map((k) => ({ address: ADDR.ponsFactory, abi: factoryAbi, functionName: "getLaunchedToken" as const, args: [k.token as Address] })), allowFailure: true, batchSize: 0 })) as typeof infos; } catch { continue; }
+    const rows = known.flatMap((k, j) => {
+      const s = infos[j]?.status === "success" ? (infos[j].result as { deployer: string; pairToken: string; graduationThreshold: bigint; phase: number; sweptAt: bigint; exists: boolean }) : null;
+      if (!s?.exists) return [];
+      pairAddrs.add(s.pairToken.toLowerCase());
+      return [{ token: k.token, curve: k.curve.toLowerCase(), deployer: s.deployer.toLowerCase(), pair: s.pairToken.toLowerCase(), launch_config_id: 0, graduation_threshold: s.graduationThreshold.toString(), block: blockOf(k.ts), tx_hash: "", log_index: 0, ts: k.ts, phase: Number(s.phase), swept_at: Number(s.sweptAt) || null, graduated_at: null, position_id: null, pool_id: null }];
+    });
+    found += ctx.store.upsertLaunches(rows);
   }
   return found;
 }
