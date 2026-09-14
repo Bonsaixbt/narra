@@ -50,7 +50,8 @@ export class Store {
   constructor(path: string = DEFAULT_DB_PATH) {
     this.path = resolveDbPath(path);
     if (this.path !== ":memory:") mkdirSync(dirname(this.path), { recursive: true });
-    this.db = new Database(this.path);
+    // three processes share the file on the server (API, fast worker, slow worker): wait for a writer instead of failing at 5 s
+    this.db = new Database(this.path, { timeout: 30_000 });
     this.db.exec(SCHEMA);
     this.migrate();
   }

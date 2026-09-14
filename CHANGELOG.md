@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- store: the SQLite busy timeout is 30 s (was the 5 s default); on the server three processes write to one file and the fast worker hit `database is locked` while the slow one saved a 4h pass.
 - service: metas and coins in Telegram alerts and bot replies link into the site (`NARRA_SITE_URL`, default `NARRA_API_ORIGIN`).
 - service: Telegram alerts are one digest per `NARRA_TG_ALERT_BATCH_S` (5 min) — metas that turned HOT or started rotating, the biggest moves (≥10 wallets), graduations — instead of one message per event; nothing is sent during the first 90 s after a start, when the first tick replays every status; a 429 keeps the batch and retries after Telegram's pause.
 - Flow history: every analysis tick stores its edges (`flow_ticks`, `flow_snapshots`); `narra history flow` and `GET /api/history/flow?window&hours&step` return one sampled tick per step (the last inside it, never a sum: consecutive windows overlap and would count the same wallets many times). Ticks that predate the tables are recomputed from stored trades and cluster snapshots on first use; the service does that for the last 24 h at startup.
