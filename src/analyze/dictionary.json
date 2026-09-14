@@ -338,7 +338,14 @@
     "音乐": "music",
     "电影": "movie",
     "手机": "phone",
-    "苹果发布会": "aapl"
+    "苹果发布会": "aapl",
+    "刘海荣": "liu",
+    "我要去中国": "china",
+    "熊猫人": "panda",
+    "跳舞猫": "cat",
+    "波普猫": "cat",
+    "喵王": "cat",
+    "金灿": "gold"
   },
   "narratives": {
     "_comment": "Deterministic narrative classes for clusters. A cluster's members vote with their tags; chinese is decided by CJK names first. Edit freely.",
@@ -380,7 +387,10 @@
       "capybara",
       "doge",
       "shib",
-      "pepe"
+      "pepe",
+      "ant",
+      "chonk",
+      "kitsu"
     ],
     "stocks": [
       "stock",
@@ -412,12 +422,26 @@
       "ipo",
       "shares",
       "dividend",
-      "earnings"
+      "earnings",
+      "market",
+      "asset",
+      "stonk",
+      "strategy",
+      "insider",
+      "finance",
+      "broker",
+      "street"
     ],
     "robinhood": [
       "hood",
       "robin",
-      "hoodie"
+      "hoodie",
+      "vlad",
+      "tenev",
+      "vladuinu",
+      "rob",
+      "hoodlife",
+      "robinscan"
     ],
     "ai-agents": [
       "grok",
@@ -434,7 +458,21 @@
       "model",
       "robot",
       "android",
-      "cyborg"
+      "cyborg",
+      "human",
+      "humanity",
+      "humanist",
+      "artificial",
+      "intelligence",
+      "agi",
+      "asi",
+      "souperintelligence",
+      "soup",
+      "gpu",
+      "cpu",
+      "brain",
+      "open",
+      "anth"
     ],
     "politics": [
       "trump",
@@ -473,7 +511,16 @@
       "dex",
       "swap",
       "staking",
-      "yield"
+      "yield",
+      "network",
+      "hash",
+      "perp",
+      "mine",
+      "rebase",
+      "liquidity",
+      "vault",
+      "tulip",
+      "farm"
     ],
     "tools": [
       "terminal",
@@ -495,7 +542,14 @@
       "bridge",
       "wallet",
       "pad",
-      "launcher"
+      "launcher",
+      "labs",
+      "lab",
+      "tech",
+      "app",
+      "scan",
+      "trader",
+      "trade"
     ],
     "celebrities": [
       "elon",
@@ -534,7 +588,13 @@
       "hongbao",
       "lucky",
       "luck",
-      "boss"
+      "boss",
+      "fund",
+      "capital",
+      "green",
+      "golden",
+      "roi",
+      "gorillion"
     ],
     "culture": [
       "meme",
@@ -551,7 +611,15 @@
       "wagmi",
       "ngmi",
       "fomo",
-      "hodl"
+      "hodl",
+      "dancing",
+      "cult",
+      "retard",
+      "peni",
+      "peniscoin",
+      "wif",
+      "mog",
+      "morning"
     ],
     "chinese": [
       "china",
@@ -574,7 +642,10 @@
       "byd",
       "cny",
       "rmb",
-      "yuan"
+      "yuan",
+      "liu",
+      "hairong",
+      "biao"
     ]
   }
 }

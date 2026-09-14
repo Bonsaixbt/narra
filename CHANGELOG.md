@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Dictionary review on a week of launches: 64 words that carried the most ETH outside any family were sorted into families (humanist / superintelligence memes → ai-agents, treasury-strategy and insider tickers → stocks, Vlad Tenev and Robinhood tooling → robinhood, and so on) plus seven CJK names; the free models were overloaded, so the sorting was done by hand from `narra dictionary suggest`'s candidate list.
+- Model naming of metas: cached by the meta's stable id instead of its member set (which changed every tick and burned the daily budget in two passes: 69 names in two days, none on the live board); the model is asked only for live metas with five or more members, at most three per pass; the service budget is 300 calls a day.
 - Status thresholds calibrated on the server's snapshots (160k snapshots, 2036 ticks, 2501 clusters over the 60m window): HOT is the top decile of ETH inflow (≥20 ETH, ≥9 launches) and no longer requires a graduation, which lagged the money and kept HOT at 1% of published metas; EMERGING needs 38 buyers, COOLING starts at 3 launches under 0.25 ETH, publication from 8 buyers. `calibrated_on` is set.
 
 ## 0.3.0 — 2026-09-14
