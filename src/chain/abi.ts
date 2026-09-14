@@ -23,6 +23,7 @@ export const curveAbi = parseAbi([
   "function graduated() view returns (bool)",
   "function readyToGraduate() view returns (bool)",
   "function launchedAt() view returns (uint256)",
+  "function token() view returns (address)",
   "event CurveBuy(address indexed buyer, address indexed recipient, uint256 quoteIn, uint256 tokensOut, uint256 fee, uint256 tax)",
   "event CurveSell(address indexed seller, address indexed recipient, uint256 tokensIn, uint256 quoteOut, uint256 fee, uint256 tax)",
 ]);
