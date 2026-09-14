@@ -123,9 +123,13 @@ export function analyze(store: Store, windowKey: string, windowSec: number, nowT
 
 const r3 = (x: number) => Math.round(x * 1000) / 1000;
 
-export function membersOf(a: Analysis, c: ClusterOut, store: Store): MemberOut[] {
+/** Last trade per token inside the window: one pass over the trades, shared by every cluster's member list. */
+export function lastTradeByToken(a: Analysis): Map<string, number> {
   const last = new Map<string, number>();
   for (const t of a.trades) if (t.token && t.ts >= a.window.from) last.set(t.token, Math.max(last.get(t.token) ?? 0, t.ts));
+  return last;
+}
+export function membersOf(a: Analysis, c: ClusterOut, store: Store, last = lastTradeByToken(a)): MemberOut[] {
   const overlap = (token: string): number => {
     const mine = a.buyers.get(token); if (!mine) return 0;
     let n = 0;

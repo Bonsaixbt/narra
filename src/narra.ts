@@ -98,7 +98,7 @@ function pick<T extends object, K extends keyof T>(o: T, keys: K[]): Pick<T, K> 
 // ------------------------------------------------------------------------------------------------------
 // Queries. Each one syncs the cache first (cold start prints progress through onProgress), then analyses.
 // ------------------------------------------------------------------------------------------------------
-import { analyze, membersOf, toTokenInfo, type Analysis } from "./analyze/board.js";
+import { analyze, membersOf, lastTradeByToken, toTokenInfo, type Analysis } from "./analyze/board.js";
 import { verdictFor } from "./analyze/verdict.js";
 import { SCHEMA_VERSION, type NowOut, type CoinOut, type NotPonsOut, type FlowOut, type WhyOut, type WalletsOut, type WalletOut } from "./schemas.js";
 import { curveAbi } from "./chain/abi.js";
@@ -182,9 +182,11 @@ Narra.prototype.now = async function (this: Narra, opts: QueryOptions = {}): Pro
   const pair = opts.pair ?? "all";
   let clusters = a.clusters.filter((c) => pair === "all" || (c.heat.pair_mix[pair] ?? 0) > 0);
   if (opts.top) clusters = clusters.slice(0, opts.top);
+  // the members path used to rescan every trade in the window once per cluster (77 clusters × 300k trades): one pass now
+  const lastTrades = opts.members ? lastTradeByToken(a) : undefined;
   const out: NowOut = {
     ...meta, quote_unit: "ETH",
-    clusters: clusters.map((c) => ({ slug: c.slug, label: c.label, status: c.status, top_tags: c.top_tags, n_members: c.members.length, heat: c.heat, links: c.links, summary: c.summary, label_source: c.label_source, narrative: c.narrative, narrative_sub: c.narrative_sub, narrative_mix: c.narrative_mix, flow: c.flow, rank: c.rank, cohorts: c.cohorts, rotating_from: c.rotating_from, rotating_to: c.rotating_to, ...(opts.members ? { members: membersOf(a, c, this.store) } : {}) })),
+    clusters: clusters.map((c) => ({ slug: c.slug, label: c.label, status: c.status, top_tags: c.top_tags, n_members: c.members.length, heat: c.heat, links: c.links, summary: c.summary, label_source: c.label_source, narrative: c.narrative, narrative_sub: c.narrative_sub, narrative_mix: c.narrative_mix, flow: c.flow, rank: c.rank, cohorts: c.cohorts, rotating_from: c.rotating_from, rotating_to: c.rotating_to, ...(opts.members ? { members: membersOf(a, c, this.store, lastTrades) } : {}) })),
     counts: a.counts,
   };
   out.reading = readBoard({ clusters: a.clusters.map((c) => ({ ...c, n_members: c.members.length, members: undefined })) as NowOut["clusters"], counts: a.counts, window: out.window });
