@@ -54,6 +54,13 @@ export const CoinOut = Meta.extend({
   cluster: z.object({ slug: z.string(), status: Status, membership: z.number() }).nullable(),
   alternatives: z.array(z.object({ slug: z.string(), membership: z.number() })),
   reasons: z.array(z.string()), watch: z.array(z.string()),
+  /** one or two sentences a person can act on, built from the fields below */
+  reading: z.string(),
+  activity: z.object({ buys_10m: z.number(), buyers_10m: z.number(), buys_60m: z.number(), buyers_60m: z.number(), sells_60m: z.number(), eth_in_60m: z.number(), last_trade_ts: z.number().nullable(), first_trade_ts: z.number().nullable() }),
+  early_cohorts: z.object({ sniper: z.number(), sprayer: z.number(), rotator: z.number(), "early-in-hot": z.number(), total: z.number() }),
+  deployer_launches_window: z.number(),
+  nearest: z.array(z.object({ slug: z.string(), status: Status, membership: z.number(), overlap: z.number() })),
+  words: z.array(z.string()),
   narratives: z.array(z.string()),
   popularity: z.object({ cluster_rank: z.number().nullable(), clusters_total: z.number(), rank_in_cluster: z.number().nullable(), cluster_size: z.number().nullable(), buyers: z.number(), buyers_percentile: z.number() }).nullable(),
   evidence: z.object({ early_buyers: z.number(), overlap_buyers: z.number(), text_score: z.number(), wallet_score: z.number(), launch_tx: z.string().nullable(), launch_block: z.number().nullable() }),
