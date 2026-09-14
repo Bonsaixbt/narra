@@ -2,7 +2,7 @@
 
 Date: 2026-09-13 (last update: terminal, narratives, popularity, readability; 48 h of history collected)
 Version: 0.2.0 (not published to npm; `npm pack` gives a 94 KB tarball, clean install without optional dependencies verified)
-Package: `narra-cli`, binary `narra`
+Package: `narrahood`, binary `narra`
 
 ---
 
@@ -68,7 +68,7 @@ Rules live in two open files: `src/analyze/dictionary.json` (stop words, aliases
 
 | Task | Why | Where |
 |---|---|---|
-| Publish: GitHub and `npm publish narra-cli` | `npx narra-cli` does not work until then | — |
+| Publish: GitHub and `npm publish narrahood` | `npx narrahood` does not work until then | — |
 | Run `narra serve` for a few days, then `narra calibrate --window 60m --hours 168 --write` | status thresholds are still opinions (`calibrated_on: null`) | `integrations/launchd/`, `src/cli/calibrate.ts` |
 | An Anthropic key or an OpenAI-compatible endpoint in `.env` | model-written meta labels are untested live | `.env.example` |
 | Grow the narrative families: `narra dictionary suggest --write` with a free model (Ollama / Groq / OpenRouter), then review the diff | about half of the ETH on the trend falls into `mixed` | `src/cli/dictionary.ts` |

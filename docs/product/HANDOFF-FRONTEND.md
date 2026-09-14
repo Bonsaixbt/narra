@@ -6,7 +6,7 @@ For the person building the site. Everything you need to start today is in this 
 
 Pons v2 is a memecoin launchpad on Robinhood Chain: about 30 000 tokens launch every day. narra groups those launches into **metas** (waves of similarly named tokens bought by the same crowd), measures which metas are pulling ETH and buyers right now, follows wallets from one meta to the next, and tells you whether a given contract address belongs to a live meta. It is a read-only analytics tool: no wallet, no trading, no private keys anywhere. The verdict `IN` means "belongs to a live meta" and is never a buy signal — the site must keep that framing.
 
-The engine exists and runs as a terminal tool (`narra-cli`, TypeScript, MIT). The site is a thin, fast, good-looking window on the same data.
+The engine exists and runs as a terminal tool (`narrahood`, TypeScript, MIT). The site is a thin, fast, good-looking window on the same data.
 
 ## 2. What you get from the backend
 
@@ -21,7 +21,7 @@ curl localhost:4663/api/health
 curl "localhost:4663/api/board?top=5" | jq '.clusters[] | {slug, status, narrative}'
 ```
 
-Every response is validated against zod schemas; the JSON Schemas are checked into `schemas/*.json` (`now`, `coin`, `flow`, `why`, `watch`, `wallets`, `wallet`). Types come from the package: `import type { NowOut, CoinOut, FlowOut, WhyOut, WalletsOut, WalletOut, WatchEvent } from "narra-cli"`.
+Every response is validated against zod schemas; the JSON Schemas are checked into `schemas/*.json` (`now`, `coin`, `flow`, `why`, `watch`, `wallets`, `wallet`). Types come from the package: `import type { NowOut, CoinOut, FlowOut, WhyOut, WalletsOut, WalletOut, WatchEvent } from "narrahood"`.
 
 ### Endpoints (all under `/api`)
 
@@ -180,7 +180,7 @@ A repository with `README.md` (how to run, env vars), the Vercel project linked,
 
 ## 8. Answers to `NOTES.md` (site branch, 2026-09-14)
 
-1. **npm**: `narra-cli` is not published yet (owner's call); until then generate types from `schemas/*.json` as you do, or add the repo as a git dependency. The schemas folder now covers every response.
+1. **npm**: `narrahood` is not published yet (owner's call); until then generate types from `schemas/*.json` as you do, or add the repo as a git dependency. The schemas folder now covers every response.
 2. **Schemas**: added `not_pons`, `find`, `trend`, `history_cluster`, `history_token`, `holders_check`, `health`, `error` — `schemas/*.json` in the repo and `/api/schema/<name>` on the service.
 3. **`NOISE`**: reserved for the social-signal module (X mentions vs on-chain); nothing assigns it today. Render it like `ORPHAN` with the label "social only" if it ever appears.
 4. **`popularity.buyers` 52 → 0**: `buyers` and the percentile are counted inside the requested window; early buyers are all-time. A token whose buys fell out of the window shows 0 — correct, but the wording was misleading. Cards and readings now say "no buyers in this window" instead of "more than 0% of tokens". Show the percentile only when `buyers > 0`.

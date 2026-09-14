@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!-- macOS: keep `narra serve` running so cluster snapshots accumulate for calibration.
      cp integrations/launchd/com.narra.serve.plist ~/Library/LaunchAgents/ && launchctl load ~/Library/LaunchAgents/com.narra.serve.plist
-     Adjust ProgramArguments to your install (npx narra-cli serve, or the checkout's bin). Env comes from ~/.narra/.env. -->
+     Adjust ProgramArguments to your install (npx narrahood serve, or the checkout's bin). Env comes from ~/.narra/.env. -->
 <plist version="1.0">
 <dict>
   <key>Label</key><string>com.narra.serve</string>

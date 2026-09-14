@@ -10,7 +10,7 @@ Where the product is on 2026-09-13 and where it goes. Dates are targets, not pro
 | Deploy `service/` on a VPS behind Caddy, seed it with the collected cache | owner + Claude (docs, fixes) | `service/deploy/VPS.md` ready |
 | Calibrate status thresholds from a week of snapshots, commit `thresholds.json` | Claude, after the data | tool ready |
 | Grow the narrative dictionary (`narra dictionary suggest`, review, `--write`) | owner reviews, Claude runs | first pass done |
-| `npm publish narra-cli` so `npx narra-cli` works | owner | package verified |
+| `npm publish narrahood` so `npx narrahood` works | owner | package verified |
 | Telegram: bot token, community chat id, alert chat id into `service/.env` | owner | bot + alerts built |
 | Site on Cloudflare Pages against the live API | frontend dev | brief delivered |
 | Launch content: three frames (board, card, flow) recorded from `narra terminal` | owner | — |

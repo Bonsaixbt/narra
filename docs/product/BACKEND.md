@@ -6,7 +6,7 @@ Status: implemented in `service/` (Hono): engine loop with cached analyses per w
 
 Related: `docs/OSS.md` (phase 1, the open terminal), `docs/GUIDE.md`, `docs/FRONTEND.md` (the site).
 
-Phase 2 imports `narra-cli` as a dependency: the ingest, analysis and schemas are the same code. What the service adds is what a local install cannot have — history beyond the local retention, alerts, a site, a holder gate.
+Phase 2 imports `narrahood` as a dependency: the ingest, analysis and schemas are the same code. What the service adds is what a local install cannot have — history beyond the local retention, alerts, a site, a holder gate.
 
 ---
 
@@ -53,7 +53,7 @@ Public constants, checked at startup by `narra doctor` against the live chain; a
 | Supply | 1 000 000 000 × 1e18 |
 | Tempo | ~20–40k launches and ~600 graduations a day; ~8 curve buys per second chain-wide (measured 2026-09-13) |
 
-Events, view functions, topics and the sync mechanics are documented in `docs/PONS.md` and implemented in `narra-cli`.
+Events, view functions, topics and the sync mechanics are documented in `docs/PONS.md` and implemented in `narrahood`.
 
 ---
 
@@ -61,7 +61,7 @@ Events, view functions, topics and the sync mechanics are documented in `docs/PO
 
 ```
                       ┌───────────────────────────────────────────┐
-  Chainstack WSS ───▶ │  ingest (narra-cli)                       │
+  Chainstack WSS ───▶ │  ingest (narrahood)                       │
   Chainstack HTTPS ─▶ │   launches · curveTrades · lifecycle ·    │
   public RPC (fb) ──▶ │   poolSwaps · enrich · pairs · backfill   │
                       └───────────────┬───────────────────────────┘
@@ -69,7 +69,7 @@ Events, view functions, topics and the sync mechanics are documented in `docs/PO
                             SQLite (WAL) — raw events + metadata + hourly + snapshots
                                       ▼
                       ┌───────────────────────────────────────────┐
-                      │  analyze (narra-cli), tick every 30 s     │
+                      │  analyze (narrahood), tick every 30 s     │
                       │   tokenize → cluster → heat → status →    │
                       │   flow → wallets → narrative → snapshots  │
                       └───────────────┬───────────────────────────┘
@@ -85,19 +85,19 @@ Modes:
 - `narra serve` — indexer + analyser + API. A long-lived process on a VPS (needs a persistent WebSocket subscription, so not a serverless function).
 - The site talks to the API; a user of the open repo runs their own node with the same binary.
 
-Stack: Node 22 LTS, TypeScript, `narra-cli` as a library, `better-sqlite3`, `hono` for HTTP, `zod` for response schemas. No ORM. Tests with `node:test`.
+Stack: Node 22 LTS, TypeScript, `narrahood` as a library, `better-sqlite3`, `hono` for HTTP, `zod` for response schemas. No ORM. Tests with `node:test`.
 
 ---
 
 ## 4. RPC layer
 
-Implemented in `narra-cli` (`src/chain/rpc.ts`): endpoint list with capabilities, single requests (no JSON-RPC batching), per-endpoint concurrency, a 5 s bench on 429/503 and 60 s on a Cloudflare challenge, a learned block-range cap with automatic splitting, WSS subscription with a watchdog. Metrics (calls per method, refusals, block lag) are exposed on `/api/health`.
+Implemented in `narrahood` (`src/chain/rpc.ts`): endpoint list with capabilities, single requests (no JSON-RPC batching), per-endpoint concurrency, a 5 s bench on 429/503 and 60 s on a Cloudflare challenge, a learned block-range cap with automatic splitting, WSS subscription with a watchdog. Metrics (calls per method, refusals, block lag) are exposed on `/api/health`.
 
 ---
 
 ## 5. Ingest
 
-Implemented in `narra-cli`. Streams: `launches`, `curve_trades`, `lifecycle`, `pool_init`, `pool_swaps`, `enrich`, `pairs`. One cursor per stream family; 2 000-block chunks; timestamps interpolated between chunk edges; deduplication on `(tx_hash, log_index)`; reorg check via the cursor block hash with a 200-block rewind.
+Implemented in `narrahood`. Streams: `launches`, `curve_trades`, `lifecycle`, `pool_init`, `pool_swaps`, `enrich`, `pairs`. One cursor per stream family; 2 000-block chunks; timestamps interpolated between chunk edges; deduplication on `(tx_hash, log_index)`; reorg check via the cursor block hash with a 200-block rewind.
 
 Wallet attribution: `recipient` on curves; the end of the token's `Transfer` chain from or to the PoolManager in pools, skipping the hook's fee leg.
 
@@ -107,10 +107,10 @@ Quote normalisation: ETH as is; stables via ETH/USD; stock-token pairs stay null
 
 ## 6. Database
 
-The `narra-cli` schema plus service-only tables:
+The `narrahood` schema plus service-only tables:
 
 ```sql
--- from narra-cli
+-- from narrahood
 launches, tokens, pairs, curve_trades, curve_snapshots, pools, pool_swaps, hourly, cursors,
 cluster_snapshots, embeddings, cluster_labels, kv
 
@@ -126,7 +126,7 @@ Retention on the service: raw trades 7 days (`NARRA_RETENTION_H=168`); hourly ag
 
 ## 7. Analysis
 
-Implemented in `narra-cli` and described in `docs/STRATEGY.md`: tokenisation, clustering with the size guard and the launch-farm rule, heat, statuses, flow, wallet cohorts, narratives, verdicts, the optional semantic layer.
+Implemented in `narrahood` and described in `docs/STRATEGY.md`: tokenisation, clustering with the size guard and the launch-farm rule, heat, statuses, flow, wallet cohorts, narratives, verdicts, the optional semantic layer.
 
 Service-side additions:
 
@@ -144,7 +144,7 @@ Implemented: pools after graduation are indexed through `Initialize` and `Swap` 
 
 ## 9. HTTP API
 
-Base path `/api`. All answers are JSON validated by the `narra-cli` zod schemas, exported for the frontend. Errors: `{ error: { code, message } }`.
+Base path `/api`. All answers are JSON validated by the `narrahood` zod schemas, exported for the frontend. Errors: `{ error: { code, message } }`.
 
 | Method | Path | Answer | Gate |
 |---|---|---|---|
@@ -168,7 +168,7 @@ Limits: 60 requests/min per IP without the gate, 600 with it. SSE: 1 connection 
 
 ## 10. CLI
 
-The `narra-cli` binary. Service-specific: `narra serve` with `--public` (rate limits, CORS, holder gate) and alert workers.
+The `narrahood` binary. Service-specific: `narra serve` with `--public` (rate limits, CORS, holder gate) and alert workers.
 
 ---
 
@@ -204,13 +204,13 @@ RPC budget on Chainstack: subscriptions plus a few `eth_getLogs` per minute, one
 
 ## 13. Tests
 
-The `narra-cli` suite (50 checks, no network) plus service tests: holder gate, rate limits, SSE delay, OG rendering.
+The `narrahood` suite (50 checks, no network) plus service tests: holder gate, rate limits, SSE delay, OG rendering.
 
 ---
 
 ## 14. Open in the repo, kept by the service
 
-Open (MIT): everything in `narra-cli`, the dictionaries, thresholds, formulas.
+Open (MIT): everything in `narrahood`, the dictionaries, thresholds, formulas.
 
 Not in the repo: our history beyond the local retention, the config with the Chainstack key, Telegram alerts, the dictionary tuned on our history (a base version is published).
 

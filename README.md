@@ -80,8 +80,8 @@ Left: the board, ranked. Right: the selected meta — numbers, what holds it tog
 Node 22 or newer.
 
 ```sh
-npx narra-cli now                 # no install
-npm i -g narra-cli && narra now   # global
+npx narrahood now                 # no install
+npm i -g narrahood && narra now   # global
 git clone https://github.com/Bonsaixbt/narra && cd narra && npm i && npm run now
 ```
 
@@ -116,11 +116,11 @@ Every command takes `--json` (streams take `--jsonl`), `--rpc <url,url#nologs>`,
 **MCP.** One line in the MCP config of Claude Desktop, Claude Code, Cursor, Windsurf or Codex:
 
 ```json
-{ "mcpServers": { "narra": { "command": "npx", "args": ["-y", "narra-cli", "mcp"] } } }
+{ "mcpServers": { "narra": { "command": "npx", "args": ["-y", "narrahood", "mcp"] } } }
 ```
 
 ```sh
-claude mcp add narra -- npx -y narra-cli mcp
+claude mcp add narra -- npx -y narrahood mcp
 ```
 
 Tools: `narra_now`, `narra_coin`, `narra_flow`, `narra_why`, `narra_doctor`. A prompt `narra_check_before_entry` tells the model to call `narra_coin` first, quote the reasons and never encourage entries into dead or orphan metas.
@@ -139,7 +139,7 @@ narra coin 0x… --quiet && echo "in a live meta"
 **Library.**
 
 ```ts
-import { createNarra } from "narra-cli";
+import { createNarra } from "narrahood";
 const narra = createNarra();            // public RPCs, ~/.narra/narra.db
 const board = await narra.now();         // same object as `narra now --json`
 const card  = await narra.coin("0x…");

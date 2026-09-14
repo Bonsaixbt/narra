@@ -8,7 +8,7 @@ Two packages in one repository:
 
 | Package | Path | Role |
 |---|---|---|
-| `narra-cli` | repo root | the engine: chain ingest, SQLite cache, clustering, statuses, flow, wallets, narratives, verdicts, semantic layer, CLI, MCP. Published to npm as `narra-cli`. |
+| `narrahood` | repo root | the engine: chain ingest, SQLite cache, clustering, statuses, flow, wallets, narratives, verdicts, semantic layer, CLI, MCP. Published to npm as `narrahood`. |
 | `narra-service` | `service/` | the engine as an HTTP + SSE service for the site: cached analyses per window, holder gate, rate limits, delayed public stream, share cards, Docker. Private, not published. |
 
 The service computes nothing of its own. Every number it returns is the same the terminal prints; if a value looks wrong, reproduce it with `narra now --json` on the same cache before touching the service.
@@ -33,7 +33,7 @@ Production: `cd service && docker compose up -d`. The image builds the library a
 service/src/
   config.ts     env → CONFIG; gateEnabled() = token address and HMAC secret both set
   engine.ts     one Narra; loop: sync the deepest window → prepare() per window → cache {a, meta, at}; 60m diffs into events; websocket wakes it (≥10 s apart)
-  index.ts      Hono app: middleware (CORS, IP, holder cookie, rate limit) → routes; every route answers from the cached analysis via narra-cli's QueryOptions.analysis
+  index.ts      Hono app: middleware (CORS, IP, holder cookie, rate limit) → routes; every route answers from the cached analysis via narrahood's QueryOptions.analysis
   gate.ts       readBalance() through viem; issueToken()/verifyToken(): base64url payload + HMAC-SHA256, 24 h TTL, constant-time compare
   ratelimit.ts  token bucket per IP (anonymous) or per holder address
   stream.ts     SSE hub: holders immediately, anonymous after NARRA_PUBLIC_STREAM_DELAY_S; SYNC heartbeats are never delayed
@@ -45,7 +45,7 @@ test/           gate round-trip and tampering, limiter refill, stream delay
 
 The engine keeps at most three analyses in memory. `60m` and `15m` are recomputed every tick (`NARRA_TICK_S`, 30 s); `4h` at most every `NARRA_SLOW_WINDOW_EVERY_S` (300 s) because it takes ~25 s of CPU. Two child processes do the work: the fast one syncs and recomputes `60m`/`15m` every tick, the slow one owns `4h` and the trend, so a 200 s `4h` pass never lets the fast windows go stale (health flips to 503 when `60m` is older than `NARRA_STALE_AFTER_S`). Requests are served from the cache, so a request never triggers analysis. The slow worker precomputes `/api/trend` (48 h in 4 h steps, every `NARRA_TREND_EVERY_S`): the aggregate is seconds of SQL over the trade tables and, before it moved, it blocked every other route for a minute per call. Other spans are refused with `BAD_TREND` (the CLI answers them). Every tick also writes its flow edges (`flow_ticks`, `flow_snapshots`, same retention as `cluster_snapshots`) for `/api/history/flow`; the slow worker backfills the last 24 h of sampled ticks from stored trades at startup, so the route is never empty after an upgrade. Cluster snapshots carry `meta_id`/`first_seen` (added by an in-place migration), the identity behind the `id` field on every cluster. Every tick also stores cluster snapshots in the cache: that is the calibration data for `narra calibrate`.
 
-Library entry points the service relies on (all exported from `narra-cli`): `Narra` with `sync`, `prepare`, `now`, `coin`, `find`, `why`, `flow`, `wallets`, `wallet`, `trend`, `history`, `doctor`; `diffEvents`, `liveTrigger`, `loadEnv`, `SCHEMAS`, `jsonSchema`. `QueryOptions.analysis` is the hook that lets the service answer from a cached analysis.
+Library entry points the service relies on (all exported from `narrahood`): `Narra` with `sync`, `prepare`, `now`, `coin`, `find`, `why`, `flow`, `wallets`, `wallet`, `trend`, `history`, `doctor`; `diffEvents`, `liveTrigger`, `loadEnv`, `SCHEMAS`, `jsonSchema`. `QueryOptions.analysis` is the hook that lets the service answer from a cached analysis.
 
 ## 4. Configuration
 
@@ -95,7 +95,7 @@ There is no signature anywhere in this flow. Anyone can claim any address; the g
 
 ## 7. Contract with the frontend
 
-The response shapes are the zod schemas in `narra-cli` (`src/schemas.ts`, generated into `schemas/*.json`). Rules:
+The response shapes are the zod schemas in `narrahood` (`src/schemas.ts`, generated into `schemas/*.json`). Rules:
 
 - Fields never disappear within `schema_version` 1.x; add, never rename.
 - New endpoints go under `/api` and answer JSON with the same `{ error: { code, message } }` shape on failure.

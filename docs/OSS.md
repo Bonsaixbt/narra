@@ -9,7 +9,7 @@ Status: phase-1 spec, implemented in v0.2.0. `docs/STATUS.md` is the source of t
 ## 0. Principles
 
 1. **The terminal is the product.** Everything narra can do is available from the shell without a site, an account or a key.
-2. **Zero configuration.** `npx narra-cli now` works immediately on public RPCs. A private node is an option, not a requirement.
+2. **Zero configuration.** `npx narrahood now` works immediately on public RPCs. A private node is an option, not a requirement.
 3. **The agent is the first user.** Every command has `--json` with a stable schema, there is an MCP server, a library API and ready-made skill files. A human reads the same output as the model.
 4. **Every number opens.** Every verdict in JSON carries the block, the launch transaction, the window, the buyer counts. No magic.
 5. **Read-only.** No private key, no `--live`, no auto-buy. `IN` does not mean "buy".
@@ -37,9 +37,9 @@ Does not: trade, compute exit liquidity, rank "smart wallets", read X (social si
 ## 2. Install and first run
 
 ```sh
-npx narra-cli now              # no install
-npm i -g narra-cli && narra now
-bunx narra-cli now
+npx narrahood now              # no install
+npm i -g narrahood && narra now
+bunx narrahood now
 git clone … && npm i && npm run now
 ```
 
@@ -165,7 +165,7 @@ Rule: no field disappears between minor versions; new ones are added.
 ## 5. Library API
 
 ```ts
-import { createNarra } from "narra-cli";
+import { createNarra } from "narrahood";
 
 const narra = createNarra({ rpc: process.env.RPC_URL, db: "~/.narra/narra.db" });
 await narra.sync("60m");                  // incremental catch-up
@@ -197,11 +197,11 @@ Prompt `narra_check_before_entry`: "if the user brings a CA, call `narra_coin` f
 
 ```jsonc
 // Claude Desktop / Claude Code (.mcp.json) / Cursor / Windsurf / Codex
-{ "mcpServers": { "narra": { "command": "npx", "args": ["-y", "narra-cli", "mcp"] } } }
+{ "mcpServers": { "narra": { "command": "npx", "args": ["-y", "narrahood", "mcp"] } } }
 ```
 
 ```sh
-claude mcp add narra -- npx -y narra-cli mcp
+claude mcp add narra -- npx -y narrahood mcp
 ```
 
 ### 6.2 Skill files in the repo
@@ -316,7 +316,7 @@ narra/
 
 **v0.3 — after the launch**: Telegram alerts, the social-signal module (NOISE) as a fourth signal, a dictionary tuned on history.
 
-**Phase 2 (the hosted product)** — `docs/product/BACKEND.md` and `docs/product/FRONTEND.md`: the same package hosted as a service, history beyond 48 h, a site, a holder gate. The product imports `narra-cli` as a dependency; it does not fork it.
+**Phase 2 (the hosted product)** — `docs/product/BACKEND.md` and `docs/product/FRONTEND.md`: the same package hosted as a service, history beyond 48 h, a site, a holder gate. The product imports `narrahood` as a dependency; it does not fork it.
 
 ---
 

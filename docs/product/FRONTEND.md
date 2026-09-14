@@ -40,7 +40,7 @@ The `15m` and `4h` windows, flow, wallets, history and the undelayed live stream
 - Astro or Next.js (via `@opennextjs/cloudflare`), TypeScript. Deployed on **Cloudflare Pages** from the GitHub repository with automatic deploys and PR previews.
 - Tailwind CSS 4. No UI library: few components, a terminal style, kits only get in the way.
 - Data: server-rendered first screen from the API with edge caching (15 s for the board and cluster pages), then live updates through SSE (`EventSource` on `/api/stream`) or polling every 30 s when SSE is unavailable.
-- Response types imported from the shared `narra-cli` zod schemas. One source of truth.
+- Response types imported from the shared `narrahood` zod schemas. One source of truth.
 - Env (Pages dashboard): `NARRA_API_URL` (the backend), `PUBLIC_SITE_URL`.
 - No analytics, no cookies except the holder token, no external fonts except one monospace face with a local fallback.
 

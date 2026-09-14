@@ -5,7 +5,7 @@
  *
  * Long polling (getUpdates), so no public webhook is needed.
  */
-import type { NowOut, CoinOut, NotPonsOut, FlowOut, WhyOut } from "narra-cli";
+import type { NowOut, CoinOut, NotPonsOut, FlowOut, WhyOut } from "narrahood";
 import { RateLimiter } from "./ratelimit.js";
 
 export interface BotConfig { token: string; communityChats: string[]; digestEverySec: number; commands: boolean; allowedChats: Set<string> | null }

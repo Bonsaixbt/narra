@@ -8,7 +8,7 @@ import { cors } from "hono/cors";
 import { streamSSE } from "hono/streaming";
 import { getCookie, setCookie } from "hono/cookie";
 import { serve } from "@hono/node-server";
-import { jsonSchema, SCHEMAS, type WatchEvent } from "narra-cli";
+import { jsonSchema, SCHEMAS, type WatchEvent } from "narrahood";
 import { CONFIG, gateEnabled } from "./config.js";
 import { Engine, type Window } from "./engine.js";
 import { TREND } from "./engineWorker.js";

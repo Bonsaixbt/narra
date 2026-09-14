@@ -4,7 +4,7 @@
  * lets the fast windows go stale. Each ships its results to the parent over IPC (advanced serialization keeps Maps
  * and Sets). The parent answers HTTP, SSE and the bot from those objects and never blocks on a clustering pass.
  */
-import { Narra, liveTrigger } from "narra-cli";
+import { Narra, liveTrigger } from "narrahood";
 import { CONFIG } from "./config.js";
 
 type Window = "15m" | "60m" | "4h";
