@@ -18,7 +18,8 @@ export function renderCoin(r: CoinOut | NotPonsOut): string {
   for (const a of r.alternatives) L.push(c.dim(`alt     ${a.slug}   ${a.membership.toFixed(2)}`));
   if (r.popularity && r.popularity.cluster_rank !== null) L.push(`${c.cyan("popular")} meta #${r.popularity.cluster_rank} of ${r.popularity.clusters_total} on the board · ${r.popularity.rank_in_cluster ? `token #${r.popularity.rank_in_cluster} of ${r.popularity.cluster_size} inside` : `joins it by wallets`} · ${r.popularity.buyers} buyers, more than ${r.popularity.buyers_percentile}% of tokens`);
   if (r.narratives.length) L.push(c.dim(`narrative ${r.narratives.join(", ")}`));
-  L.push("", c.bold("reading"), `  ${r.reading}`);
+  L.push("", c.bold("reading"));
+  for (const sentence of r.reading.split(/(?<=\.)\s+(?=[A-Z0-9])/)) L.push(`  ${sentence}`);
   const ac = r.activity;
   L.push(c.dim(`  activity  ${ac.buys_10m} buys / ${ac.buyers_10m} buyers in 10m · ${ac.buys_60m} buys / ${ac.sells_60m} sells / ${ac.buyers_60m} buyers / ${ac.eth_in_60m.toFixed(2)} ETH in 60m${ac.last_trade_ts ? " · last trade " + ago(ac.last_trade_ts) : ""}`));
   if (r.nearest.length) L.push(c.dim(`  nearest   ${r.nearest.map((n) => `${n.slug} ${n.membership.toFixed(2)} (${n.overlap} shared buyers, ${n.status.toLowerCase()})`).join(" · ")}`));
