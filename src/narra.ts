@@ -165,10 +165,12 @@ Narra.prototype.prepare = async function (this: Narra, opts: QueryOptions) {
   if (sem.namer) {
     // one name per meta id (stable across ticks); the model is asked only for live metas with enough members to
     // describe, everything else is served from the cache — with member-set keys the 40-call budget was gone in two ticks
+    // at most a few model calls per pass (each is seconds of waiting inside the tick); names accumulate over ticks
+    let calls = 0;
     for (const c of a.clusters.slice(0, 60)) {
-      const allowModel = isLive(c.status) && c.members.length >= 5;
+      const allowModel = calls < 3 && isLive(c.status) && c.members.length >= 5;
       const r = await nameCluster(this.store, sem, { slug: c.slug, tags: c.top_tags.map((t) => t.tag), members: c.members.slice(0, 12).map((m) => { const t = a.tokens.get(m)!; return { symbol: t.symbol, name: t.name, description: t.description }; }), heat: c.heat }, `id:${c.id}`, { allowModel });
-      if (r) { c.label = r.label; c.summary = r.summary; c.label_source = r.source; }
+      if (r) { c.label = r.label; c.summary = r.summary; c.label_source = r.source; if (r.source === "model") calls++; }
     }
   }
   const meta = {
