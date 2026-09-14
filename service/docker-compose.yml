@@ -26,6 +26,11 @@ services:
   tunnel:
     image: cloudflare/cloudflared:latest
     profiles: ["tunnel"]
-    command: tunnel --no-autoupdate run --token ${CF_TUNNEL_TOKEN}
+    # Locally managed named tunnel: ingress comes from cloudflared/config.yml,
+    # identity from cloudflared/credentials.json (gitignored; created by
+    # `cloudflared tunnel create narra` on any machine, see deploy/VPS.md).
+    command: tunnel --no-autoupdate --config /etc/cloudflared/config.yml run
+    volumes:
+      - ./cloudflared:/etc/cloudflared:ro
     depends_on: [narra]
     restart: unless-stopped

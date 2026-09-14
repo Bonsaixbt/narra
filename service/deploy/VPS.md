@@ -39,4 +39,16 @@ Update: `gcloud compute ssh narra-1 --zone europe-west3-a --command "cd ~/narra 
 
 ## Cloudflare Tunnel instead of open ports
 
-The compose file carries two optional services. Without a domain: `docker compose --profile quick up -d tunnel-quick`, then `docker compose logs tunnel-quick | grep trycloudflare` prints a temporary public URL (it changes on restart). With the domain on Cloudflare (`narrahood.com`): Zero Trust → Networks → Tunnels → create, add a public hostname `api.narrahood.com` → `http://narra:4663`, copy the token into `service/.env` as `CF_TUNNEL_TOKEN`, then `docker compose --profile tunnel up -d tunnel`. TLS, DDoS protection and the WAF come from Cloudflare; the VM keeps 80/443 closed. Set `NARRA_API_ORIGIN` to the site's origin once it exists.
+The compose file carries two optional services. Without a domain: `docker compose --profile quick up -d tunnel-quick`, then `docker compose logs tunnel-quick | grep trycloudflare` prints a temporary public URL (it changes on restart). With the domain on Cloudflare (`narrahood.com`) the named tunnel is locally managed, so nothing is clicked in the dashboard:
+
+```bash
+cloudflared tunnel login                       # opens the browser once; pick the narrahood.com zone
+cloudflared tunnel create narra                # writes ~/.cloudflared/<id>.json
+cloudflared tunnel route dns narra api.narrahood.com
+cp ~/.cloudflared/<id>.json service/cloudflared/credentials.json   # gitignored; scp it to the VM
+# put the id into service/cloudflared/config.yml (tunnel: <id>) — the ingress there sends api.narrahood.com to http://narra:4663
+docker compose --profile tunnel up -d tunnel
+cloudflared tunnel info narra                  # shows the VM's connector
+```
+
+If another project's `~/.cloudflared/config.yml` exists on the machine that runs these commands, pass `--config /dev/null` and the tunnel id instead of the name, otherwise `route dns` binds the hostname to that other tunnel. The container reads the mounted files as an unprivileged user: keep `service/cloudflared` at 755 and the two files at 644. TLS, DDoS protection and the WAF come from Cloudflare; the VM keeps 80/443 closed. `NARRA_API_ORIGIN` is the site's origin (`https://narrahood.com`).

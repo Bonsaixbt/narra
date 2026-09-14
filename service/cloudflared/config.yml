@@ -1,0 +1,11 @@
+# Cloudflare named tunnel for api.narrahood.com (locally managed).
+# credentials.json is written by `cloudflared tunnel create narra` and never committed.
+tunnel: e9ba3fa3-c7fe-4b97-a6f6-1b249a9199c8
+credentials-file: /etc/cloudflared/credentials.json
+no-autoupdate: true
+ingress:
+  - hostname: api.narrahood.com
+    service: http://narra:4663
+    originRequest:
+      connectTimeout: 15s
+  - service: http_status:404
