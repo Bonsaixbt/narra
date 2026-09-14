@@ -1,5 +1,10 @@
 # Changelog
 
+## Unreleased
+
+- `trend`: the hourly aggregate forces the `ts` indexes; the planner used to walk `(token, ts)` in token order and touch the whole trade table through random pages (65 s on 2.4M rows, now ~7 s). Token history reads a token's pool swaps by index instead of scanning a day of swaps (0.9 s → 2 ms).
+- service: `/api/trend` is precomputed in the engine worker every `NARRA_TREND_EVERY_S` (900 s) and served from cache; it used to run on the request and block every other route (and the site's 8 s fetches) for as long as it took. Non-default spans answer `BAD_TREND`.
+
 ## 0.2.0 — 2026-09-13
 
 First public version.

@@ -15,6 +15,7 @@ export const CONFIG = {
   tickSec: num("NARRA_TICK_S", 30),
   windows: ((process.env.NARRA_WINDOWS ?? "60m,15m,4h").split(",").map((s) => s.trim()) as ("15m" | "60m" | "4h")[]),
   slowWindowEverySec: num("NARRA_SLOW_WINDOW_EVERY_S", 300), // 4h is expensive; recompute at most this often
+  trendEverySec: num("NARRA_TREND_EVERY_S", 900),           // /api/trend is precomputed in the worker this often
   staleAfterSec: num("NARRA_STALE_AFTER_S", 180),
   maxLagBlocks: num("NARRA_MAX_LAG_BLOCKS", 300),
 };

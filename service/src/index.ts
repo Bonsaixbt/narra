@@ -11,6 +11,7 @@ import { serve } from "@hono/node-server";
 import { jsonSchema, SCHEMAS, type WatchEvent } from "narra-cli";
 import { CONFIG, gateEnabled } from "./config.js";
 import { Engine, type Window } from "./engine.js";
+import { TREND } from "./engineWorker.js";
 import { issueToken, verifyToken, readBalance } from "./gate.js";
 import { RateLimiter } from "./ratelimit.js";
 import { StreamHub } from "./stream.js";
@@ -61,7 +62,7 @@ const bot = botCfg ? new CommunityBot(botCfg, {
   why: async (slug) => { const cached = ready("60m"); return cached ? engine.n.why(slug, { analysis: cached, window: "60m" }) : null; },
   find: async (q) => { const cached = ready("60m"); return cached ? engine.n.find(q, { analysis: cached, window: "60m" }) : null; },
   flow: async () => { const cached = ready("60m"); return cached ? engine.n.flow({ analysis: cached, window: "60m" }) : null; },
-  trend: async () => engine.n.trend(48, 4),
+  trend: async () => engine.trend()?.t ?? null,
 }) : null;
 
 app.get("/api/health", (c) => { const h = engine.health(); return c.json({ ...h, narra: "service 0.1.0", gate: gateEnabled(), stream_clients: hub.size, alerts: alerter ? { sent: alerter.sent, dropped: alerter.dropped, errors: alerter.errors } : null, bot: bot ? { sent: bot.sent, errors: bot.errors } : null }, h.ok ? 200 : 503); });
@@ -84,7 +85,15 @@ app.get("/api/wallets", gated, async (c) => { const rw = resolveWindow(c); if (r
 app.get("/api/wallet/:address", gated, async (c) => { const a = c.req.param("address"); if (!/^0x[0-9a-fA-F]{40}$/.test(a)) { const e = err("BAD_ADDRESS", "expected 0x + 40 hex", 400); return c.json(e.body, e.status); } const rw = resolveWindow(c); if (rw instanceof Response) return rw; const { w, cached } = rw; return c.json(await engine.n.wallet(a, { analysis: cached, window: w })); });
 app.get("/api/history/cluster/:slug", gated, (c) => c.json(engine.n.history(c.req.param("slug"), Number(c.req.query("hours") ?? 24))));
 app.get("/api/history/token/:ca", gated, (c) => c.json(engine.n.history(c.req.param("ca"), Number(c.req.query("hours") ?? 24))));
-app.get("/api/trend", gated, (c) => c.json(engine.n.trend(Number(c.req.query("hours") ?? 48), Number(c.req.query("step") ?? 4))));
+app.get("/api/trend", gated, (c) => {
+  // served from the worker's cache: the aggregate takes seconds of SQL and used to block every other route while it ran
+  const hours = Number(c.req.query("hours") ?? TREND.hours), step = Number(c.req.query("step") ?? TREND.step);
+  if (hours !== TREND.hours || step !== TREND.step) { const e = err("BAD_TREND", `this service precomputes hours=${TREND.hours} step=${TREND.step}; other spans come from the CLI (narra trend --hours N)`, 400); return c.json(e.body, e.status); }
+  const t = engine.trend();
+  if (!t) { const e = err("WARMING_UP", "trend not computed yet", 503); return c.json(e.body, e.status); }
+  c.header("x-narra-computed-at", new Date(t.at).toISOString());
+  return c.json(t.t);
+});
 app.get("/api/schema/:name", (c) => { const n = c.req.param("name") as keyof typeof SCHEMAS; if (!(n in SCHEMAS)) { const e = err("NO_SCHEMA", Object.keys(SCHEMAS).join(", "), 404); return c.json(e.body, e.status); } return c.json(jsonSchema(n)); });
 
 app.post("/api/holders/check", async (c) => {

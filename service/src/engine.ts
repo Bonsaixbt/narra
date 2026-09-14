@@ -5,6 +5,8 @@ import { Narra, diffEvents, type Analysis, type WatchEvent, type QueryOptions } 
 import { CONFIG } from "./config.js";
 import type { WorkerMsg } from "./engineWorker.js";
 
+type TrendCached = { t: ReturnType<Narra["trend"]>; at: number; ms: number };
+
 type Window = "15m" | "60m" | "4h";
 type Cached = NonNullable<QueryOptions["analysis"]> & { at: number };
 
@@ -12,6 +14,7 @@ export class Engine {
   /** Reads only: coin cards, history, trend, holder balances. Never syncs. */
   readonly n = new Narra();
   private cache = new Map<Window, Cached>();
+  private trendCache: TrendCached | null = null;
   private state = { statuses: new Map<string, string>(), edges: new Set<string>(), members: new Map<string, string>(), phases: new Map<string, string>(), seenLaunch: new Set<string>(), first: true };
   private child: ChildProcess | null = null;
   private restarts = 0;
@@ -21,6 +24,8 @@ export class Engine {
   constructor(private onEvent: (e: WatchEvent) => void) {}
 
   get(window: Window): Cached | undefined { return this.cache.get(window); }
+  /** The precomputed 48 h / 4 h trend, or null before the worker's first pass. */
+  trend(): TrendCached | null { return this.trendCache; }
 
   private spawn(): void {
     const worker = fileURLToPath(new URL("./engineWorker.js", import.meta.url));
@@ -36,7 +41,8 @@ export class Engine {
           this.onEvent({ schema_version: "1.0.0", ts: new Date().toISOString(), type: "SYNC", note: `head ${meta.head_block ?? "?"} · ${a.clusters.length} metas · analysis ${m.tick_ms} ms` });
         }
         this.lastError = "";
-      } else if (m.kind === "tick") this.ticks = m.ticks;
+      } else if (m.kind === "trend") { this.trendCache = { t: m.t as TrendCached["t"], at: m.at, ms: m.ms }; this.tickMs.trend = m.ms; }
+      else if (m.kind === "tick") this.ticks = m.ticks;
       else if (m.kind === "error") this.lastError = m.error;
     });
     this.child.on("exit", (code) => {

@@ -152,6 +152,7 @@ export class Store {
     this.db.transaction(() => { for (const r of rows) n += st.run({ ...r, pool_id: lower(r.pool_id), token: lower(r.token), wallet: lower(r.wallet) }).changes; })();
     return n;
   }
+  swapsForToken(token: string, sinceTs: number): SwapRow[] { return this.db.prepare(`SELECT * FROM pool_swaps WHERE token = ? AND ts >= ? ORDER BY ts`).all(lower(token), sinceTs) as SwapRow[]; }
   swapsSince(ts: number): SwapRow[] { return this.db.prepare(`SELECT * FROM pool_swaps WHERE ts >= ? ORDER BY ts`).all(ts) as SwapRow[]; }
   swapsBetween(from: number, to: number): SwapRow[] { return this.db.prepare(`SELECT * FROM pool_swaps WHERE ts >= ? AND ts < ? ORDER BY ts`).all(from, to) as SwapRow[]; }
 
