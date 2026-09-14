@@ -4,6 +4,7 @@ import { str } from "./args.js";
 import { open, printJson } from "./common.js";
 import { c, table, STATUS_COLOR, utc } from "./render.js";
 import { clusterHistory, tokenHistory } from "../analyze/trend.js";
+import { readClusterHistory, readTokenHistory } from "../analyze/readings.js";
 
 export async function history(args: Args): Promise<number> {
   const target = args.pos[0];
@@ -14,15 +15,17 @@ export async function history(args: Args): Promise<number> {
     if (/^0x[0-9a-fA-F]{40}$/.test(target)) {
       const token = target.toLowerCase();
       const out = tokenHistory(n.store, token, hours);
-      if (args.flags.json) { printJson({ token, hours, rows: out }); return 0; }
-      console.log(`${c.bold(token)}  last ${hours}h  ${utc()}`);
+      const reading = readTokenHistory(token, out, hours);
+      if (args.flags.json) { printJson({ token, hours, rows: out, reading }); return 0; }
+      console.log(`${c.bold(token)}  last ${hours}h  ${utc()}\n\n  ${reading}\n`);
       console.log(table([["hour", "curve buys", "curve ETH", "pool buys", "pool ETH", "buyers"], ...out.map((r) => [r.hour.slice(5, 16), String(r.curve_buys), r.curve_in_eth.toFixed(2), String(r.pool_buys), r.pool_in_eth.toFixed(2), String(r.buyers)])], [17, 11, 10, 10, 9, 0]));
       return 0;
     }
     const out = clusterHistory(n.store, target, hours);
     if (!out.length) { console.error(`no snapshots for "${target}" in the last ${hours}h`); return 3; }
-    if (args.flags.json) { printJson({ slug: target, hours, snapshots: out }); return 0; }
-    console.log(`${c.bold(target)}  last ${hours}h  ${out.length} snapshots  ${utc()}`);
+    const reading = readClusterHistory(target, out, hours);
+    if (args.flags.json) { printJson({ slug: target, hours, snapshots: out, reading }); return 0; }
+    console.log(`${c.bold(target)}  last ${hours}h  ${out.length} snapshots  ${utc()}\n\n  ${reading}\n`);
     // one line per status change plus the last row
     const lines: string[][] = [];
     let prev = "";

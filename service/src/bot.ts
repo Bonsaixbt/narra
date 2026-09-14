@@ -23,22 +23,16 @@ const eth = (v: number) => (v >= 10 ? v.toFixed(1) : v.toFixed(2));
 const ICON: Record<string, string> = { HOT: "🔥", "ROTATING IN": "🔥", EMERGING: "🟡", "ROTATING OUT": "🟣", COOLING: "🔵", DEAD: "⚫", IN: "🟢", EDGE: "🟡", OUT: "🟣", ORPHAN: "⚪", NOT_PONS: "🚫" };
 const FOOT = "\n<i>IN = belongs to a live meta, not a recommendation</i>";
 
-/** The board in ten lines: totals, hottest, draining, narratives, top 5. */
+/** The board: reading first, then the top five, then the commands. */
 export function formatDigest(r: NowOut, top = 5): string {
   const cl = r.clusters.filter((k) => k.status !== "DEAD");
-  if (!cl.length) return `<b>narra · ${r.window}</b>\nno live meta right now — ${r.counts.launches} launches, none clustered`;
-  const ethSum = cl.reduce((s, k) => s + k.heat.quote_norm_in, 0);
-  const hot = [...cl].sort((a, b) => b.heat.quote_norm_in - a.heat.quote_norm_in)[0];
-  const drain = [...cl].sort((a, b) => b.flow.out_wallets - a.flow.out_wallets)[0];
-  const byNar = new Map<string, number>(); for (const k of cl) byNar.set(k.narrative, (byNar.get(k.narrative) ?? 0) + k.heat.quote_norm_in);
-  const nar = [...byNar].sort((a, b) => b[1] - a[1]).slice(0, 3).map(([n, v]) => `${n} ${Math.round((v / (ethSum || 1)) * 100)}%`).join(" · ");
-  const L = [`<b>narra · what's printing on Pons · ${r.window}</b> <i>${new Date().toISOString().slice(11, 16)} UTC</i>`, `${cl.length} metas · ${eth(ethSum)} ETH · ${cl.reduce((s, k) => s + k.heat.unique_buyers, 0).toLocaleString("en-US")} buyers`, "",
-    `hottest  <b>${esc(hot.slug)}</b> ${ICON[hot.status] ?? ""} ${eth(hot.heat.quote_norm_in)} ETH · ${hot.heat.unique_buyers} buyers`];
-  if (drain && drain.flow.out_wallets >= 8) L.push(`draining <b>${esc(drain.slug)}</b> — ${drain.flow.out_wallets} wallets left`);
-  L.push(`narratives ${esc(nar)}`, "");
-  for (const k of cl.slice(0, top)) L.push(`${ICON[k.status] ?? "·"} <b>${esc(k.slug)}</b> ${k.status.toLowerCase()} · ${k.heat.n_launches} CA · ${eth(k.heat.quote_norm_in)} ETH · ${k.heat.unique_buyers} buyers${k.rotating_from ? ` · ← ${esc(k.rotating_from)}` : ""}`);
-  L.push("", "/coin 0x… · /find word · /flow · /trend");
-  return L.join("\n");
+  const head = `<b>narra · what's printing on Pons · ${r.window}</b> <i>${new Date().toISOString().slice(11, 16)} UTC</i>`;
+  if (!cl.length) return `${head}\n\nno live meta right now — ${r.counts.launches} launches, none clustered`;
+  const S: string[][] = [[head]];
+  if (r.reading) S.push(r.reading.split(/(?<=\.)\s+(?=[A-Z0-9])/).map(esc));
+  S.push(cl.slice(0, top).map((k) => `${ICON[k.status] ?? "·"} <b>${esc(k.slug)}</b> · ${k.status.toLowerCase()} · ${esc(k.narrative)}${k.narrative_sub ? "·" + esc(k.narrative_sub) : ""}\n    ${k.heat.n_launches} CA · ${eth(k.heat.quote_norm_in)} ETH · ${k.heat.unique_buyers} buyers${k.flow.in_wallets ? ` · ⇦${k.flow.in_wallets}` : ""}${k.flow.out_wallets ? ` · ⇨${k.flow.out_wallets}` : ""}${k.rotating_from ? ` · from ${esc(k.rotating_from)}` : ""}`));
+  S.push(["/coin 0x… · /why meta · /find word · /flow · /trend"]);
+  return S.map((x) => x.join("\n")).join("\n\n");
 }
 
 /** What makes a digest worth re-posting: the top five and their statuses, the hottest and the draining meta. */
@@ -49,19 +43,20 @@ export function digestSignature(r: NowOut, top = 5): string {
   return [hot, drain && drain.flow.out_wallets >= 8 ? drain.slug : "", ...cl.slice(0, top).map((k) => `${k.slug}:${k.status}`)].join("|");
 }
 
-/** A meta in six lines: numbers, what holds it, tags, members. */
+/** A meta: reading, numbers, what holds it, flow, tags, members — as sections. */
 export function formatWhy(r: WhyOut): string {
   const k = r.cluster, h = k.heat;
-  const L = [`<b>${esc(k.slug)}</b> ${ICON[k.status] ?? ""} ${k.status.toLowerCase()} · ${esc(k.narrative)}${k.narrative_sub ? " · " + esc(k.narrative_sub) : ""} · #${k.rank}`];
-  if (k.summary) L.push(`<i>${esc(k.summary)}</i>`);
-  L.push(`${h.n_launches} CA · ${k.n_members} members · ${h.n_alive} alive · ${eth(h.quote_norm_in)} ETH · ${h.unique_buyers} buyers · ${h.n_graduated} grad · ${Math.round(h.graduated_share * 100)}% in pool`);
-  L.push(`held by ${k.links.text} name · ${k.links.semantic} semantic · ${k.links.wallet} wallet · ${k.links.deployer} deployer links`);
-  if (r.tags.length) L.push(`tags ${esc(r.tags.map((t) => t.tag).slice(0, 6).join(" "))}`);
-  for (const e of r.edges_in.slice(0, 2)) L.push(`⇦ ${esc(e.from)} · ${e.wallets} wallets`);
-  for (const e of r.edges_out.slice(0, 2)) L.push(`⇨ ${esc(e.to)} · ${e.wallets} wallets`);
-  const members = (k.members ?? []).slice(0, 5).map((m) => `${esc(m.symbol ? "$" + m.symbol : m.token.slice(0, 8))} ${m.membership.toFixed(2)}`).join(" · ");
-  if (members) L.push(`members ${members}`);
-  return L.join("\n");
+  const S: string[][] = [[`<b>${esc(k.slug)}</b> ${ICON[k.status] ?? ""} ${k.status.toLowerCase()} · ${esc(k.narrative)}${k.narrative_sub ? " · " + esc(k.narrative_sub) : ""} · #${k.rank} on the board`, ...(k.summary ? [`<i>${esc(k.summary)}</i>`] : [])]];
+  if (r.reading) S.push(r.reading.split(/(?<=\.)\s+(?=[A-Z0-9])/).map(esc));
+  S.push([`📊 ${h.n_launches} CA · ${k.n_members} members · ${h.n_alive} alive · ${eth(h.quote_norm_in)} ETH · ${h.unique_buyers} buyers · ${h.n_graduated} grad · ${Math.round(h.graduated_share * 100)}% in pool`, `🧩 ${k.links.text} name · ${k.links.semantic} meaning · ${k.links.wallet} wallet · ${k.links.deployer} deployer links`]);
+  const flow: string[] = [];
+  for (const e of r.edges_in.slice(0, 2)) flow.push(`⇦ ${esc(e.from)} · ${e.wallets} wallets · ${eth(e.quote_norm)} ETH`);
+  for (const e of r.edges_out.slice(0, 2)) flow.push(`⇨ ${esc(e.to)} · ${e.wallets} wallets · ${eth(e.quote_norm)} ETH`);
+  if (flow.length) S.push(["🔁 <b>flow</b>", ...flow]);
+  if (r.tags.length) S.push([`📝 tags: ${esc(r.tags.map((t) => t.tag).slice(0, 6).join(" "))}`]);
+  const members = (k.members ?? []).slice(0, 6).map((m) => `${esc(m.symbol ? "$" + m.symbol : m.token.slice(0, 8))} ${m.membership.toFixed(2)}`);
+  if (members.length) S.push(["👛 <b>members</b>", members.join(" · ")]);
+  return S.map((x) => x.join("\n")).join("\n\n");
 }
 
 const ago = (ts: number, now = Date.now() / 1000) => { const m = Math.max(0, Math.round((now - ts) / 60)); return m < 90 ? `${m}m old` : m < 2880 ? `${(m / 60).toFixed(1)}h old` : `${Math.round(m / 1440)}d old`; };
@@ -105,22 +100,27 @@ export function formatCoin(r: CoinOut | NotPonsOut): string {
 }
 
 export function formatFind(r: { query: string; clusters: { slug: string; status: string; narrative: string; eth: number; buyers: number }[]; tokens: { token: string; symbol: string; cluster: string | null; buyers: number }[] }): string {
-  const L = [`<b>find "${esc(r.query)}"</b>`];
-  for (const c of r.clusters.slice(0, 5)) L.push(`${ICON[c.status] ?? "·"} ${esc(c.slug)} · ${c.narrative} · ${eth(c.eth)} ETH · ${c.buyers} buyers`);
-  for (const t of r.tokens.slice(0, 5)) L.push(`<code>${esc(t.token.slice(0, 10))}…</code> ${esc(t.symbol ? "$" + t.symbol : "?")} · ${t.buyers} buyers${t.cluster ? " · " + esc(t.cluster) : ""}`);
-  if (L.length === 1) L.push("nothing in this window");
-  return L.join("\n");
+  const S: string[][] = [[`<b>find "${esc(r.query)}"</b>`]];
+  if (r.clusters.length) S.push(["🗂 <b>metas</b>", ...r.clusters.slice(0, 5).map((c) => `${ICON[c.status] ?? "·"} ${esc(c.slug)} · ${esc(c.narrative)} · ${eth(c.eth)} ETH · ${c.buyers} buyers`)]);
+  if (r.tokens.length) S.push(["🪙 <b>tokens</b>", ...r.tokens.slice(0, 5).map((t) => `${esc(t.symbol ? "$" + t.symbol : "?")} <code>${esc(t.token.slice(0, 10))}…</code> · ${t.buyers} buyers${t.cluster ? " · in " + esc(t.cluster) : " · no meta"}`)]);
+  if (S.length === 1) S.push(["nothing in this window matches"]);
+  else S.push(["/why meta · /coin 0x…"]);
+  return S.map((x) => x.join("\n")).join("\n\n");
 }
 
 export function formatFlow(r: FlowOut): string {
-  if (!r.edges.length) return "<b>flow</b>\nno rotation above threshold in this window";
-  return ["<b>flow · where repeat buyers moved</b>", ...r.edges.slice(0, 8).map((e) => `${esc(e.from)} → <b>${esc(e.to)}</b> · ${e.wallets} wallets · ${eth(e.quote_norm)} ETH`)].join("\n");
+  const S: string[][] = [[`<b>flow · where repeat buyers moved · ${r.window}</b>`]];
+  if (r.reading) S.push(r.reading.split(/(?<=\.)\s+(?=[A-Z0-9])/).map(esc));
+  if (!r.edges.length) return S.map((x) => x.join("\n")).join("\n\n");
+  S.push(r.edges.slice(0, 8).map((e) => `${esc(e.from)} → <b>${esc(e.to)}</b> · ${e.wallets} wallets · ${eth(e.quote_norm)} ETH${e.deployers ? ` · ${e.deployers} deployers` : ""}`));
+  return S.map((x) => x.join("\n")).join("\n\n");
 }
 
-export function formatTrend(t: { hours: number; step: number; narratives: string[]; rows: { from: string; eth: number; narratives: Record<string, number> }[] }): string {
-  const L = [`<b>trend · last ${t.hours}h, ${t.step}h steps</b>`];
-  for (const r of t.rows.slice(-6)) { const top = Object.entries(r.narratives).sort((a, b) => b[1] - a[1]).slice(0, 2).map(([k, v]) => `${k} ${v}%`).join(" · "); L.push(`${r.from.slice(5, 16).replace("T", " ")} · ${eth(r.eth)} ETH · ${esc(top)}`); }
-  return L.join("\n");
+export function formatTrend(t: { hours: number; step: number; narratives: string[]; reading?: string; rows: { from: string; eth: number; narratives: Record<string, number> }[] }): string {
+  const S: string[][] = [[`<b>trend · last ${t.hours}h, ${t.step}h steps</b>`]];
+  if (t.reading) S.push(t.reading.split(/(?<=\.)\s+(?=[A-Z0-9])/).map(esc));
+  S.push(t.rows.slice(-6).map((r) => { const top = Object.entries(r.narratives).sort((a, b) => b[1] - a[1]).slice(0, 2).map(([k, v]) => `${k} ${v}%`).join(" · "); return `${r.from.slice(5, 16).replace("T", " ")} · ${eth(r.eth)} ETH · ${esc(top)}`; }));
+  return S.map((x) => x.join("\n")).join("\n\n");
 }
 
 export interface BotApi {

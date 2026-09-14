@@ -41,6 +41,7 @@ export const Cluster = z.object({
 
 export const NowOut = Meta.extend({
   quote_unit: z.literal("ETH"),
+  reading: z.string().optional(),
   clusters: z.array(Cluster),
   counts: z.object({ candidates: z.number(), clustered: z.number(), trades: z.number(), launches: z.number(), sprayers: z.number() }),
 });
@@ -66,8 +67,9 @@ export const CoinOut = Meta.extend({
   evidence: z.object({ early_buyers: z.number(), overlap_buyers: z.number(), text_score: z.number(), wallet_score: z.number(), launch_tx: z.string().nullable(), launch_block: z.number().nullable() }),
 });
 export const NotPonsOut = Meta.extend({ token: z.string(), verdict: z.literal("NOT_PONS"), reasons: z.array(z.string()) });
-export const FlowOut = Meta.extend({ nodes: z.array(z.object({ slug: z.string(), status: Status })), edges: z.array(Edge) });
+export const FlowOut = Meta.extend({ reading: z.string().optional(), nodes: z.array(z.object({ slug: z.string(), status: Status })), edges: z.array(Edge) });
 export const WhyOut = Meta.extend({
+  reading: z.string().optional(),
   cluster: Cluster, tags: z.array(z.object({ tag: z.string(), weight: z.number(), examples: z.array(z.string()) })),
   edges_in: z.array(Edge), edges_out: z.array(Edge), rule: z.string(),
 });
@@ -83,7 +85,7 @@ export const WalletStat = z.object({
   wallet: z.string(), buys: z.number(), sells: z.number(), tokens: z.number(), quote_in: z.number(), quote_out: z.number(), net_eth: z.number(),
   closed_tokens: z.number(), wins: z.number(), fast_share: z.number(), median_entry_sec: z.number().nullable(), clusters: z.array(z.string()), cohorts: z.array(Cohort), last_ts: z.number(),
 });
-export const WalletsOut = Meta.extend({ cohort: Cohort.nullable(), sort: z.enum(["net_eth", "tokens", "buys", "quote_in"]), wallets: z.array(WalletStat), counts: z.object({ wallets: z.number(), sniper: z.number(), sprayer: z.number(), rotator: z.number(), "early-in-hot": z.number() }) });
+export const WalletsOut = Meta.extend({ reading: z.string().optional(), cohort: Cohort.nullable(), sort: z.enum(["net_eth", "tokens", "buys", "quote_in"]), wallets: z.array(WalletStat), counts: z.object({ wallets: z.number(), sniper: z.number(), sprayer: z.number(), rotator: z.number(), "early-in-hot": z.number() }) });
 export const WalletOut = Meta.extend({
   wallet: z.string(), stat: WalletStat.nullable(),
   positions: z.array(z.object({ token: z.string(), symbol: z.string(), cluster: z.string().nullable(), status: Status.nullable(), venue: z.enum(["curve", "pool", "both"]), buys: z.number(), sells: z.number(), quote_in: z.number(), quote_out: z.number(), first_buy_after_launch_sec: z.number().nullable(), last_ts: z.number() })),

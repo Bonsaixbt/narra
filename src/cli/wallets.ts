@@ -8,7 +8,7 @@ const COHORTS = ["sniper", "sprayer", "rotator", "early-in-hot"] as const;
 
 export function renderWallets(r: WalletsOut): string {
   const L = [`${c.bold("NARRA wallets")}  ${utc()}   window ${r.window}   ${r.cohort ? "cohort " + r.cohort : "all cohorts"}   sort ${r.sort}`,
-    c.dim(`${r.counts.wallets} wallets · ${r.counts.sniper} snipers · ${r.counts.sprayer} sprayers · ${r.counts.rotator} rotators · ${r.counts["early-in-hot"]} early-in-hot`), ""];
+    c.dim(`${r.counts.wallets} wallets · ${r.counts.sniper} snipers · ${r.counts.sprayer} sprayers · ${r.counts.rotator} rotators · ${r.counts["early-in-hot"]} early-in-hot`), ...(r.reading ? ["", `  ${r.reading}`] : []), ""];
   const rows = r.wallets.map((w) => [short(w.wallet, 8), `${w.buys}/${w.sells}`, String(w.tokens), w.quote_in.toFixed(2), w.quote_out.toFixed(2), (w.net_eth >= 0 ? c.green : c.red)(w.net_eth.toFixed(2).padStart(7)), `${w.wins}/${w.closed_tokens}`, w.median_entry_sec === null ? "-" : `${w.median_entry_sec}s`, `${Math.round(w.fast_share * 100)}%`, w.cohorts.join(",") || c.dim("-"), c.dim(w.clusters.slice(0, 3).join(" "))]);
   L.push(table([["wallet", "buy/sell", "tok", "in ETH", "out ETH", "net", "wins", "entry", "fast", "cohorts", "clusters"], ...rows], [16, 9, 4, 8, 8, 8, 6, 7, 6, 22, 0]));
   L.push("", c.dim("net = out − in over the window; ignores what is still held. Cohorts are arithmetic labels, not a signal."));
