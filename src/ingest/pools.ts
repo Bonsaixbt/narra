@@ -79,10 +79,10 @@ export async function syncPools(ctx: SyncContext, opts: { head: number; nowTs: n
   const body = async (a: number, b: number) => {
     const [aTs, bTs] = await Promise.all([clock.timestamp(a), clock.timestamp(b)]);
     const tsOf = interpolator(a, aTs, b, bTs);
-    // Swaps on the PoolManager plus every Transfer of a graduated Pons token in the same blocks (tokens in batches of 60).
+    // Swaps on the PoolManager plus every Transfer of a graduated Pons token in the same blocks (tokens in batches of 150 addresses per query).
     const tokenList = [...byToken.keys()];
     const transferQueries = [];
-    for (let i = 0; i < tokenList.length; i += 60) transferQueries.push(gate.request("eth_getLogs", [{ address: tokenList.slice(i, i + 60), topics: [TRANSFER], fromBlock: hex(a), toBlock: hex(b) }]) as Promise<RawLog[]>);
+    for (let i = 0; i < tokenList.length; i += 150) transferQueries.push(gate.request("eth_getLogs", [{ address: tokenList.slice(i, i + 150), topics: [TRANSFER], fromBlock: hex(a), toBlock: hex(b) }]) as Promise<RawLog[]>);
     const [swapLogs, ...transferChunks] = await Promise.all([
       gate.request("eth_getLogs", [{ address: ADDR.v4PoolManager, topics: [TOPICS.poolSwap], fromBlock: hex(a), toBlock: hex(b) }]) as Promise<RawLog[]>,
       ...transferQueries,

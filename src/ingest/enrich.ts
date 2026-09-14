@@ -14,7 +14,8 @@ export function pairKind(address: string, symbol: string): PairKind {
 }
 
 /** Fills `tokens` for launches that have no metadata yet: one multicall per batch of tokens, each field fails alone. */
-export async function enrichPending(store: Store, http: PublicClient, limit = 200, batch = 25): Promise<{ enriched: number; failed: number }> {
+/** batch: tokens per multicall (each token is a handful of reads; Multicall3 takes hundreds) — 25 cost four eth_calls per tick at 300 launches, 100 costs one. */
+export async function enrichPending(store: Store, http: PublicClient, limit = 200, batch = 100): Promise<{ enriched: number; failed: number }> {
   const pending = store.pendingEnrich(limit);
   let enriched = 0, failed = 0;
   for (let i = 0; i < pending.length; i += batch) {

@@ -9,7 +9,7 @@ import { CONFIG } from "./config.js";
 
 type Window = "15m" | "60m" | "4h";
 export type Role = "fast" | "slow";
-export type WorkerMsg = { kind: "analysis"; window: Window; a: unknown; meta: unknown; at: number; tick_ms: number } | { kind: "trend"; t: unknown; at: number; ms: number } | { kind: "error"; error: string } | { kind: "tick"; ticks: number };
+export type WorkerMsg = { kind: "analysis"; window: Window; a: unknown; meta: unknown; at: number; tick_ms: number } | { kind: "trend"; t: unknown; at: number; ms: number } | { kind: "error"; error: string } | { kind: "tick"; ticks: number; rpc?: unknown; live?: unknown };
 /** The one trend the service serves: two days in four-hour steps. Anything else is a CLI question (`narra trend --hours`). */
 export const TREND = { hours: 48, step: 4 } as const;
 /** The slow worker checks its schedule this often; the work itself runs every slowWindowEverySec / trendEverySec. */
@@ -39,7 +39,7 @@ export async function runEngineWorker(role: Role): Promise<void> {
           const r = await n.prepare({ window: w, noSync: true });
           send({ kind: "analysis", window: w, a: r.a, meta: r.meta, at: Date.now(), tick_ms: Date.now() - t1 });
         }
-        ticks++; send({ kind: "tick", ticks });
+        ticks++; send({ kind: "tick", ticks, rpc: n.clients.gate.stats(), live: live?.health() });
       } else {
         if (CONFIG.windows.includes("4h") && Date.now() - lastSlow >= CONFIG.slowWindowEverySec * 1000) {
           const t1 = Date.now();
