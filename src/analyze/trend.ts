@@ -9,9 +9,11 @@ export interface TrendOut { hours: number; step: number; since: number; narrativ
 
 export function computeTrend(store: Store, hours: number, step: number, nowTs = store.stats().newest_trade_ts ?? Math.floor(Date.now() / 1000)): TrendOut {
   const since = nowTs - hours * 3600;
+  // INDEXED BY: left alone, the planner walks the (token, ts) index in token order to skip the GROUP BY sort and
+  // touches the whole table through random pages (65 s on 2.4M rows); a range on the ts index and a sort take 5 s.
   const rows = store.db.prepare(`
-    SELECT token, (ts / 3600) * 3600 AS h, SUM(CASE WHEN side = 'buy' THEN COALESCE(quote_norm, 0) END) AS q, SUM(side = 'buy') AS b FROM curve_trades WHERE ts >= ? AND token IS NOT NULL GROUP BY token, h
-    UNION ALL SELECT token, (ts / 3600) * 3600, SUM(CASE WHEN side = 'buy' THEN COALESCE(quote_norm, 0) END), SUM(side = 'buy') FROM pool_swaps WHERE ts >= ? GROUP BY token, (ts / 3600) * 3600
+    SELECT token, (ts / 3600) * 3600 AS h, SUM(CASE WHEN side = 'buy' THEN COALESCE(quote_norm, 0) END) AS q, SUM(side = 'buy') AS b FROM curve_trades INDEXED BY trades_ts WHERE ts >= ? AND token IS NOT NULL GROUP BY token, h
+    UNION ALL SELECT token, (ts / 3600) * 3600, SUM(CASE WHEN side = 'buy' THEN COALESCE(quote_norm, 0) END), SUM(side = 'buy') FROM pool_swaps INDEXED BY swaps_ts WHERE ts >= ? GROUP BY token, (ts / 3600) * 3600
     UNION ALL SELECT token, hour_ts, quote_in, buys FROM hourly WHERE hour_ts >= ?`).all(since, since, since) as { token: string; h: number; q: number; b: number }[];
   const launches = store.db.prepare(`SELECT token, ts FROM launches WHERE ts >= ?`).all(since) as { token: string; ts: number }[];
   const tokens = [...new Set([...rows.map((r) => r.token), ...launches.map((l) => l.token)])];
@@ -50,7 +52,7 @@ export function tokenHistory(store: Store, token: string, hours: number, nowTs =
   const slot = (ts: number) => { const h = Math.floor(ts / 3600) * 3600; let r = byHour.get(h); if (!r) { r = { curve_buys: 0, curve_in: 0, pool_buys: 0, pool_in: 0, buyers: new Set() }; byHour.set(h, r); } return r; };
   for (const r of store.hourlyFor([t], since)) { const s = slot(r.hour_ts); if (r.venue === "curve") { s.curve_buys += r.buys; s.curve_in += r.quote_in; } else { s.pool_buys += r.buys; s.pool_in += r.quote_in; } }
   for (const tr of store.tradesForToken(t, 100_000)) if (tr.ts >= since && tr.side === "buy") { const s = slot(tr.ts); s.curve_buys++; s.curve_in += tr.quote_norm ?? 0; s.buyers.add(tr.recipient); }
-  for (const s of store.swapsSince(since)) if (s.token === t && s.side === "buy") { const x = slot(s.ts); x.pool_buys++; x.pool_in += s.quote_norm ?? 0; x.buyers.add(s.wallet); }
+  for (const s of store.swapsForToken(t, since)) if (s.side === "buy") { const x = slot(s.ts); x.pool_buys++; x.pool_in += s.quote_norm ?? 0; x.buyers.add(s.wallet); }
   const r3 = (x: number) => Math.round(x * 1000) / 1000;
   return [...byHour].sort((a, b) => a[0] - b[0]).map(([h, v]) => ({ hour: new Date(h * 1000).toISOString(), hour_ts: h, curve_buys: v.curve_buys, curve_in_eth: r3(v.curve_in), pool_buys: v.pool_buys, pool_in_eth: r3(v.pool_in), buyers: v.buyers.size }));
 }

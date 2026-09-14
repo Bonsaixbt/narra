@@ -43,7 +43,7 @@ service/src/
 test/           gate round-trip and tampering, limiter refill, stream delay
 ```
 
-The engine keeps at most three analyses in memory. `60m` and `15m` are recomputed every tick (`NARRA_TICK_S`, 30 s); `4h` at most every `NARRA_SLOW_WINDOW_EVERY_S` (300 s) because it takes ~25 s of CPU. A tick is one process; requests are served between ticks from the cache, so a request never triggers analysis. Every tick also stores cluster snapshots in the cache: that is the calibration data for `narra calibrate`.
+The engine keeps at most three analyses in memory. `60m` and `15m` are recomputed every tick (`NARRA_TICK_S`, 30 s); `4h` at most every `NARRA_SLOW_WINDOW_EVERY_S` (300 s) because it takes ~25 s of CPU. A tick is one process; requests are served between ticks from the cache, so a request never triggers analysis. The same worker precomputes `/api/trend` (48 h in 4 h steps, every `NARRA_TREND_EVERY_S`): the aggregate is seconds of SQL over the trade tables and, before it moved, it blocked every other route for a minute per call. Other spans are refused with `BAD_TREND` (the CLI answers them). Every tick also stores cluster snapshots in the cache: that is the calibration data for `narra calibrate`.
 
 Library entry points the service relies on (all exported from `narra-cli`): `Narra` with `sync`, `prepare`, `now`, `coin`, `find`, `why`, `flow`, `wallets`, `wallet`, `trend`, `history`, `doctor`; `diffEvents`, `liveTrigger`, `loadEnv`, `SCHEMAS`, `jsonSchema`. `QueryOptions.analysis` is the hook that lets the service answer from a cached analysis.
 
@@ -65,6 +65,7 @@ Library entry points the service relies on (all exported from `narra-cli`): `Nar
 | `NARRA_TICK_S` | 30 | analysis interval |
 | `NARRA_WINDOWS` | `60m,15m,4h` | windows to keep; drop `4h` on a small box |
 | `NARRA_SLOW_WINDOW_EVERY_S` | 300 | recompute interval for `4h` |
+| `NARRA_TREND_EVERY_S` | 900 | recompute interval for the precomputed `/api/trend` (48 h, 4 h steps) |
 | `NARRA_STALE_AFTER_S` / `NARRA_MAX_LAG_BLOCKS` | 180 / 300 | health thresholds |
 | `NARRA_SEMANTIC*` | off | the semantic layer, see the root `.env.example`; naming needs a model key (OpenRouter free models work) |
 | `NARRA_TG_BOT_TOKEN`, `NARRA_TG_CHAT_IDS`, `NARRA_TG_EVENTS`, `NARRA_TG_DEDUPE_S`, `NARRA_TG_PER_MINUTE`, `NARRA_TG_DELAY_S` | off | Telegram alerts to fixed chats |
