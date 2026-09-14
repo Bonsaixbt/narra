@@ -68,7 +68,9 @@ export function backfillFlowHistory(store: Store, window: WindowKey, ticks: numb
 export function flowHistory(store: Store, window: WindowKey, hours: number, step: FlowStep, nowTs = Math.floor(Date.now() / 1000), opts: { backfill?: boolean } = {}): FlowHistoryOut {
   const stepSec = FLOW_STEPS[step];
   const n = Math.max(1, Math.ceil((hours * 3600) / stepSec));
-  const until = nowTs, since = until - n * stepSec;
+  // slots sit on the wall-clock grid of the step (hour marks for 1h, quarter marks for 15m), so the tick sampled for a
+  // finished slot is the same on every call and the same one the backfill filled; the last slot is the running one
+  const until = nowTs, gridEnd = Math.floor(until / stepSec) * stepSec + stepSec, since = gridEnd - n * stepSec;
   const ticks = store.snapshotTicks(window, since);
   const sampled = sampleTicks(ticks, since, stepSec, n);
   const wanted = sampled.filter((t): t is number => t !== null);

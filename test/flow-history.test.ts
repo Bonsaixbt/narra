@@ -20,12 +20,16 @@ test("flowHistory serves stored edges per sampled tick and reports nodes with id
   const h = flowHistory(s, "60m", 1, "15m", now);
   assert.equal(h.slots.length, 4);
   assert.equal(h.backfilled, 0, "ticks with flow rows are not recomputed");
-  assert.deepEqual(h.slots.map((x) => x.ts), [now - 3000, null, now - 1800, now - 600]);
-  const last = h.slots[3];
+  // grid: 100000 sits in [99900, 100800); four slots back start at 97200, so the tick at 97000 falls out and the running slot is empty
+  assert.deepEqual(h.slots.map((x) => x.from_ts), [97200, 98100, 99000, 99900]);
+  assert.deepEqual(h.slots.map((x) => x.ts), [null, now - 1800, now - 600, null]);
+  assert.deepEqual(flowHistory(s, "60m", 1, "15m", now + 500).slots.map((x) => x.ts), [null, now - 1800, now - 600, null], "the same sample on a later call inside the same grid slot");
+  const last = h.slots[2];
   assert.deepEqual(last.edges, [{ from: "a", to: "b", wallets: 7, eth: 1.235, deployers: 0 }]);
   assert.deepEqual(last.nodes.map((n) => [n.slug, n.id, n.first_seen_ts]), [["a", "a@1", 1], ["b", "b@2", 2]]);
-  assert.equal(h.slots[2].edges.length, 0, "a tick with no edges stays empty, not missing");
-  assert.equal(h.slots[1].nodes.length, 0, "an empty step has no nodes either");
+  assert.equal(h.slots[1].edges.length, 0, "a tick with no edges stays empty, not missing");
+  assert.ok(h.slots[1].flow_known, "its tick row exists, so its emptiness is known");
+  assert.equal(h.slots[0].nodes.length, 0, "an empty step has no nodes either");
   s.close();
 });
 
