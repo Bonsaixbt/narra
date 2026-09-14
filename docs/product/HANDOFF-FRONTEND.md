@@ -157,7 +157,7 @@ Run `npx tsx bin/narra.ts terminal` in the repo once: it is the reference for de
 - **Framework**: your call within what Pages runs natively. Two good fits: **Astro** (SSR adapter `@astrojs/cloudflare`, minimal JS by default, easy islands for the live board) or **Next.js through `@opennextjs/cloudflare`**. SvelteKit with `adapter-cloudflare` also works. Pick the one you are fastest in; the site is a handful of pages, not an app platform.
 - **API proxy**: a Pages Function at `functions/api/[[path]].ts` forwards `/api/*` to the backend (`NARRA_API_URL`, set in the Pages project's environment variables), passes the `narra_holder` cookie through in both directions, and streams `/api/stream` without buffering. Same-origin means no CORS and the cookie stays `httpOnly`. Proxy `/api/og/*` as well and set `og:image` to it.
 - **Rendering**: server-render the first screen from the API (edge cache `s-maxage=15, stale-while-revalidate=60` on `/` and `/cluster/*`, `30` on `/coin/*`), then SSE (`EventSource("/api/stream")`) with a 30 s polling fallback.
-- **Env** (Pages dashboard, production and preview): `NARRA_API_URL`, `PUBLIC_SITE_URL`.
+- **Env** (Cloudflare dashboard, production and preview): `NARRA_API_URL=https://api.narrahood.com`, `NEXT_PUBLIC_SITE_URL=https://narrahood.com`. The domain is `narrahood.com` on Cloudflare; the API is reachable at `api.narrahood.com` through a Cloudflare Tunnel (until it is up, the temporary tunnel URL in the chat works).
 - No analytics, no third-party scripts, one self-hosted font. Cloudflare's free WAF rate-limit rule on `/api/*` (120 requests/min per IP) in front of the backend's own limits.
 
 ## 6. Acceptance

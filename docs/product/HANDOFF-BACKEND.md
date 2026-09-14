@@ -55,7 +55,7 @@ Library entry points the service relies on (all exported from `narra-cli`): `Nar
 | `NARRA_DB` | `~/.narra/narra.db` (`/data/narra.db` in Docker) | cache path |
 | `NARRA_RETENTION_H` | 24 (set 168 for the service) | raw-trade retention; older rows fold into hourly aggregates |
 | `NARRA_API_PORT` / `NARRA_API_HOST` | 4663 / 0.0.0.0 | listen address |
-| `NARRA_API_ORIGIN` | empty (any) | CORS origin; required in production |
+| `NARRA_API_ORIGIN` | empty (any) | CORS origin; `https://narrahood.com` in production |
 | `NARRA_TOKEN_ADDRESS` | empty | `$NARRA` contract; empty keeps every route open |
 | `NARRA_HOLDER_THRESHOLD` | 500000 | whole tokens needed for holder mode |
 | `NARRA_HOLDER_SECRET` | empty | HMAC secret; generate 32+ random bytes; rotating it logs every holder out |
