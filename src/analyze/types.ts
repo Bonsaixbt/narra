@@ -61,6 +61,12 @@ export interface VerdictOut {
   cluster: { slug: string; status: Status; membership: number } | null;
   alternatives: { slug: string; membership: number }[];
   reasons: string[]; watch: string[];
+  reading: string;
+  activity: { buys_10m: number; buyers_10m: number; buys_60m: number; buyers_60m: number; sells_60m: number; eth_in_60m: number; last_trade_ts: number | null; first_trade_ts: number | null };
+  early_cohorts: { sniper: number; sprayer: number; rotator: number; "early-in-hot": number; total: number };
+  deployer_launches_window: number;
+  nearest: { slug: string; status: Status; membership: number; overlap: number }[];
+  words: string[];
   narratives: string[];
   popularity: { cluster_rank: number | null; clusters_total: number; rank_in_cluster: number | null; cluster_size: number | null; buyers: number; buyers_percentile: number } | null;
   evidence: { early_buyers: number; overlap_buyers: number; text_score: number; wallet_score: number; launch_tx: string | null; launch_block: number | null };

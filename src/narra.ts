@@ -228,14 +228,58 @@ Narra.prototype.coin = async function (this: Narra, address: string, opts: Query
   const cl = v.cluster ? a.clusters.find((c) => c.slug === v.cluster!.slug) : undefined;
   const inCluster = cl ? [...cl.members].sort((x, y) => (a.buyers.get(y)?.size ?? 0) - (a.buyers.get(x)?.size ?? 0)) : [];
   const popularity = { cluster_rank: cl?.rank ?? null, clusters_total: a.clusters.length, rank_in_cluster: cl ? (inCluster.indexOf(token) >= 0 ? inCluster.indexOf(token) + 1 : null) : null, cluster_size: cl?.members.length ?? null, buyers: myBuyers, buyers_percentile: allBuyerCounts.length ? Math.min(99, Math.round((below / allBuyerCounts.length) * 100)) : 0 };
+  // activity and context that make a card readable even when no meta is near
+  const nowTs = a.window.to;
+  const buys60 = trades.filter((t) => t.side === "buy" && t.ts >= nowTs - 3600), sells60 = trades.filter((t) => t.side === "sell" && t.ts >= nowTs - 3600);
+  const buys10 = buys60.filter((t) => t.ts >= nowTs - 600);
+  const poolBuys = swaps.filter((x) => x.side === "buy");
+  const activity = {
+    buys_10m: buys10.length + poolBuys.filter((x) => x.ts >= nowTs - 600).length, buyers_10m: new Set([...buys10.map((t) => t.recipient), ...poolBuys.filter((x) => x.ts >= nowTs - 600).map((x) => x.wallet)]).size,
+    buys_60m: buys60.length + poolBuys.length, buyers_60m: new Set([...buys60.map((t) => t.recipient), ...poolBuys.map((x) => x.wallet)]).size, sells_60m: sells60.length + swaps.filter((x) => x.side === "sell").length,
+    eth_in_60m: Math.round((buys60.reduce((z, t) => z + (t.quote_norm ?? 0), 0) + poolBuys.reduce((z, x) => z + (x.quote_norm ?? 0), 0)) * 1000) / 1000,
+    last_trade_ts: trades.length || swaps.length ? Math.max(trades.at(-1)?.ts ?? 0, swaps.at(-1)?.ts ?? 0) : null, first_trade_ts: trades[0]?.ts ?? null,
+  };
+  const earlySet = new Set<string>(); for (const t of trades) if (t.side === "buy" && earlySet.size < 100) earlySet.add(t.recipient);
+  const early_cohorts = { sniper: 0, sprayer: 0, rotator: 0, "early-in-hot": 0, total: earlySet.size };
+  for (const w of earlySet) { const st = a.wallets.get(w); if (!st) continue; for (const k of st.cohorts) early_cohorts[k]++; }
+  const deployerFan = a.deployerFan.get(launch.deployer) ?? 0;
+  const words = [...info.tags.keys()].filter((t) => !t.startsWith("pair:") && !t.startsWith("cat:")).slice(0, 8);
+  const reading = buildReading({ verdict: v.verdict, cluster: v.cluster, clusters_total: a.clusters.length, nearest: v.nearest, popularity, activity, early_cohorts, deployerFan, phase: info.phase, curve, pairSymbol: pairRow?.symbol ?? "?", launchedAt: launch.ts, nowTs, narratives: tokenNarratives(info) });
   if (cl) v.reasons.push(`popularity: meta #${cl.rank} of ${a.clusters.length} on the board (${cl.narrative}${cl.narrative_sub ? " · " + cl.narrative_sub : ""}); ${popularity.rank_in_cluster ? `token #${popularity.rank_in_cluster} of ${cl.members.length} inside it by buyers` : `joins it by wallets, not a member by name`}; more buyers than ${popularity.buyers_percentile}% of tokens in the window`);
   return {
     ...meta, token, symbol: info.symbol, name: info.name, phase: info.phase, curve, pool,
     pair: { address: launch.pair, symbol: pairRow?.symbol ?? "?", kind: pairRow?.kind ?? "other" },
     launched_at: launch.ts, deployer: launch.deployer,
-    ...v, narratives: tokenNarratives(info), popularity, evidence: { ...v.evidence, launch_tx: launch.tx_hash, launch_block: launch.block },
+    ...v, reading, activity, early_cohorts, deployer_launches_window: deployerFan, words, narratives: tokenNarratives(info), popularity, evidence: { ...v.evidence, launch_tx: launch.tx_hash, launch_block: launch.block },
   };
 };
+
+/** The sentence a person reads first. Every clause is a number that is also in the JSON. */
+export function buildReading(x: { verdict: string; cluster: { slug: string; status: string; membership: number } | null; clusters_total: number; nearest: { slug: string; status: string; membership: number; overlap: number }[]; popularity: { cluster_rank: number | null; rank_in_cluster: number | null; cluster_size: number | null; buyers_percentile: number; buyers: number }; activity: { buys_10m: number; buyers_10m: number; buys_60m: number; buyers_60m: number; sells_60m: number; eth_in_60m: number; last_trade_ts: number | null }; early_cohorts: { sniper: number; rotator: number; "early-in-hot": number; sprayer: number; total: number }; deployerFan: number; phase: string; curve: { progress: number | null } | null; pairSymbol: string; launchedAt: number; nowTs: number; narratives: string[] }): string {
+  const ageMin = Math.max(0, Math.round((Math.floor(Date.now() / 1000) - x.launchedAt) / 60));
+  const age = ageMin < 90 ? `${ageMin}m old` : ageMin < 48 * 60 ? `${(ageMin / 60).toFixed(1)}h old` : `${Math.round(ageMin / 1440)}d old`;
+  const parts: string[] = [];
+  if (x.verdict === "IN" && x.cluster) parts.push(`In a live meta (${x.cluster.slug}, ${x.cluster.status.toLowerCase()}, #${x.popularity.cluster_rank} of ${x.clusters_total})${x.popularity.rank_in_cluster ? `, token #${x.popularity.rank_in_cluster} of ${x.popularity.cluster_size} inside by buyers` : ""}.`);
+  else if (x.verdict === "EDGE" && x.cluster) parts.push(`On the edge of ${x.cluster.slug} (${x.cluster.status.toLowerCase()}): the name fits, the crowd mostly does not.`);
+  else if (x.verdict === "OUT" && x.cluster) parts.push(`Belongs to ${x.cluster.slug}, but that meta is ${x.cluster.status.toLowerCase()} or its buyers are leaving.`);
+  else parts.push(`Standalone: no live meta shares its words or its buyers${x.nearest[0] && x.nearest[0].membership >= 0.1 ? `; closest is ${x.nearest[0].slug} at ${x.nearest[0].membership.toFixed(2)}` : ""}.`);
+  const act = x.activity;
+  if (act.buyers_60m === 0) parts.push(`No buys in the last hour${act.last_trade_ts ? `, last trade ${Math.round((x.nowTs - act.last_trade_ts) / 60)}m ago` : ""}.`);
+  else parts.push(`${act.buyers_60m} buyers and ${act.eth_in_60m.toFixed(2)} ETH in the last hour${act.buys_10m ? `, ${act.buys_10m} buys in the last 10 minutes` : ", nothing in the last 10 minutes"}${act.sells_60m > act.buys_60m ? ", more sells than buys" : ""}; more buyers than ${x.popularity.buyers_percentile}% of tokens in the window.`);
+  const ec = x.early_cohorts;
+  if (ec.total >= 5) {
+    const bits: string[] = [];
+    if (ec.sniper / ec.total >= 0.3) bits.push(`${Math.round((ec.sniper / ec.total) * 100)}% snipers`);
+    if (ec["early-in-hot"] >= 3) bits.push(`${ec["early-in-hot"]} early-in-hot wallets`);
+    if (ec.rotator >= 3) bits.push(`${ec.rotator} rotators`);
+    if (ec.sprayer / ec.total >= 0.3) bits.push(`${Math.round((ec.sprayer / ec.total) * 100)}% sprayer bots`);
+    if (bits.length) parts.push(`Early buyers: ${bits.join(", ")}.`);
+  }
+  if (x.deployerFan >= 5) parts.push(`Deployer is a launch farm: ${x.deployerFan} tokens in this window.`);
+  const stage = x.phase === "pool" ? "graduated, trading in the pool" : x.phase === "swept" ? "swept, pool not open yet" : x.curve?.progress !== null && x.curve?.progress !== undefined ? `${Math.round(x.curve.progress * 100)}% of the way to graduation on the ${x.pairSymbol} curve` : "on the curve";
+  parts.push(`${age}, ${stage}${x.narratives.length ? `; words say ${x.narratives.join(", ")}` : ""}.`);
+  return parts.join(" ");
+}
 
 Narra.prototype.flow = async function (this: Narra, opts: QueryOptions = {}): Promise<FlowOut> {
   const { a, meta } = await this.prepare(opts);

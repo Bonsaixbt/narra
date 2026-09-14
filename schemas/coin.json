@@ -243,6 +243,127 @@
         "type": "string"
       }
     },
+    "reading": {
+      "type": "string"
+    },
+    "activity": {
+      "type": "object",
+      "properties": {
+        "buys_10m": {
+          "type": "number"
+        },
+        "buyers_10m": {
+          "type": "number"
+        },
+        "buys_60m": {
+          "type": "number"
+        },
+        "buyers_60m": {
+          "type": "number"
+        },
+        "sells_60m": {
+          "type": "number"
+        },
+        "eth_in_60m": {
+          "type": "number"
+        },
+        "last_trade_ts": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "first_trade_ts": {
+          "type": [
+            "number",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "buys_10m",
+        "buyers_10m",
+        "buys_60m",
+        "buyers_60m",
+        "sells_60m",
+        "eth_in_60m",
+        "last_trade_ts",
+        "first_trade_ts"
+      ],
+      "additionalProperties": false
+    },
+    "early_cohorts": {
+      "type": "object",
+      "properties": {
+        "sniper": {
+          "type": "number"
+        },
+        "sprayer": {
+          "type": "number"
+        },
+        "rotator": {
+          "type": "number"
+        },
+        "early-in-hot": {
+          "type": "number"
+        },
+        "total": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "sniper",
+        "sprayer",
+        "rotator",
+        "early-in-hot",
+        "total"
+      ],
+      "additionalProperties": false
+    },
+    "deployer_launches_window": {
+      "type": "number"
+    },
+    "nearest": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "slug": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "HOT",
+              "EMERGING",
+              "ROTATING IN",
+              "ROTATING OUT",
+              "COOLING",
+              "DEAD"
+            ]
+          },
+          "membership": {
+            "type": "number"
+          },
+          "overlap": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "slug",
+          "status",
+          "membership",
+          "overlap"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "words": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
     "narratives": {
       "type": "array",
       "items": {
@@ -359,6 +480,12 @@
     "alternatives",
     "reasons",
     "watch",
+    "reading",
+    "activity",
+    "early_cohorts",
+    "deployer_launches_window",
+    "nearest",
+    "words",
     "narratives",
     "popularity",
     "evidence"

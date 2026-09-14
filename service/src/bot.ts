@@ -69,8 +69,11 @@ export function formatCoin(r: CoinOut | NotPonsOut): string {
   if (r.verdict === "NOT_PONS") return `${ICON.NOT_PONS} <code>${esc(r.token)}</code>\nnot a Pons v2 launch`;
   const L = [`<b>${esc(r.symbol ? "$" + r.symbol : r.name || "(no symbol)")}</b> · ${r.phase}${r.curve && r.phase === "curve" ? ` ${r.curve.real_quote_eth?.toFixed(2) ?? "?"}/${r.curve.threshold_eth} ${esc(r.pair.symbol)}` : ""}`, `<code>${esc(r.token)}</code>`, "",
     `${ICON[r.verdict] ?? ""} <b>${r.verdict}</b>${r.cluster ? ` · ${esc(r.cluster.slug)} ${r.cluster.membership.toFixed(2)} (${r.cluster.status.toLowerCase()})` : ""}`];
-  if (r.popularity?.cluster_rank) L.push(`meta #${r.popularity.cluster_rank} of ${r.popularity.clusters_total} · ${r.popularity.rank_in_cluster ? `#${r.popularity.rank_in_cluster} of ${r.popularity.cluster_size} inside` : "joins it by wallets"} · ${r.popularity.buyers} buyers`);
-  const reasons = r.reasons.filter((x) => !x.startsWith("popularity:")).slice(0, 2);
+  L.push(esc(r.reading));
+  const ac = r.activity;
+  L.push(`<i>${ac.buys_10m} buys · ${ac.buyers_10m} buyers in 10m · ${ac.buyers_60m} buyers · ${eth(ac.eth_in_60m)} ETH in 60m${ac.sells_60m ? ` · ${ac.sells_60m} sells` : ""}</i>`);
+  if (r.nearest.length && !r.cluster) L.push(`<i>nearest: ${r.nearest.slice(0, 2).map((n) => `${esc(n.slug)} ${n.membership.toFixed(2)} (${n.overlap} shared buyers)`).join(" · ")}</i>`);
+  const reasons = r.reasons.filter((x) => !x.startsWith("popularity:") && !/^cluster .* is /.test(x)).slice(0, 2);
   if (reasons.length) { L.push(""); for (const s of reasons) L.push(`· ${esc(s)}`); }
   if (r.watch.length) L.push(`⚠ ${esc(r.watch[0])}`);
   return L.join("\n") + FOOT;

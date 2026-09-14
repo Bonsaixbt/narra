@@ -20,6 +20,7 @@ export interface VerdictContext {
 
 export interface VerdictCore {
   verdict: VerdictKind;
+  nearest: { slug: string; status: ClusterOut["status"]; membership: number; overlap: number }[];
   cluster: { slug: string; status: ClusterOut["status"]; membership: number } | null;
   alternatives: { slug: string; membership: number }[];
   reasons: string[]; watch: string[];
@@ -57,7 +58,7 @@ export function verdictFor(t: TokenInfo, tokenTrades: TradeRow[], ctx: VerdictCo
     reasons.push(early.size ? `no live cluster shares its words or its ${early.size} early buyers` : "no live cluster shares its words and it has no buyers yet");
     const fanO = ctx.deployerFan?.get(t.deployer) ?? 0;
     if (fanO >= 5) watch.push(`deployer is a launch farm: ${fanO} tokens launched in this window`);
-    return { verdict: "ORPHAN", cluster: null, alternatives: scores.slice(0, 2).map((s) => ({ slug: s.slug, membership: s.m })), reasons, watch, evidence };
+    return { verdict: "ORPHAN", nearest: scores.slice(0, 3).map((s) => ({ slug: s.slug, status: s.c.status, membership: s.m, overlap: s.overlap })), cluster: null, alternatives: scores.slice(0, 2).map((s) => ({ slug: s.slug, membership: s.m })), reasons, watch, evidence };
   }
   const c = best.c;
   const matched = [...t.tags.keys()].filter((k) => c.top_tags.some((x) => x.tag === k));
@@ -98,6 +99,7 @@ export function verdictFor(t: TokenInfo, tokenTrades: TradeRow[], ctx: VerdictCo
   if (verdict === "EDGE") reasons.push(best.m >= 0.5 ? `words fit but only ${best.overlap} early buyer${best.overlap === 1 ? "" : "s"} overlap with the cluster (IN needs ${MIN_OVERLAP_FOR_IN})` : `membership ${best.m} is below 0.5: words fit, capital overlap is thin`);
   return {
     verdict,
+    nearest: scores.slice(0, 3).map((s) => ({ slug: s.slug, status: s.c.status, membership: s.m, overlap: s.overlap })),
     cluster: { slug: c.slug, status: c.status, membership: best.m },
     alternatives: scores.slice(1, 3).filter((s) => s.m >= 0.1).map((s) => ({ slug: s.slug, membership: s.m })),
     reasons, watch, evidence,
