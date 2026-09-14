@@ -20,6 +20,7 @@ export class Engine {
   private restarts = 0;
   lastError = "";
   ticks = 0;
+  private stats: { at: number; v: ReturnType<Narra["store"]["stats"]> } | null = null;
   tickMs: Record<string, number> = {};
   constructor(private onEvent: (e: WatchEvent) => void) {}
 
@@ -58,7 +59,9 @@ export class Engine {
   health() {
     const c = this.cache.get("60m");
     const age = c ? Math.round((Date.now() - c.at) / 1000) : null;
-    const stats = this.n.store.stats();
+    // COUNT(*) over the trade tables is 0.1–1 s and every home render asks for health: refresh the counts once a minute
+    if (!this.stats || Date.now() - this.stats.at > 60_000) this.stats = { at: Date.now(), v: this.n.store.stats() };
+    const stats = this.stats.v;
     const cursor = this.n.store.getCursor("main")?.last_block ?? null;
     const lag = c?.meta.head_block !== null && c?.meta.head_block !== undefined && cursor !== null ? Math.max(0, c.meta.head_block - cursor) : null;
     const ok = !!c && age !== null && age <= CONFIG.staleAfterSec && (lag === null || lag <= CONFIG.maxLagBlocks) && !this.lastError;
