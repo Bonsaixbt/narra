@@ -14,13 +14,12 @@ Where the product is on 2026-09-13 and where it goes. Dates are targets, not pro
 | Telegram: bot token, community chat id, alert chat id into `service/.env` | owner | bot + alerts built |
 | Site on Cloudflare Pages against the live API | frontend dev | brief delivered |
 | Launch content: three frames (board, card, flow) recorded from `narra terminal` | owner | — |
-| Token launch on Pons v2, then `NARRA_TOKEN_ADDRESS` + `NARRA_HOLDER_SECRET` into the service | owner | gate built |
+| Token launch on Pons v2 | owner | — |
 
 ## 1. Launch week
 
 | Item | Owner |
 |---|---|
-| Holder gate on; `15m`/`4h`, flow, wallets, history, undelayed stream become holder features | owner flips config |
 | Site: board, card, search, holder page, OG previews | frontend dev |
 | Community bot digest every 30 min + alerts on HOT / ROTATING | owner enables |
 | Daily ship posts from real terminal output: one meta rotation per video | owner |
@@ -30,6 +29,7 @@ Where the product is on 2026-09-13 and where it goes. Dates are targets, not pro
 
 | Feature | What it gives | Where |
 |---|---|---|
+| Holder mode (postponed on 2026-09-14) | `15m`/`4h`, flow, wallets, history and the undelayed stream for `$NARRA` holders; a pasted public address and a balance read, no signature. The gate is built and dormant in the service; turning it on is config plus the `/holders` page on the site | service + site |
 | Personal watchlist (per holder address) | follow metas and tokens; status changes reach the user in the stream and Telegram | service + site |
 | Frozen snapshots (`/api/snapshot/:id`) | a post links to the board as it was, not as it is | service + site |
 | Home summary in one call (`/api/summary`) | first paint from one request | service + site |

@@ -44,7 +44,7 @@ Every response is validated against zod schemas; the JSON Schemas are checked in
 | GET | `/og/cluster/:slug`, `/og/coin/:ca` | SVG 1200×630 share card; add `/png` for `image/png` (X previews need PNG) | no |
 | POST | `/holders/check` `{ address }` | `{ address, balance, threshold, ok, token? }` and sets the `narra_holder` cookie when `ok` | no |
 
-Gates are open until the token exists (`NARRA_TOKEN_ADDRESS` unset): build against everything now. Once the token is live, gated routes answer `401 { error: { code: "HOLDER_REQUIRED" } }` without the cookie; send the cookie back (or the token as `x-narra-holder`) through your proxy. Other errors: `400 BAD_ADDRESS | BAD_QUERY | AMBIGUOUS`, `404 NO_CLUSTER | NO_SCHEMA | NOT_FOUND`, `429 RATE_LIMITED` (60/min per IP anonymous, 600/min holders), `503 WARMING_UP` for the first minute after a restart.
+Holder mode is postponed to after the launch, so every route is open and nothing is gated; the `Gate` column describes the future behaviour only. Once the token is live, gated routes answer `401 { error: { code: "HOLDER_REQUIRED" } }` without the cookie; send the cookie back (or the token as `x-narra-holder`) through your proxy. Other errors: `400 BAD_ADDRESS | BAD_QUERY | AMBIGUOUS`, `404 NO_CLUSTER | NO_SCHEMA | NOT_FOUND`, `429 RATE_LIMITED` (60/min per IP anonymous, 600/min holders), `503 WARMING_UP` for the first minute after a restart.
 
 OG images: point `og:image` at the `/png` variant; the SVG is there for inline use.
 
@@ -116,7 +116,7 @@ Rules that matter to you:
 | `/coin/[ca]` | the verdict card | none |
 | `/cluster/[slug]` | one meta: numbers, members, tags, edges | none (7-day history: holders) |
 | `/flow` | the edge table | holders |
-| `/holders` | paste a public address → extended mode | none |
+| ~~`/holders`~~ | **postponed** (owner's decision, 2026-09-14): holder mode is off the launch scope; drop the page or keep a one-line note. Everything is open to everyone. | — |
 | `/docs` | how it is computed, in plain words | none |
 
 Behaviour that is not optional:
@@ -124,7 +124,7 @@ Behaviour that is not optional:
 1. **The board opens with the answer.** Before the table: how many metas in which statuses, total ETH and buyers, the hottest meta, where capital is draining (the meta with the most outgoing wallets and how many metas it feeds), narrative shares. The CLI prints exactly this block; copy its logic (`src/cli/now.ts → renderNow`).
 2. **Top 15 by default, DEAD hidden**, "… N more" expands. Rows update in place every 30 s or on an SSE `STATUS` event; sort order changes only when a status changes, so rows do not jump.
 3. **The card replaces the board**, it is not a modal. Verdict large, one word, in colour; cluster status next to it; the `popular` line; reasons as a list; watch-outs in yellow; sources at the bottom; the sentence *"IN means this token belongs to a live meta. It is not a buy signal."* under every card.
-4. **No wallet.** No `Connect`, no `window.ethereum`, no signatures. The holder page takes a pasted public address and calls `POST /holders/check`.
+4. **No wallet.** No `Connect`, no `window.ethereum`, no signatures. (Holder mode is postponed; ignore `POST /holders/check` and the gate columns below until it returns.)
 5. **Stale is visible, never blank.** If `/health` is unreachable or the last snapshot is older than 3 minutes: keep the last data and show `data is N min old — indexer catching up`.
 6. **Share = screenshot.** Each card and meta page has an OG image (served by the backend, you only set the meta tags) and a `?frame=1` mode: header and filters hidden, font +25 %, width fixed at 1080 px, for vertical video frames.
 7. **Phone first for the card.** A pasted CA from the X app is the main entry. The board at 400 px wraps a row to two lines.
@@ -167,7 +167,7 @@ Run `npx tsx bin/narra.ts terminal` in the repo once: it is the reference for de
 3. Paste a non-Pons address: a clear message, not an error page.
 4. Kill the backend: the board keeps the last data and shows the banner; the card shows a message with retry.
 5. Click a meta: members expand; a link with `?c=slug` opens the same state.
-6. `/holders` before the token exists says "holder mode opens after launch"; after it, a real balance check with no signature.
+6. (dropped for now) holder mode is in the roadmap, not in the launch scope.
 7. An X preview of a `/coin/[ca]` link shows the verdict and reasons.
 8. Nowhere a wallet-connect button; nowhere the words buy / signal / alpha / guaranteed.
 
