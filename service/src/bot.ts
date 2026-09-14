@@ -147,6 +147,8 @@ export class CommunityBot {
   /** The last Telegram refusal, and when getUpdates last succeeded: a stuck poll shows up as a growing poll age in health. */
   lastError = "";
   lastPollAt = 0;
+  /** Chats the bot has heard from since start (id, type, title): health shows them so the digest chat id can be copied, not guessed. */
+  seenChats = new Map<string, { type: string; title: string; at: number }>();
   constructor(private cfg: BotConfig, private api: BotApi, private fetchFn: typeof fetch = fetch) {}
 
   private pausedUntil = 0;
@@ -181,8 +183,10 @@ export class CommunityBot {
     }
   }
 
-  async handle(update: { message?: { message_id?: number; text?: string; chat: { id: number | string; type?: string }; from?: { id: number } } }): Promise<void> {
-    const m = update.message; if (!m?.text || !this.cfg.commands) return;
+  async handle(update: { message?: { message_id?: number; text?: string; chat: { id: number | string; type?: string; title?: string; username?: string }; from?: { id: number } } }): Promise<void> {
+    const m = update.message; if (!m) return;
+    this.seenChats.set(String(m.chat.id), { type: m.chat.type ?? "?", title: m.chat.title ?? m.chat.username ?? "", at: Date.now() });
+    if (!m.text || !this.cfg.commands) return;
     if (this.cfg.allowedChats && !this.cfg.allowedChats.has(String(m.chat.id))) return;
     if (!this.perUser.allow(String(m.from?.id ?? m.chat.id))) return;
     const reply = await this.answer(m.text);
