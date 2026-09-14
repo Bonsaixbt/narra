@@ -98,6 +98,16 @@ app.post("/api/holders/check", async (c) => {
   return c.json({ address: a.toLowerCase(), balance, threshold: CONFIG.holderThreshold, ok });
 });
 
+/** Polling twin of /api/stream for clients behind proxies that buffer SSE: pass the `until` you got last time as `since`. */
+app.get("/api/events", (c) => {
+  const holder = !!c.get("holder") || !gateEnabled();
+  const raw = c.req.query("since") ?? "";
+  const sinceMs = raw ? (/^\d+$/.test(raw) ? Number(raw) * (raw.length > 11 ? 1 : 1000) : Date.parse(raw)) : Date.now() - 15 * 60_000;
+  if (Number.isNaN(sinceMs)) { const e = err("BAD_QUERY", "since must be unix seconds, unix ms or ISO-8601", 400); return c.json(e.body, e.status); }
+  const r = hub.since(sinceMs, holder);
+  return c.json({ since: sinceMs, until: r.until, delayed_s: holder ? 0 : CONFIG.publicStreamDelaySec, events: r.events });
+});
+
 app.get("/api/stream", (c) => {
   const holder = !!c.get("holder") || !gateEnabled();
   // proxies and CDNs (Cloudflare included) buffer and compress small streamed responses unless told not to;

@@ -37,3 +37,15 @@ test("stream hub delays events for anonymous sinks and not for holders", () => {
   hub.flush(300_000); assert.deepEqual(seenA, ["SYNC", "STATUS"]);
   hub.stop();
 });
+
+
+test("events endpoint buffer respects the public delay", () => {
+  const hub = new StreamHub(300);
+  const ev = { schema_version: "1.0.0" as const, ts: "t", type: "STATUS" as const, slug: "x", to: "HOT" as const };
+  hub.publish(ev, 1_000_000);
+  assert.equal(hub.since(0, true, 1_000_001).events.length, 1);
+  assert.equal(hub.since(0, false, 1_000_001).events.length, 0);
+  assert.equal(hub.since(0, false, 1_000_000 + 300_001).events.length, 1);
+  assert.equal(hub.since(1_000_000, true, 2_000_000).events.length, 0);
+  hub.stop();
+});
