@@ -1,0 +1,87 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "const": "1.0.0"
+    },
+    "computed_at": {
+      "type": "string"
+    },
+    "window": {
+      "type": "string",
+      "enum": [
+        "15m",
+        "60m",
+        "4h"
+      ]
+    },
+    "window_from": {
+      "type": "number"
+    },
+    "window_to": {
+      "type": "number"
+    },
+    "head_block": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "lag_blocks": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "source": {
+      "type": "object",
+      "properties": {
+        "rpc": {
+          "type": "string"
+        },
+        "mode": {
+          "type": "string",
+          "enum": [
+            "cold",
+            "cache",
+            "live"
+          ]
+        }
+      },
+      "required": [
+        "rpc",
+        "mode"
+      ],
+      "additionalProperties": false
+    },
+    "token": {
+      "type": "string"
+    },
+    "verdict": {
+      "type": "string",
+      "const": "NOT_PONS"
+    },
+    "reasons": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "required": [
+    "schema_version",
+    "computed_at",
+    "window",
+    "window_from",
+    "window_to",
+    "head_block",
+    "lag_blocks",
+    "source",
+    "token",
+    "verdict",
+    "reasons"
+  ],
+  "additionalProperties": false
+}

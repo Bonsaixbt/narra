@@ -81,7 +81,7 @@ export function formatCoin(r: CoinOut | NotPonsOut): string {
   const act = [`📈 <b>activity</b>`];
   act.push(a.buyers_60m ? `${a.buys_10m} buys · ${a.buyers_10m} buyers in 10m` : `no buys in the last hour${a.last_trade_ts ? " · last trade " + ago(a.last_trade_ts).replace(" old", " ago") : ""}`);
   if (a.buyers_60m) act.push(`${a.buys_60m} buys · ${a.sells_60m} sells · ${a.buyers_60m} buyers · ${eth(a.eth_in_60m)} ETH in 60m`);
-  if (r.popularity) act.push(`more buyers than ${r.popularity.buyers_percentile}% of tokens in the window`);
+  if (r.popularity && r.popularity.buyers > 0) act.push(`more buyers than ${r.popularity.buyers_percentile}% of tokens in the window`);
   S.push(act);
   const ec = r.early_cohorts;
   const bits: string[] = [];

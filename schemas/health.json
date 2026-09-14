@@ -1,0 +1,124 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "ok": {
+      "type": "boolean"
+    },
+    "snapshot_age_s": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "head_block": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "cursor_block": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "lag_blocks": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "ticks": {
+      "type": "number"
+    },
+    "tick_ms": {
+      "type": "object",
+      "propertyNames": {
+        "type": "string"
+      },
+      "additionalProperties": {
+        "type": "number"
+      }
+    },
+    "worker_restarts": {
+      "type": "number"
+    },
+    "last_error": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "windows": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "launches": {
+      "type": "number"
+    },
+    "tokens": {
+      "type": "number"
+    },
+    "trades": {
+      "type": "number"
+    },
+    "swaps": {
+      "type": "number"
+    },
+    "pools": {
+      "type": "number"
+    },
+    "snapshots": {
+      "type": "number"
+    },
+    "hourly": {
+      "type": "number"
+    },
+    "oldest_trade_ts": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "newest_trade_ts": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "narra": {
+      "type": "string"
+    },
+    "gate": {
+      "type": "boolean"
+    },
+    "stream_clients": {
+      "type": "number"
+    },
+    "alerts": {},
+    "bot": {}
+  },
+  "required": [
+    "ok",
+    "snapshot_age_s",
+    "head_block",
+    "cursor_block",
+    "lag_blocks",
+    "ticks",
+    "last_error",
+    "windows",
+    "launches",
+    "tokens",
+    "trades",
+    "swaps",
+    "pools",
+    "snapshots",
+    "hourly",
+    "oldest_trade_ts",
+    "newest_trade_ts"
+  ],
+  "additionalProperties": false
+}

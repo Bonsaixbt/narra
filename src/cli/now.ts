@@ -10,9 +10,9 @@ const ethf = (v: number) => (v >= 10 ? v.toFixed(1) : v.toFixed(2));
 export function renderNow(r: NowOut, opts: { members?: boolean; all?: boolean; top?: number; width?: number } = {}): string {
   const W = opts.width ?? process.stdout.columns ?? 120;
   const L: string[] = [];
-  const cl = r.clusters;
   const counts: Record<string, number> = {};
-  for (const k of cl) counts[k.status] = (counts[k.status] ?? 0) + 1;
+  for (const k of r.clusters) counts[k.status] = (counts[k.status] ?? 0) + 1;
+  const cl = r.clusters.filter((k) => k.status !== "DEAD"); // totals, hottest, draining and narratives count live metas, like the reading
   const eth = cl.reduce((s, k) => s + k.heat.quote_norm_in, 0);
   const buyers = cl.reduce((s, k) => s + k.heat.unique_buyers, 0);
   L.push(`${c.bold("NARRA")} ${c.dim(utc())}  window ${c.bold(r.window)}  ${c.dim(`head ${r.head_block ?? "?"} · ${r.source.rpc} · ${r.source.mode}`)}`);
@@ -21,7 +21,7 @@ export function renderNow(r: NowOut, opts: { members?: boolean; all?: boolean; t
     return L.join("\n");
   }
   const order = ["HOT", "ROTATING IN", "EMERGING", "ROTATING OUT", "COOLING", "DEAD"];
-  L.push(c.dim(`${cl.length} metas · ${order.filter((s) => counts[s]).map((s) => `${counts[s]} ${STATUS_COLOR[s]?.(s) ?? s}`).join(" · ")} · ${ethf(eth)} ETH · ${num(buyers)} buyers · ${num(r.counts.launches)} launches`));
+  L.push(c.dim(`${r.clusters.length} metas · ${order.filter((s) => counts[s]).map((s) => `${counts[s]} ${STATUS_COLOR[s]?.(s) ?? s}`).join(" · ")} · ${ethf(eth)} ETH · ${num(buyers)} buyers in live metas · ${num(r.counts.launches)} launches`));
   L.push("");
   const hottest = [...cl].sort((a, b) => b.heat.quote_norm_in - a.heat.quote_norm_in)[0];
   const draining = [...cl].sort((a, b) => b.flow.out_wallets - a.flow.out_wallets)[0];
@@ -35,7 +35,7 @@ export function renderNow(r: NowOut, opts: { members?: boolean; all?: boolean; t
   L.push("");
   // table, adapted to the terminal width
   const wide = W >= 118, mid = W >= 92;
-  const rows = cl.filter((k) => opts.all || k.status !== "DEAD");
+  const rows = r.clusters.filter((k) => opts.all || k.status !== "DEAD");
   const top = opts.all ? rows.length : opts.top ?? 15;
   const shown = rows.slice(0, top);
   const head = wide ? ["#", "status", "meta", "narrative", "CA", "ETH in", "grad", "buyers", "flow", ""] : mid ? ["#", "status", "meta", "narrative", "CA", "ETH in", "buyers", "flow"] : ["#", "status", "meta", "ETH in", "buyers"];

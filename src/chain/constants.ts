@@ -52,7 +52,7 @@ export const EXPLORER = {
   tx: (h: string) => `https://robinhoodchain.blockscout.com/tx/${h}`,
   address: (a: string) => `https://robinhoodchain.blockscout.com/address/${a}`,
   token: (a: string) => `https://robinhoodchain.blockscout.com/token/${a}`,
-  pons: (a: string) => `https://www.ponsfamily.com/token/${a}`,
+  pons: (a: string) => `https://www.ponsfamily.com/launchpad/${a}`,
 };
 
 export const PHASE = ["curve", "swept", "pool", "rescued"] as const;

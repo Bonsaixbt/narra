@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "hours": {
+      "type": "number"
+    },
+    "step": {
+      "type": "number"
+    },
+    "since": {
+      "type": "number"
+    },
+    "narratives": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "reading": {
+      "type": "string"
+    },
+    "rows": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "from": {
+            "type": "string"
+          },
+          "from_ts": {
+            "type": "number"
+          },
+          "launches": {
+            "type": "number"
+          },
+          "buys": {
+            "type": "number"
+          },
+          "eth": {
+            "type": "number"
+          },
+          "narratives": {
+            "type": "object",
+            "propertyNames": {
+              "type": "string"
+            },
+            "additionalProperties": {
+              "type": "number"
+            }
+          }
+        },
+        "required": [
+          "from",
+          "from_ts",
+          "launches",
+          "buys",
+          "eth",
+          "narratives"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "hours",
+    "step",
+    "since",
+    "narratives",
+    "rows"
+  ],
+  "additionalProperties": false
+}

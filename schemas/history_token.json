@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "token": {
+      "type": "string"
+    },
+    "hours": {
+      "type": "number"
+    },
+    "reading": {
+      "type": "string"
+    },
+    "rows": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "hour": {
+            "type": "string"
+          },
+          "hour_ts": {
+            "type": "number"
+          },
+          "curve_buys": {
+            "type": "number"
+          },
+          "curve_in_eth": {
+            "type": "number"
+          },
+          "pool_buys": {
+            "type": "number"
+          },
+          "pool_in_eth": {
+            "type": "number"
+          },
+          "buyers": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "hour",
+          "hour_ts",
+          "curve_buys",
+          "curve_in_eth",
+          "pool_buys",
+          "pool_in_eth",
+          "buyers"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "token",
+    "hours",
+    "rows"
+  ],
+  "additionalProperties": false
+}

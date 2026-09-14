@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "slug": {
+      "type": "string"
+    },
+    "hours": {
+      "type": "number"
+    },
+    "reading": {
+      "type": "string"
+    },
+    "snapshots": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "ts": {
+            "type": "string"
+          },
+          "ts_unix": {
+            "type": "number"
+          },
+          "window": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "n_launches": {
+            "type": "number"
+          },
+          "quote_eth": {
+            "type": "number"
+          },
+          "buyers": {
+            "type": "number"
+          },
+          "graduations": {
+            "type": "number"
+          },
+          "members": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "ts",
+          "ts_unix",
+          "window",
+          "status",
+          "n_launches",
+          "quote_eth",
+          "buyers",
+          "graduations",
+          "members"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "slug",
+    "hours",
+    "snapshots"
+  ],
+  "additionalProperties": false
+}
