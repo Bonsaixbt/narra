@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.3.0 — 2026-09-14
 
 - store: the SQLite busy timeout is 30 s (was the 5 s default); on the server three processes write to one file and the fast worker hit `database is locked` while the slow one saved a 4h pass.
 - service: metas and coins in Telegram alerts and bot replies link into the site (`NARRA_SITE_URL`, default `NARRA_API_ORIGIN`).
