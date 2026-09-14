@@ -34,6 +34,8 @@ export class Alerter {
   private queue: { at: number; text: string }[] = [];
   private timer: NodeJS.Timeout;
   sent = 0; dropped = 0; errors = 0;
+  /** The last Telegram refusal (`400 chat not found`, `429 …`), so health says why alerts do not arrive. */
+  lastError = "";
   constructor(private cfg: AlertConfig, private fetchFn: typeof fetch = fetch) { this.timer = setInterval(() => void this.flush(), 1_000); this.timer.unref(); }
 
   offer(e: WatchEvent, now = Date.now()): boolean {
@@ -55,8 +57,8 @@ export class Alerter {
       for (const chat of this.cfg.chats) {
         try {
           const r = await this.fetchFn(`https://api.telegram.org/bot${this.cfg.token}/sendMessage`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ chat_id: chat, text, disable_web_page_preview: true }), signal: AbortSignal.timeout(10_000) });
-          if (!r.ok) this.errors++; else this.sent++;
-        } catch { this.errors++; }
+          if (!r.ok) { this.errors++; this.lastError = `${r.status} ${((await r.json().catch(() => ({}))) as { description?: string }).description ?? ""}`.trim(); } else this.sent++;
+        } catch (e) { this.errors++; this.lastError = (e as Error).message; }
       }
       this.sentAt.push(now); n++;
     }
