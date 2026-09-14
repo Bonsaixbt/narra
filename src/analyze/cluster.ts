@@ -42,6 +42,8 @@ export interface RawCluster {
   degree: Map<string, number>;
   /** how many links of each kind hold the cluster together */
   links: { text: number; wallet: number; deployer: number; semantic: number };
+  /** set by inheritSlugs: the slug came from a previous tick's cluster sharing members, so it is the same meta */
+  inherited?: boolean;
 }
 
 class UnionFind {
@@ -239,7 +241,7 @@ export function inheritSlugs(prev: { slug: string; members: string[] }[], curr: 
       const score = shared / Math.min(mine.size, p.members.length);
       if (score >= 0.5 && (!best || score > best.score)) best = { slug: p.slug, score };
     }
-    if (best) { c.slug = best.slug; used.add(best.slug); }
+    if (best) { c.slug = best.slug; c.inherited = true; used.add(best.slug); }
   }
   // de-duplicate freshly generated slugs
   const seen = new Map<string, number>();

@@ -77,11 +77,19 @@
               "COOLING",
               "DEAD"
             ]
+          },
+          "id": {
+            "type": "string"
+          },
+          "first_seen_ts": {
+            "type": "number"
           }
         },
         "required": [
           "slug",
-          "status"
+          "status",
+          "id",
+          "first_seen_ts"
         ],
         "additionalProperties": false
       }

@@ -113,6 +113,25 @@ CREATE TABLE IF NOT EXISTS cluster_snapshots (
   PRIMARY KEY (slug, window, ts)
 );
 
+-- Flow edges per analysis tick (the history behind /history/flow). flow_ticks records every tick, edges or not,
+-- so "no edges" and "not computed" stay distinguishable; backfill fills ticks that predate this table.
+CREATE TABLE IF NOT EXISTS flow_ticks (
+  window TEXT NOT NULL,
+  ts INTEGER NOT NULL,
+  edges INTEGER NOT NULL,
+  PRIMARY KEY (window, ts)
+);
+CREATE TABLE IF NOT EXISTS flow_snapshots (
+  window TEXT NOT NULL,
+  ts INTEGER NOT NULL,
+  from_slug TEXT NOT NULL,
+  to_slug TEXT NOT NULL,
+  wallets INTEGER NOT NULL,
+  quote_norm REAL NOT NULL,
+  deployers INTEGER NOT NULL,
+  PRIMARY KEY (window, ts, from_slug, to_slug)
+);
+
 CREATE TABLE IF NOT EXISTS hourly (
   token TEXT NOT NULL,
   hour_ts INTEGER NOT NULL,

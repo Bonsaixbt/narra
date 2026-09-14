@@ -54,3 +54,18 @@ test("the same fixture produces the same board twice, and every cluster is held 
   assert.ok(poolVol >= 0);
   assert.ok(a.wallets.size > 50);
 });
+
+test("a cluster keeps its id across ticks while its slug is inherited, and every tick lands in the flow tables", () => {
+  const now = Math.max(fx.toTs, px.toTs) + 1;
+  const s = load();
+  const a = analyze(s, "4h", 14_400, now);
+  assert.ok(a.clusters.length >= 1);
+  for (const c of a.clusters) { assert.equal(c.id, `${c.slug}@${now}`); assert.equal(c.first_seen_ts, now); }
+  assert.deepEqual(s.flowTicks("4h", 0), [now], "the tick is recorded even when it has no edges");
+  const b = analyze(s, "4h", 14_400, now + 60);
+  const first = new Map(a.clusters.map((c) => [c.slug, c.id]));
+  assert.ok(b.clusters.some((c) => first.has(c.slug)), "at least one cluster was inherited between the two ticks");
+  for (const c of b.clusters) if (first.has(c.slug)) { assert.equal(c.id, first.get(c.slug), `${c.slug} kept its id`); assert.equal(c.first_seen_ts, now); }
+  assert.deepEqual(s.flowTicks("4h", 0), [now, now + 60]);
+  s.close();
+});

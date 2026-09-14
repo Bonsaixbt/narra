@@ -31,6 +31,8 @@ export interface Edge { from: string; to: string; wallets: number; quote_norm: n
 
 export interface ClusterOut {
   slug: string; label: string; status: Status;
+  /** Stable identity: `slug@first_seen`. A slug that comes back after a gap with different members gets a new id. */
+  id: string; first_seen_ts: number;
   top_tags: { tag: string; weight: number }[];
   members: string[];
   heat: Heat;
