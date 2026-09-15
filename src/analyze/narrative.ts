@@ -11,13 +11,16 @@ const RULES: [string, Set<string>][] = Object.entries(dictionary.narratives as R
   .map(([k, v]) => [k, new Set(v as string[])]);
 
 export const NARRATIVES = ["chinese", ...RULES.map(([k]) => k), "mixed"] as const;
+/** Semantic categories (taxonomy.ts) vote for the dictionary family they mean, so a "stock" category and a "stocks" tag add up. */
+const CATEGORY_FAMILY: Record<string, string> = { animal: "animals", stock: "stocks", "ai-agent": "ai-agents", politics: "politics", "chinese-culture": "chinese", "crypto-meta": "crypto", tool: "tools", celebrity: "celebrities", finance: "money" };
 export type Narrative = string;
 
 export interface NarrativeResult { narrative: Narrative; sub: Narrative | null; mix: Record<string, number>; cjk_share: number }
 
 const hasCJK = (s: string) => /[一-鿿぀-ヿ가-힯]/.test(s);
 
-export function narrativeOf(members: TokenInfo[], minShare = 0.3): NarrativeResult {
+/** minShare: a family names the cluster when its votes cover this share of members; 0.25 after a week of boards (0.3 left a third of live metas "mixed" with a leader at 0.27). */
+export function narrativeOf(members: TokenInfo[], minShare = 0.25): NarrativeResult {
   if (!members.length) return { narrative: "mixed", sub: null, mix: {}, cjk_share: 0 };
   const votes = new Map<string, number>();
   let cjk = 0;
@@ -25,7 +28,7 @@ export function narrativeOf(members: TokenInfo[], minShare = 0.3): NarrativeResu
     if (hasCJK(m.name) || hasCJK(m.symbol)) cjk++;
     const seen = new Set<string>();
     for (const [tag, w] of m.tags) {
-      if (tag.startsWith("cat:")) { const n = tag.slice(4); votes.set(n, (votes.get(n) ?? 0) + 0.5 * w); continue; }
+      if (tag.startsWith("cat:")) { const n = CATEGORY_FAMILY[tag.slice(4)] ?? tag.slice(4); votes.set(n, (votes.get(n) ?? 0) + 0.5 * w); continue; }
       for (const [name, set] of RULES) if (set.has(tag) && !seen.has(name)) { seen.add(name); votes.set(name, (votes.get(name) ?? 0) + Math.min(1.2, w)); }
     }
   }
