@@ -71,14 +71,39 @@ Open on the owner's side: `npm publish` (2FA), token contract and launch date, h
 | Self-serve alert rules | per holder: "tell me when a meta with word X turns HOT", in Telegram and the stream | Claude, frontend |
 | v1.0 of the terminal | frozen CLI contract, JSON Schemas versioned 1.x, changelog discipline | Claude, owner |
 
-## 6. Standing work every month
+## 6. The public roadmap, mapped
+
+`ROADMAP-PUBLIC.md` is the version for the site and the announcement (no dates, no owners). Every public line lives here with a month:
+
+| Public line | Here | When |
+|---|---|---|
+| Extended access for holders | Holder mode on | month 1 |
+| One-call summary and an instant home page | `/api/summary`, streaming home | month 1 |
+| Alerts and a watchlist | Personal watchlist; per-holder Telegram subscriptions | months 1–2 |
+| Frozen snapshots | `/api/snapshot/:id` | month 1 |
+| Share images | PNG share cards on the site | month 1 |
+| Sharper narratives | Token classification beyond the ticker | month 1 |
+| Published calibration | Weekly re-fit, versioned; calibration as a service | months 1, 3 |
+| 24h and 7-day boards | Boards on hourly aggregates | month 2 |
+| Deployer profiles | Deployer profiles | month 2 |
+| Public track record | Cohort backtests, published | month 2 |
+| Social signal | Social signal as a fourth input | month 3 |
+| Stock-token metas | Stock-token pair pricing | month 3 |
+| API keys | API keys for holders | month 3 |
+| Your own alert rules | Self-serve alert rules | months 4–6 |
+| More launchpads | Second launchpad, cross-launchpad metas | months 4–6 |
+| Terminal 1.0 | v1.0 of the terminal | months 4–6 |
+
+Not on the public page because nobody outside needs them: clustering speed, the RPC budget guard, Postgres, embedding-first clustering, MCP recipes (content, not a feature).
+
+## 7. Standing work every month
 
 - Dictionary review from `narra dictionary suggest` on the previous month's launches.
 - Calibration re-fit and a one-paragraph note in the changelog.
 - RPC and disk meters read; backups restored once to prove they restore.
 - Dependencies bumped; tests green on Node 22 LTS and current.
 
-## 7. Principles that do not move
+## 8. Principles that do not move
 
 - Read-only. No key, no `--live`, no buy button, no wallet connect.
 - Every number opens to its source. Reasons are sentences built from data, never model prose that overrides numbers.
