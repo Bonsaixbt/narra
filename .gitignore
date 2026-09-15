@@ -6,3 +6,6 @@ data/
 *.db-shm
 .env
 .DS_Store
+
+# the owner's content plan stays on this machine
+docs/CONTENT-PLAN.md
