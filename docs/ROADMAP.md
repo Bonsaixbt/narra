@@ -35,6 +35,7 @@ Where the product is on 2026-09-13 and where it goes. Dates are targets, not pro
 | Home summary in one call (`/api/summary`) | first paint from one request | service + site |
 | Per-holder Telegram subscriptions | the bot checks an address and subscribes the user to their watchlist | service |
 | PNG share cards on the site | X previews without the SVG detour | site |
+| Token-level classification beyond the ticker (AI agents first) | a ticker rarely says "AI": classify each token once from name + description + website/twitter (enrichment already stores them) with a batched model call (50 tokens per call, cached per token), plus deployer families (agent frameworks deploy in recognisable patterns); result: `cat:` tags with confidence that feed the narrative vote next to the dictionary and the local embeddings | engine |
 | 24h and 7d boards on hourly aggregates | "what happened today" without re-reading 2 M trades | engine |
 | Clustering speed | 4h in ~5 s instead of ~25 s; same results | engine |
 
