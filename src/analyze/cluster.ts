@@ -3,6 +3,7 @@
  * and at least one content tag. Connected components of that graph are the metas.
  */
 import { similarity, isContentTag, isCategoryTag, type Tags } from "./tokenize.js";
+import dictionary from "./dictionary.json" with { type: "json" };
 import type { TokenInfo } from "./types.js";
 
 export interface ClusterOptions {
@@ -222,9 +223,12 @@ function topTags(centroid: Tags, members: TokenInfo[]): { tag: string; weight: n
   return (strong.length ? strong : ranked).slice(0, 6).map(({ tag, weight }) => ({ tag, weight }));
 }
 
+const SLUG_STOP = new Set(((dictionary as { slug_stop?: string[] }).slug_stop ?? []));
+/** Tags allowed to name a meta: the slug stop list keeps slurs out of slugs and labels (they still cluster). */
+export const nameable = (tags: { tag: string; weight: number }[]) => tags.filter((t) => !SLUG_STOP.has(t.tag));
 export function slugOf(top: { tag: string }[], fallbackId: number): string {
   const clean = (s: string) => s.replace(/[^a-z0-9一-鿿]/g, "").slice(0, 14);
-  const parts = top.slice(0, 2).map((t) => clean(t.tag)).filter(Boolean);
+  const parts = nameable(top as { tag: string; weight: number }[]).slice(0, 2).map((t) => clean(t.tag)).filter(Boolean);
   if (!parts.length) return `mixed-${fallbackId}`;
   return parts.join("-");
 }

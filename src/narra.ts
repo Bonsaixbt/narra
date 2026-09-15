@@ -101,7 +101,7 @@ function pick<T extends object, K extends keyof T>(o: T, keys: K[]): Pick<T, K> 
 import { analyze, membersOf, lastTradeByToken, toTokenInfo, type Analysis } from "./analyze/board.js";
 import { isLive } from "./analyze/status.js";
 import { verdictFor } from "./analyze/verdict.js";
-import { SCHEMA_VERSION, type NowOut, type CoinOut, type NotPonsOut, type FlowOut, type WhyOut, type WalletsOut, type WalletOut } from "./schemas.js";
+import { SCHEMA_VERSION, type NowOut, type CoinOut, type NotPonsOut, type FlowOut, type WhyOut, type WalletsOut, type WalletOut, type WalletClustersOut } from "./schemas.js";
 import { curveAbi } from "./chain/abi.js";
 import { enrichPending, ensurePairs } from "./ingest/enrich.js";
 import type { Address } from "viem";
@@ -325,7 +325,7 @@ Narra.prototype.why = async function (this: Narra, slug: string, opts: QueryOpti
     ...meta,
     cluster: { slug: c.slug, id: c.id, first_seen_ts: c.first_seen_ts, label: c.label, status: c.status, top_tags: c.top_tags, n_members: c.members.length, heat: c.heat, links: c.links, summary: c.summary, label_source: c.label_source, narrative: c.narrative, narrative_sub: c.narrative_sub, narrative_mix: c.narrative_mix, flow: c.flow, rank: c.rank, cohorts: c.cohorts, rotating_from: c.rotating_from, rotating_to: c.rotating_to, members: membersOf(a, c, this.store) },
     tags, edges_in: a.edges.filter((e) => e.to === c.slug), edges_out: a.edges.filter((e) => e.from === c.slug),
-    rule: "two tokens are linked when weighted Jaccard of their tags ≥ 0.35, or they share ≥ 5 buyers, or they share a deployer and a tag; the cluster is the connected component; the slug is its two heaviest tags",
+    rule: "two tokens are linked when weighted Jaccard of their tags ≥ 0.35, or they share ≥ 5 buyers, or they share a deployer and a tag; the meta is the connected component; the slug is its two heaviest tags",
   };
   out.reading = readWhy(out);
   return out;
@@ -342,6 +342,26 @@ Narra.prototype.wallets = async function (this: Narra, opts: QueryOptions & { co
   list.sort((x, y) => (y[sort] as number) - (x[sort] as number));
   const out: WalletsOut = { ...meta, cohort: opts.cohort ?? null, sort, wallets: list.slice(0, opts.top ?? 25), counts };
   out.reading = readWallets(out);
+  return out;
+};
+
+declare module "./narra.js" { interface Narra { walletClusters(opts?: QueryOptions & { top?: number }): Promise<WalletClustersOut> } }
+/** Every wallet cluster from one analysis, one answer: the page that maps them needs all four from the same tick. */
+Narra.prototype.walletClusters = async function (this: Narra, opts: QueryOptions & { top?: number } = {}): Promise<WalletClustersOut> {
+  const { a, meta } = await this.prepare(opts);
+  const all = [...a.wallets.values()].filter((w) => w.buys > 0);
+  const median = (xs: number[]) => { if (!xs.length) return null; const s = [...xs].sort((x, y) => x - y); return s[Math.floor(s.length / 2)]; };
+  const names = ["sniper", "sprayer", "rotator", "early-in-hot"] as const;
+  const clusters = names.map((name) => {
+    const ws = all.filter((w) => w.cohorts.includes(name)).sort((x, y) => y.quote_in - x.quote_in);
+    const metas = new Map<string, number>(); for (const w of ws) for (const c of w.clusters) metas.set(c, (metas.get(c) ?? 0) + 1);
+    const overlaps: Record<string, number> = {}; for (const o of names) if (o !== name) overlaps[o] = ws.filter((w) => w.cohorts.includes(o)).length;
+    return { name, wallets: ws.length, quote_in: Math.round(ws.reduce((s, w) => s + w.quote_in, 0) * 100) / 100, quote_out: Math.round(ws.reduce((s, w) => s + w.quote_out, 0) * 100) / 100, median_buys: median(ws.map((w) => w.buys)), median_tokens: median(ws.map((w) => w.tokens)), median_entry_sec: median(ws.map((w) => w.median_entry_sec).filter((x): x is number => x !== null)), overlaps, top_metas: [...metas].sort((x, y) => y[1] - x[1]).slice(0, 8).map(([slug, wallets]) => ({ slug, wallets })), members: ws.slice(0, opts.top ?? 5000) };
+  });
+  const out: WalletClustersOut = { ...meta, wallets_total: all.length, clusters };
+  const busiest = [...clusters].sort((x, y) => y.quote_in - x.quote_in)[0];
+  const dest = clusters.map((c) => c.top_metas[0]).filter(Boolean).sort((x, y) => y!.wallets - x!.wallets)[0];
+  out.reading = `${all.length} wallets bought in the last ${meta.window}: ${clusters.map((c) => `${c.wallets} ${c.name}`).join(", ")}. ${busiest.name} wallets put in the most, ${busiest.quote_in} ETH${dest ? `; ${dest.slug} is where most of them sit (${dest.wallets} wallets)` : ""}.`;
   return out;
 };
 

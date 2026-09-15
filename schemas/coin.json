@@ -80,13 +80,15 @@
           "type": "object",
           "properties": {
             "real_quote_eth": {
+              "description": "quote raised so far, in the pair's quote asset (pair.symbol): ETH on ETH pairs, USDG on USDG pairs",
               "type": [
                 "number",
                 "null"
               ]
             },
             "threshold_eth": {
-              "type": "number"
+              "type": "number",
+              "description": "graduation threshold in the same asset as real_quote_eth"
             },
             "progress": {
               "type": [

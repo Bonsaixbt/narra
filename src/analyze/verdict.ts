@@ -55,14 +55,14 @@ export function verdictFor(t: TokenInfo, tokenTrades: TradeRow[], ctx: VerdictCo
   const watch: string[] = [];
   const evidence = { early_buyers: early.size, overlap_buyers: best?.overlap ?? 0, text_score: round2(best?.text ?? 0), wallet_score: round2(best?.wallet ?? 0) };
   if (!best || best.m < 0.25) {
-    reasons.push(early.size ? `no live cluster shares its words or its ${early.size} early buyers` : "no live cluster shares its words and it has no buyers yet");
+    reasons.push(early.size ? `no live meta shares its words or its ${early.size} early buyers` : "no live meta shares its words and it has no buyers yet");
     const fanO = ctx.deployerFan?.get(t.deployer) ?? 0;
     if (fanO >= 5) watch.push(`deployer is a launch farm: ${fanO} tokens launched in this window`);
     return { verdict: "ORPHAN", nearest: scores.slice(0, 3).map((s) => ({ slug: s.slug, status: s.c.status, membership: s.m, overlap: s.overlap })), cluster: null, alternatives: scores.slice(0, 2).map((s) => ({ slug: s.slug, membership: s.m })), reasons, watch, evidence };
   }
   const c = best.c;
   const matched = [...t.tags.keys()].filter((k) => c.top_tags.some((x) => x.tag === k));
-  if (matched.length) reasons.push(`${t.symbol ? "$" + t.symbol : "name"} matches cluster tags ${matched.slice(0, 3).join(", ")}`);
+  if (matched.length) reasons.push(`${t.symbol ? "$" + t.symbol : "name"} matches meta tags ${matched.slice(0, 3).join(", ")}`);
   if (best.overlap) {
     const ex = c.members.filter((m) => m !== t.token).map((m) => ctx.tokens.get(m)?.symbol).filter(Boolean).slice(0, 2).map((s) => "$" + s).join(", ");
     reasons.push(`${best.overlap}/${early.size} early buyers also bought ${ex || "other members"} in this window`);
@@ -76,8 +76,8 @@ export function verdictFor(t: TokenInfo, tokenTrades: TradeRow[], ctx: VerdictCo
   const fan = ctx.deployerFan?.get(t.deployer) ?? 0;
   if (fan >= 5) watch.push(`deployer is a launch farm: ${fan} tokens launched in this window`);
   const h = c.heat;
-  reasons.push(`cluster ${c.slug} is ${c.status}: ${h.n_launches} CA, ${h.quote_norm_in.toFixed(2)} ETH in, ${h.n_graduated} graduations in window`);
-  if (h.graduated_share >= 0.3) watch.push(`${Math.round(h.graduated_share * 100)}% of the cluster already graduated; late launches into it tend to trail`);
+  reasons.push(`meta ${c.slug} is ${c.status}: ${h.n_launches} CA, ${h.quote_norm_in.toFixed(2)} ETH in, ${h.n_graduated} graduations in window`);
+  if (h.graduated_share >= 0.3) watch.push(`${Math.round(h.graduated_share * 100)}% of the meta already graduated; late launches into it tend to trail`);
   // rotation risk: early buyers who bought into a different cluster in the last 10 minutes (whole window as fallback)
   const source = ctx.recentBuyers ?? ctx.buyers;
   const span = ctx.recentBuyers ? "in the last 10m" : "in this window";
@@ -92,7 +92,7 @@ export function verdictFor(t: TokenInfo, tokenTrades: TradeRow[], ctx: VerdictCo
   if (dest && movedShare >= 0.3) watch.push(`${moved} of ${early.size} early buyers bought ${dest} ${span} → rotating out risk`);
 
   let verdict: VerdictKind;
-  if (!isLive(c.status)) { verdict = "OUT"; reasons.push(`cluster status ${c.status} — names still print, capital does not`); }
+  if (!isLive(c.status)) { verdict = "OUT"; reasons.push(`meta status ${c.status} — names still print, capital does not`); }
   else if (dest && movedShare >= 0.3) { verdict = "OUT"; reasons.push(`${Math.round(movedShare * 100)}% of early buyers already moved to ${dest}`); }
   else if (best.m >= 0.5 && best.overlap >= MIN_OVERLAP_FOR_IN) verdict = "IN";
   else verdict = "EDGE";

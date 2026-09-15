@@ -14,7 +14,7 @@ export function computeTrend(store: Store, hours: number, step: number, nowTs = 
   const rows = store.db.prepare(`
     SELECT token, (ts / 3600) * 3600 AS h, SUM(CASE WHEN side = 'buy' THEN COALESCE(quote_norm, 0) END) AS q, SUM(side = 'buy') AS b FROM curve_trades INDEXED BY trades_ts WHERE ts >= ? AND token IS NOT NULL GROUP BY token, h
     UNION ALL SELECT token, (ts / 3600) * 3600, SUM(CASE WHEN side = 'buy' THEN COALESCE(quote_norm, 0) END), SUM(side = 'buy') FROM pool_swaps INDEXED BY swaps_ts WHERE ts >= ? GROUP BY token, (ts / 3600) * 3600
-    UNION ALL SELECT token, hour_ts, quote_in, buys FROM hourly WHERE hour_ts >= ?`).all(since, since, since) as { token: string; h: number; q: number; b: number }[];
+    UNION ALL SELECT token, hour_ts, quote_in, buys FROM hourly WHERE hour_ts >= ? AND hour_ts + 3600 <= (SELECT COALESCE(MIN(ts), 0) FROM curve_trades)`).all(since, since, since) as { token: string; h: number; q: number; b: number }[];
   const launches = store.db.prepare(`SELECT token, ts FROM launches WHERE ts >= ?`).all(since) as { token: string; ts: number }[];
   const tokens = [...new Set([...rows.map((r) => r.token), ...launches.map((l) => l.token)])];
   const meta = store.tokensFor(tokens);

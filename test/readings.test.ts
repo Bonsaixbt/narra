@@ -6,7 +6,7 @@ const k = (slug: string, status: "HOT" | "EMERGING" | "ROTATING OUT" | "DEAD", e
 
 test("board reading names the hottest, the drain and the leading narrative", () => {
   const t = readBoard({ window: "60m", counts: { candidates: 1, clustered: 1, trades: 1, launches: 1, sprayers: 0 }, clusters: [k("cat-fart", "HOT", 93.9, 0, "fort-sol"), k("fort-sol", "ROTATING OUT", 5, 225), k("gone", "DEAD", 0)] as never });
-  assert.match(t, /1 meta live out of 2; 98\.9 ETH/);
+  assert.match(t, /1 meta live \(1 hot or rotating in, 0 emerging\) out of 2; 98\.9 ETH/);
   assert.match(t, /Most of it into cat-fart \(animals, 93\.9 ETH, 120 buyers, fed by fort-sol\)/);
   assert.match(t, /Capital is leaving fort-sol: 225 wallets moved to 1 other metas/);
   assert.match(t, /animals holds 100% of the ETH/);

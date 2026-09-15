@@ -26,7 +26,7 @@ test("matching words plus overlapping early buyers → IN with numbered reasons"
   assert.equal(v.verdict, "IN");
   assert.equal(v.cluster?.slug, "hood");
   assert.ok(v.reasons.some((r) => /20\/30 early buyers/.test(r)), v.reasons.join(" | "));
-  assert.ok(v.reasons.some((r) => /matches cluster tags hood/.test(r)));
+  assert.ok(v.reasons.some((r) => /matches meta tags hood/.test(r)));
 });
 
 test("a token whose cluster is dead is OUT; a stranger is ORPHAN", () => {

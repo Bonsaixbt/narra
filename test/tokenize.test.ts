@@ -52,3 +52,10 @@ test("similarity is weighted Jaccard", () => {
   assert.equal(similarity(a, c), 0);
   assert.equal(similarity(new Map(), a), 0);
 });
+
+test("words that collide with Object.prototype never become non-string tags", async () => {
+  const { tokenize } = await import("../src/analyze/tokenize.ts");
+  const tags = tokenize({ name: "Ferrari", symbol: "SCUDERIA FERRARI", description: "16x Constructors' champions, prototype of a valueOf toString", pairKind: "other" });
+  for (const [k, v] of tags) { assert.equal(typeof k, "string"); assert.equal(typeof v, "number"); }
+  assert.ok(tags.has("constructor"));
+});

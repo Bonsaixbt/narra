@@ -20,4 +20,4 @@
 - A launch farm with 30 identically named tokens looks like a meta. `narra why` shows `same-deployer links` for that.
 - A busy crowd of 200 wallets buying every third launch can chain unrelated groups together. Sprayer filtering and the two-pair merge rule limit this; they do not eliminate it.
 - Timestamps are interpolated inside block chunks.
-- Thresholds are uncalibrated starting values.
+- Thresholds are calibrated on a week of snapshots (2026-09-14) and re-fit as data grows; a status is still a label over exact numbers, not a prediction.

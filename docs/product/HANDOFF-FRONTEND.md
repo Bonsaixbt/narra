@@ -192,3 +192,26 @@ A repository with `README.md` (how to run, env vars), the Vercel project linked,
 10. **Readings on `/api/history/*` and `/api/trend`**: covered by the schemas in (2).
 
 Repository note: the `site` branch removed the engine and the service. Keep the site in `web/` next to them (or in its own repository) so one checkout runs both; nothing from `site` should be merged into `master`.
+
+## 9. Answers to `web/NOTES.md`, round of 2026-09-15 (questions 1–15)
+
+Numbers match the questions in the notes. Everything marked *shipped* is on `master` and on `api.narrahood.com`.
+
+1. **Health `ok: false`.** Shipped 2026-09-14 evening: the engine runs two children, the fast one keeps `60m`/`15m` fresh every tick (35–70 s on the 2-vCPU VM while the slow one works), the slow one owns `4h` and the trend. `snapshot_age_s` now sits at 20–70 s. What you still saw today was a real bug on top: a token described as "16x Constructors' champions" produced the word `constructor`, the alias table was a plain object, and the lookup returned `Object.prototype.constructor` — the trend crashed on it every pass and `last_error` kept health at `ok: false`. Fixed (the table is a Map, regression test added).
+2. **`curve.real_quote_eth` / `threshold_eth` are in the pair's quote asset.** Kept the names (scripts and agents already read them) and documented it in the schema: both fields now carry a `description` in `schemas/coin.json` saying the unit is `pair.symbol`. Show `pair.symbol` next to them, as you do.
+3. **Slug reuse.** Answered by the ids (2026-09-14): `id` = `slug@first_seen_ts`, kept while the slug is inherited or shares a member with the previous tick; a slug that comes back with different members is a new id. The overnight 500 s rhythm was the single-worker era; ticks are 30 s now.
+4. **`/api/trend` 7 487 ETH in a 4 h block.** Real, not a unit bug: the trend sums every curve buy and pool buy on the chain (265 280 curve buys and 195 875 pool buys in that block, 2026-09-13 16:00–20:00 UTC, average 0.015 ETH), while the board's ETH counts only buys into published metas. One small double count did exist: 257 hourly rollup rows overlapped hours that still had raw trades; the trend now ignores rollups for any hour that raw trades still cover.
+5. **One request for every wallet cluster.** Shipped: `GET /api/wallet-clusters?window=60m&top=5000` answers from one analysis: `wallets_total`, and per cluster `{ name, wallets, quote_in, quote_out, median_buys, median_tokens, median_entry_sec, overlaps: {other cluster: shared wallets}, top_metas: [{slug, wallets}], members: WalletStat[] }`, plus a `reading` that names no address. Schema `wallet_clusters`. The four `/api/wallets?cohort=` calls can go.
+6. Resolved, as noted.
+7. **"cluster" in engine sentences.** Shipped: reasons, watch lines and readings say *meta* (`meta hood-chainpad is EMERGING`, `matches meta tags`, `no live meta shares its words`). The word cluster is now only the wallet clusters and the internals.
+8. **An edge naming a slug missing from `nodes`.** Shipped: `/api/flow` edges (and the stored flow history from now on) only connect published metas; the leak was edges into clusters below the publication floor.
+9. **"live".** Shipped: the board reading counts what `isLive` counts and says so: *"17 metas live (2 hot or rotating in, 15 emerging) out of 62"*.
+10. **Which token of a meta leads.** Shipped: every member on `/board?members=1` and `/cluster/:slug` carries `buyers` (distinct buyers inside the window) and `eth_in` (ETH bought inside the window); sort by either. `curve_progress` stays `null` on member lists: it needs a reserve read on the curve contract per token (the coin card does one), and a member list of 67 would be 67 RPC calls per request.
+11. **The most bought $penis outside `peni`.** Intended side effect of a rule, not a grouping miss: a connected component above 60 tokens is re-clustered with stricter thresholds so one word does not swallow the board; tokens whose name and buyers sit on the edge of the blob fall out of the strict pass. A pool token clusters like any other (its swaps count as buys). The next change on the list: after the strict pass, re-attach a dropped token to the biggest sub-cluster when its symbol equals the slug word. Until then the card still says which meta it is nearest to.
+12. **Slurs in slugs.** Shipped: `dictionary.json → slug_stop` (retard, penis and the rest); those words never become a slug or a label, the next heaviest tag does. They still count for clustering and for narratives, so `peni` is now named after its second tag.
+13. **Docs called the thresholds uncalibrated.** Fixed in `GUIDE.md` and `SAFETY.md`.
+14. **Ids per window.** Shipped two things: `/api/history/cluster/:id?window=15m` with a 60m id now falls back to that slug's history in the requested window (ids are minted per window; the slug is the bridge), and `meta_id` is indexed, so asking by id costs the same as asking by slug (was 1.4–1.9 s, is ~0.15 s).
+15. **"went from emerging to emerging".** Shipped: *"it stayed emerging"*.
+
+Still on the owner: the WAF rate-limit rule on `/api/*` (Cloudflare dashboard) and an X preview test with the real crawler — the PNG cards rendered black until 2026-09-15 13:00 UTC (no font in the container); they render now, so the crawler test is worth redoing.
+

@@ -663,5 +663,31 @@
       "hairong",
       "biao"
     ]
-  }
+  },
+  "slug_stop": [
+    "retard",
+    "retards",
+    "retarded",
+    "penis",
+    "peni",
+    "peniscoin",
+    "nigger",
+    "nigga",
+    "faggot",
+    "fag",
+    "rape",
+    "rapist",
+    "hitler",
+    "nazi",
+    "cunt",
+    "whore",
+    "slut",
+    "dick",
+    "cock",
+    "pussy",
+    "tits",
+    "porn",
+    "sex"
+  ],
+  "_slug_stop_comment": "Words that never become a meta's slug or label; the next heaviest tag takes their place. They still count as tags for clustering and narratives."
 }
