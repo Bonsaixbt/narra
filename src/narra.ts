@@ -379,7 +379,7 @@ Narra.prototype.find = async function (this: Narra, text: string, opts: QueryOpt
 };
 
 import { computeTrend, clusterHistory, tokenHistory, type TrendOut, type ClusterHistoryRow, type TokenHourRow } from "./analyze/trend.js";
-declare module "./narra.js" { interface Narra { trend(hours?: number, step?: number): TrendOut & { reading: string }; history(target: string, hours?: number): { slug?: string; token?: string; hours: number; snapshots?: ClusterHistoryRow[]; rows?: TokenHourRow[]; reading: string } } }
+declare module "./narra.js" { interface Narra { trend(hours?: number, step?: number): TrendOut & { reading: string }; history(target: string, hours?: number, window?: WindowKey): { slug?: string; id?: string | null; window?: WindowKey; token?: string; hours: number; snapshots?: ClusterHistoryRow[]; rows?: TokenHourRow[]; reading: string } } }
 Narra.prototype.trend = function (this: Narra, hours = 48, step = hours > 24 ? 4 : 1): TrendOut & { reading: string } { const t = computeTrend(this.store, hours, step); return { ...t, reading: readTrend(t) }; };
 declare module "./narra.js" { interface Narra { historyFlow(window?: WindowKey, hours?: number, step?: FlowStep, opts?: { backfill?: boolean }): FlowHistoryOut & { reading: string } } }
 /** Sampled flow edges per step from the cache (reads only; fills missing ticks from stored trades on first use). */
@@ -387,8 +387,9 @@ Narra.prototype.historyFlow = function (this: Narra, window: WindowKey = "60m", 
   const h = flowHistory(this.store, window, hours, step, this.store.stats().newest_trade_ts ?? Math.floor(Date.now() / 1000), opts);
   return { ...h, reading: readFlowHistory(h) };
 };
-Narra.prototype.history = function (this: Narra, target: string, hours = 24) {
+Narra.prototype.history = function (this: Narra, target: string, hours = 24, window: WindowKey = "60m") {
   if (/^0x[0-9a-fA-F]{40}$/.test(target)) { const rows = tokenHistory(this.store, target, hours); return { token: target.toLowerCase(), hours, rows, reading: readTokenHistory(target, rows, hours) }; }
-  const snapshots = clusterHistory(this.store, target, hours);
-  return { slug: target, hours, snapshots, reading: readClusterHistory(target, snapshots, hours) };
+  const snapshots = clusterHistory(this.store, target, hours, undefined, window);
+  const slug = target.includes("@") ? target.split("@")[0] : target;
+  return { slug, id: target.includes("@") ? target : (snapshots.length ? snapshots[snapshots.length - 1].id ?? null : null), window, hours, snapshots, reading: readClusterHistory(slug, snapshots, hours) };
 };

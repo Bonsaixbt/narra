@@ -274,8 +274,15 @@ export class Store {
     if (!tokens.length) return [];
     return this.db.prepare(`SELECT * FROM hourly WHERE hour_ts >= ? AND token IN (${tokens.map(() => "?").join(",")}) ORDER BY hour_ts`).all(sinceTs, ...tokens.map(lower)) as HourlyRow[];
   }
-  snapshotHistory(slug: string, sinceTs: number): SnapshotRow[] {
-    return this.db.prepare(`SELECT * FROM cluster_snapshots WHERE slug = ? AND ts >= ? ORDER BY ts`).all(slug, sinceTs) as SnapshotRow[];
+  /**
+   * One meta's snapshots in one window. `target` is a slug or a meta id (`slug@first_seen`): an id follows the meta
+   * through slug changes; a slug follows whatever meta carries it, which is what a reader typing it means.
+   * Rows from before ids existed (meta_id null) are matched by slug. Mixing windows made statuses flap between
+   * a 15m row and a 60m row of the same minute.
+   */
+  snapshotHistory(target: string, sinceTs: number, window = "60m"): SnapshotRow[] {
+    if (target.includes("@")) return this.db.prepare(`SELECT * FROM cluster_snapshots WHERE window = ? AND ts >= ? AND (meta_id = ? OR (meta_id IS NULL AND slug = ?)) ORDER BY ts`).all(window, sinceTs, target, target.split("@")[0]) as SnapshotRow[];
+    return this.db.prepare(`SELECT * FROM cluster_snapshots WHERE window = ? AND ts >= ? AND slug = ? ORDER BY ts`).all(window, sinceTs, target) as SnapshotRow[];
   }
   stats(): { launches: number; tokens: number; trades: number; swaps: number; pools: number; snapshots: number; hourly: number; oldest_trade_ts: number | null; newest_trade_ts: number | null } {
     const c = (t: string) => (this.db.prepare(`SELECT COUNT(*) n FROM ${t}`).get() as { n: number }).n;
