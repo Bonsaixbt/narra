@@ -6,7 +6,7 @@ Where the product is today and where it goes through March 2027. Dates are targe
 
 Done and live:
 
-- Engine: clustering, heat, statuses, flow, wallet cohorts, narratives, verdicts, readings. Thresholds calibrated on a week of snapshots (2026-09-14). Dictionary reviewed on a week of launches; semantic categories and the dictionary vote together; "mixed" fell from 54% to ~25% of live metas. Model names for metas, cached by a stable meta id.
+- Engine: clustering, heat, statuses, flow, wallet clusters, narratives, verdicts, readings. Thresholds calibrated on a week of snapshots (2026-09-14). Dictionary reviewed on a week of launches; semantic categories and the dictionary vote together; "mixed" fell from 54% to ~25% of live metas. Model names for metas, cached by a stable meta id.
 - Terminal `narra` (package `narrahood`, publish pending), library, MCP server, JSON Schemas, agent integrations.
 - Service on GCP behind `api.narrahood.com` (Cloudflare Tunnel): fast and slow workers, precomputed trend, flow history with sampled ticks, per-edge moves, OG cards, SSE + polling, health with RPC meter. RPC burn cut from ~113 to ~18 calls a tick.
 - Site on Cloudflare Workers at `narrahood.com`, auto-deployed from the `site` branch.
@@ -20,7 +20,7 @@ Open on the owner's side: `npm publish` (2FA), token contract and launch date, h
 | Item | Owner | Done when |
 |---|---|---|
 | `npm publish narrahood` | owner | `npm i -g narrahood && narra` works on a clean machine |
-| Site: `/flow` with history and moves, `/wallets` as cohort cards with copyable addresses, streaming home | frontend | pages ship against the live API; home TTFB < 0.5 s |
+| Site: `/flow` with history and moves, `/wallets` as wallet-cluster cards with copyable addresses, streaming home | frontend | pages ship against the live API; home TTFB < 0.5 s |
 | Content warm-up starts (`docs/CONTENT-PLAN.md`) | owner | first ship post with a real board |
 | Token launch on Pons v2 | owner | address in `service/.env` as `NARRA_TOKEN_ADDRESS` (gate stays off) |
 | Watch: health, RPC meter, memory, backups; calibration re-run on launch-week traffic | Claude | daily check, one summary to the owner |
@@ -46,7 +46,7 @@ Open on the owner's side: `npm publish` (2FA), token contract and launch date, h
 |---|---|---|
 | 24h and 7d boards on hourly aggregates | "what happened today / this week" without re-reading millions of trades; the `1d` toggle the site asked for | Claude, frontend |
 | Deployer profiles | farms, serial graduates, fee routing; the "who is behind this" line on the coin card and a `/deployer/:address` page | Claude, frontend |
-| Cohort backtests, published | what happened to tokens that were `IN` a HOT meta at +15 / +60 min, as honest numbers on a `/stats` page | Claude, frontend |
+| Wallet-cluster backtests, published | what happened to tokens that were `IN` a HOT meta at +15 / +60 min, as honest numbers on a `/stats` page | Claude, frontend |
 | Per-holder Telegram subscriptions | the bot checks an address and subscribes the user to their watchlist | Claude |
 | Ops: bigger VM if ticks exceed 30 s, Workers Builds with preview URLs | e2-standard-4; PR previews for the frontend | owner, frontend |
 
@@ -86,7 +86,7 @@ Open on the owner's side: `npm publish` (2FA), token contract and launch date, h
 | Published calibration | Weekly re-fit, versioned; calibration as a service | months 1, 3 |
 | 24h and 7-day boards | Boards on hourly aggregates | month 2 |
 | Deployer profiles | Deployer profiles | month 2 |
-| Public track record | Cohort backtests, published | month 2 |
+| Public track record | Wallet-cluster backtests, published | month 2 |
 | Social signal | Social signal as a fourth input | month 3 |
 | Stock-token metas | Stock-token pair pricing | month 3 |
 | API keys | API keys for holders | month 3 |

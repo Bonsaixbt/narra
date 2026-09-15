@@ -40,7 +40,7 @@ The account is @bonsaixbt on X. The product is narra: which meta is printing on 
 ## 4. Launch week
 
 - Day 0: contract address once, from the account, with the site link and the bot link; the coin card for `$NARRA` itself.
-- Days 1–7: the board every day, one rotation every day, replies to every CA. One post on how the launch looked in narra's own numbers (buyers, cohorts, flow into the narra meta if one forms), honest even if it is unflattering.
+- Days 1–7: the board every day, one rotation every day, replies to every CA. One post on how the launch looked in narra's own numbers (buyers, wallet clusters, flow into the narra meta if one forms), honest even if it is unflattering.
 - Holder mode: announced with a date on day 0, switched on by that date, first post shows the `4h` window and flow that anonymous viewers do not get.
 
 ## 5. Formats and assets
