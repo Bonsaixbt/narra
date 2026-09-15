@@ -11,6 +11,8 @@ COPY service/src ./service/src
 RUN cd service && npm install --omit=dev && npm run build
 
 FROM node:22-slim
+# a system font for the PNG share cards (resvg renders text only with a font it can find)
+RUN apt-get update && apt-get install -y --no-install-recommends fonts-dejavu-core && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 ENV NODE_ENV=production NARRA_DB=/data/narra.db NARRA_MODEL_DIR=/data/models NARRA_API_HOST=0.0.0.0
 COPY --from=build /app /app
