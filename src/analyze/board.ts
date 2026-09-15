@@ -2,7 +2,7 @@
 import type { LaunchRow, Store, TokenRow, TradeRow } from "../store/db.js";
 import { PHASE } from "../chain/constants.js";
 import { tokenize } from "./tokenize.js";
-import { buildClusters, buyersByToken, dropSprayers, inheritSlugs, DEFAULT_CLUSTER_OPTIONS, type ClusterOptions, type SemanticPair } from "./cluster.js";
+import { buildClusters, buyersByToken, dropSprayers, inheritSlugs, nameable, DEFAULT_CLUSTER_OPTIONS, type ClusterOptions, type SemanticPair } from "./cluster.js";
 import { heatOf } from "./heat.js";
 import { statusOf, STATUS_ORDER, THRESHOLDS } from "./status.js";
 import { flowEdges } from "./flow.js";
@@ -110,10 +110,12 @@ export function analyze(store: Store, windowKey: string, windowSec: number, nowT
     if (heat.unique_buyers < THRESHOLDS.publish.min_buyers && heat.n_launches < THRESHOLDS.publish.min_launches) return [];
     const nar = narrativeOf(c.members.map((m) => tokens.get(m)!).filter(Boolean));
     const flow = { in_wallets: ein.reduce((s, e) => s + e.wallets, 0), in_eth: r3(ein.reduce((s, e) => s + e.quote_norm, 0)), out_wallets: eout.reduce((s, e) => s + e.wallets, 0), out_eth: r3(eout.reduce((s, e) => s + e.quote_norm, 0)) };
-    return [{ slug: c.slug, ...identity(c), label: c.top_tags.map((t) => t.tag).slice(0, 3).join(" · ") || c.slug, label_source: "tags" as const, status, top_tags: c.top_tags, members: c.members, heat, links: c.links,
+    return [{ slug: c.slug, ...identity(c), label: nameable(c.top_tags).map((t) => t.tag).slice(0, 3).join(" · ") || c.slug, label_source: "tags" as const, status, top_tags: c.top_tags, members: c.members, heat, links: c.links,
       narrative: nar.narrative, narrative_sub: nar.sub, narrative_mix: nar.mix, flow, rank: 0, rotating_from: ein[0]?.from ?? null, rotating_to: eout[0]?.to ?? null }];
   });
   const published = new Set(clusters.map((c) => c.slug));
+  // edges name only metas that are on the board: a wallet move into an unpublished cluster is not a node the reader can open
+  const publishedEdges = edges.filter((e) => published.has(e.from) && published.has(e.to));
   for (const [tok, slug] of membership) if (!published.has(slug)) { membership.delete(tok); memberScore.delete(tok); }
   // wallet cohorts over the window, then cohort mix per cluster (rawBuyers: sprayers included, they are a cohort too)
   const wallets = walletStats({ trades, swaps, launches: launchRows, membership, statuses: clusterStatuses(clusters), window: { from, to }, sprayerCap });
@@ -127,21 +129,26 @@ export function analyze(store: Store, windowKey: string, windowSec: number, nowT
 
   store.saveSnapshots(clusters.map((c) => ({ slug: c.slug, window: windowKey, ts: to, status: c.status, payload: JSON.stringify({ members: c.members, heat: c.heat, top_tags: c.top_tags }), meta_id: c.id, first_seen: c.first_seen_ts })));
   // the edges of this tick, for the flow history; only edges between published clusters are kept, like the board shows
-  store.saveFlowSnapshot(windowKey, to, edges.filter((e) => published.has(e.from) && published.has(e.to)));
+  store.saveFlowSnapshot(windowKey, to, publishedEdges);
 
   return {
-    window: { key: windowKey, from, to, sec: windowSec }, clusters, edges, centroids, membership, memberScore, tokens, buyers, recentBuyers, trades, launches: allLaunches, wallets, sprayerCap, deployerFan,
+    window: { key: windowKey, from, to, sec: windowSec }, clusters, edges: publishedEdges, centroids, membership, memberScore, tokens, buyers, recentBuyers, trades, launches: allLaunches, wallets, sprayerCap, deployerFan,
     counts: { candidates: tokens.size, clustered: membership.size, trades: windowTrades.length, launches: launchedInWindow.length, sprayers: dropped },
   };
 }
 
 const r3 = (x: number) => Math.round(x * 1000) / 1000;
 
-/** Last trade per token inside the window: one pass over the trades, shared by every cluster's member list. */
-export function lastTradeByToken(a: Analysis): Map<string, number> {
-  const last = new Map<string, number>();
-  for (const t of a.trades) if (t.token && t.ts >= a.window.from) last.set(t.token, Math.max(last.get(t.token) ?? 0, t.ts));
-  return last;
+/** Per token inside the window: last trade and ETH bought — one pass over the trades, shared by every cluster's member list. */
+export function lastTradeByToken(a: Analysis): Map<string, { last: number; eth_in: number }> {
+  const m = new Map<string, { last: number; eth_in: number }>();
+  for (const t of a.trades) {
+    if (!t.token || t.ts < a.window.from) continue;
+    let r = m.get(t.token); if (!r) { r = { last: 0, eth_in: 0 }; m.set(t.token, r); }
+    if (t.ts > r.last) r.last = t.ts;
+    if (t.side === "buy") r.eth_in += t.quote_norm ?? 0;
+  }
+  return m;
 }
 export function membersOf(a: Analysis, c: ClusterOut, store: Store, last = lastTradeByToken(a)): MemberOut[] {
   const overlap = (token: string): number => {
@@ -153,6 +160,7 @@ export function membersOf(a: Analysis, c: ClusterOut, store: Store, last = lastT
   void store;
   return c.members.map((m) => {
     const t = a.tokens.get(m)!;
-    return { token: m, symbol: t.symbol, name: t.name, phase: t.phase, curve_progress: null, membership: a.memberScore.get(m) ?? 0, buyers_overlap: overlap(m), last_trade_ts: last.get(m) ?? null, launched_ts: t.launchedTs };
+    const w = last.get(m);
+    return { token: m, symbol: t.symbol, name: t.name, phase: t.phase, curve_progress: null, membership: a.memberScore.get(m) ?? 0, buyers_overlap: overlap(m), buyers: a.buyers.get(m)?.size ?? 0, eth_in: Math.round((w?.eth_in ?? 0) * 1000) / 1000, last_trade_ts: w?.last ?? null, launched_ts: t.launchedTs };
   }).sort((x, y) => y.membership - x.membership || (y.last_trade_ts ?? 0) - (x.last_trade_ts ?? 0));
 }

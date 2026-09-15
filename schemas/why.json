@@ -338,6 +338,12 @@
               "buyers_overlap": {
                 "type": "number"
               },
+              "buyers": {
+                "type": "number"
+              },
+              "eth_in": {
+                "type": "number"
+              },
               "last_trade_ts": {
                 "type": [
                   "number",

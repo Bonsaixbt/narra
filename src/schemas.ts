@@ -27,7 +27,7 @@ export const Heat = z.object({
 export const Edge = z.object({ from: z.string(), to: z.string(), wallets: z.number(), quote_norm: z.number(), deployers: z.number(), moves: z.array(z.object({ wallet: z.string(), token: z.string(), symbol: z.string().optional(), ts: z.number(), eth: z.number(), tx: z.string() })).optional() });
 export const Member = z.object({
   token: z.string(), symbol: z.string(), name: z.string(), phase: Phase, curve_progress: z.number().nullable(),
-  membership: z.number(), buyers_overlap: z.number(), last_trade_ts: z.number().nullable(), launched_ts: z.number(),
+  membership: z.number(), buyers_overlap: z.number(), buyers: z.number().optional(), eth_in: z.number().optional(), last_trade_ts: z.number().nullable(), launched_ts: z.number(),
 });
 export const Cluster = z.object({
   slug: z.string(), label: z.string(), status: Status, top_tags: z.array(z.object({ tag: z.string(), weight: z.number() })),
@@ -49,7 +49,7 @@ export const NowOut = Meta.extend({
 });
 export const CoinOut = Meta.extend({
   token: z.string(), symbol: z.string(), name: z.string(), phase: Phase,
-  curve: z.object({ real_quote_eth: z.number().nullable(), threshold_eth: z.number(), progress: z.number().nullable() }).nullable(),
+  curve: z.object({ real_quote_eth: z.number().nullable().describe("quote raised so far, in the pair's quote asset (pair.symbol): ETH on ETH pairs, USDG on USDG pairs"), threshold_eth: z.number().describe("graduation threshold in the same asset as real_quote_eth"), progress: z.number().nullable() }).nullable(),
   pool: z.object({ graduated_at: z.number(), volume_eth_window: z.number(), swaps_window: z.number() }).nullable(),
   pair: z.object({ address: z.string(), symbol: z.string(), kind: PairKind }),
   launched_at: z.number(), deployer: z.string(),
@@ -119,7 +119,11 @@ export const HealthOut = z.object({
   narra: z.string().optional(), gate: z.boolean().optional(), stream_clients: z.number().optional(), alerts: z.unknown().optional(), bot: z.unknown().optional(),
 });
 
-export const SCHEMAS = { now: NowOut, coin: CoinOut, not_pons: NotPonsOut, find: FindOut, flow: FlowOut, why: WhyOut, watch: WatchEvent, wallets: WalletsOut, wallet: WalletOut, trend: TrendOut, history_cluster: ClusterHistoryOut, history_token: TokenHistoryOut, history_flow: FlowHistoryOut, holders_check: HoldersCheckOut, health: HealthOut, error: ErrorOut } as const;
+export const WalletClustersOut = Meta.extend({
+  reading: z.string().optional(), wallets_total: z.number(),
+  clusters: z.array(z.object({ name: Cohort, wallets: z.number(), quote_in: z.number(), quote_out: z.number(), median_buys: z.number().nullable(), median_tokens: z.number().nullable(), median_entry_sec: z.number().nullable(), overlaps: z.record(z.string(), z.number()), top_metas: z.array(z.object({ slug: z.string(), wallets: z.number() })), members: z.array(WalletStat) })),
+});
+export const SCHEMAS = { now: NowOut, coin: CoinOut, not_pons: NotPonsOut, find: FindOut, flow: FlowOut, why: WhyOut, watch: WatchEvent, wallets: WalletsOut, wallet: WalletOut, wallet_clusters: WalletClustersOut, trend: TrendOut, history_cluster: ClusterHistoryOut, history_token: TokenHistoryOut, history_flow: FlowHistoryOut, holders_check: HoldersCheckOut, health: HealthOut, error: ErrorOut } as const;
 export type NowOut = z.infer<typeof NowOut>;
 export type CoinOut = z.infer<typeof CoinOut>;
 export type NotPonsOut = z.infer<typeof NotPonsOut>;
@@ -128,6 +132,7 @@ export type FlowHistoryOut = z.infer<typeof FlowHistoryOut>;
 export type WhyOut = z.infer<typeof WhyOut>;
 export type WatchEvent = z.infer<typeof WatchEvent>;
 export type WalletsOut = z.infer<typeof WalletsOut>;
+export type WalletClustersOut = z.infer<typeof WalletClustersOut>;
 export type WalletOut = z.infer<typeof WalletOut>;
 
 export function jsonSchema(name: keyof typeof SCHEMAS): unknown { return z.toJSONSchema(SCHEMAS[name]); }

@@ -14,11 +14,12 @@ export function readBoard(r: Pick<NowOut, "clusters" | "counts" | "window">): st
   if (!cl.length) return `No live meta in the last ${r.window}: ${n(r.counts.launches)} launches, none of them clustering.`;
   const total = cl.reduce((s, k) => s + k.heat.quote_norm_in, 0);
   const hot = [...cl].sort((a, b) => b.heat.quote_norm_in - a.heat.quote_norm_in)[0];
-  const live = cl.filter((k) => k.status === "HOT" || k.status === "ROTATING IN").length;
+  const live = cl.filter((k) => k.status === "HOT" || k.status === "EMERGING" || k.status === "ROTATING IN").length;
+  const hotN = cl.filter((k) => k.status === "HOT" || k.status === "ROTATING IN").length;
   const drain = [...cl].sort((a, b) => b.flow.out_wallets - a.flow.out_wallets)[0];
   const byNar = new Map<string, number>(); for (const k of cl) byNar.set(k.narrative, (byNar.get(k.narrative) ?? 0) + k.heat.quote_norm_in);
   const topNar = [...byNar].sort((a, b) => b[1] - a[1])[0];
-  const parts = [`${live ? `${live} meta${live === 1 ? "" : "s"} live` : "Nothing HOT"} out of ${cl.length}; ${eth(total)} ETH went in over the last ${r.window}.`];
+  const parts = [`${live ? `${live} meta${live === 1 ? "" : "s"} live (${hotN} hot or rotating in, ${live - hotN} emerging)` : "Nothing live"} out of ${cl.length}; ${eth(total)} ETH went in over the last ${r.window}.`];
   parts.push(`Most of it into ${hot.slug} (${hot.narrative}, ${eth(hot.heat.quote_norm_in)} ETH, ${n(hot.heat.unique_buyers)} buyers${hot.rotating_from ? `, fed by ${hot.rotating_from}` : ""}).`);
   if (drain && drain.flow.out_wallets >= 8) parts.push(`Capital is leaving ${drain.slug}: ${drain.flow.out_wallets} wallets moved to ${cl.filter((k) => k.rotating_from === drain.slug).length} other metas.`);
   if (topNar && topNar[0] !== "mixed") parts.push(`${topNar[0]} holds ${Math.round((topNar[1] / (total || 1)) * 100)}% of the ETH.`);
@@ -77,7 +78,7 @@ export function readClusterHistory(slug: string, rows: ClusterHistoryRow[], hour
   const top = [...byStatus].sort((a, b) => b[1] - a[1])[0];
   const peak = [...rows].sort((a, b) => b.quote_eth - a.quote_eth)[0];
   const first = rows[0], last = rows[rows.length - 1];
-  return `${slug} was ${top[0].toLowerCase()} in ${Math.round((top[1] / rows.length) * 100)}% of ${rows.length} snapshots over ${hours}h, peaking at ${eth(peak.quote_eth)} ETH (${peak.ts.slice(11, 16)} UTC); it went from ${first.status.toLowerCase()} to ${last.status.toLowerCase()}.`;
+  return `${slug} was ${top[0].toLowerCase()} in ${Math.round((top[1] / rows.length) * 100)}% of ${rows.length} snapshots over ${hours}h, peaking at ${eth(peak.quote_eth)} ETH (${peak.ts.slice(11, 16)} UTC); ${first.status === last.status ? `it stayed ${last.status.toLowerCase()}` : `it went from ${first.status.toLowerCase()} to ${last.status.toLowerCase()}`}.`;
 }
 
 export function readTokenHistory(token: string, rows: TokenHourRow[], hours: number): string {

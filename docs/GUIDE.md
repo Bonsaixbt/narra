@@ -265,4 +265,4 @@ The semantic layer is off by default. `NARRA_SEMANTIC=on` in `.env` enables loca
 - A meta with a hundred buyers and one launch is usually a single token with nothing around it. Look at `CA` and `members`.
 - `deployer is a launch farm` on the card means the author prints tokens by the dozen. Such a token can join a meta through wallets; it is not a signal.
 - Many snipers among the early buyers means a fast exit. It is written in `watch`.
-- Status thresholds are starting values, not calibrated. The numbers in `reasons` are exact; the status labels are approximate.
+- Status thresholds were calibrated on a week of snapshots on 2026-09-14 (`calibrated_on` in `thresholds.json`) and are re-fit as data grows. The numbers in `reasons` are exact; the status labels are approximate.

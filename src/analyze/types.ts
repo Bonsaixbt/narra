@@ -52,7 +52,9 @@ export interface ClusterOut {
 
 export interface MemberOut {
   token: string; symbol: string; name: string; phase: PhaseName;
-  curve_progress: number | null; membership: number; buyers_overlap: number; last_trade_ts: number | null; launched_ts: number;
+  curve_progress: number | null; membership: number; buyers_overlap: number;
+  /** distinct buyers and ETH bought inside the window: what tells the original from its copies */
+  buyers: number; eth_in: number; last_trade_ts: number | null; launched_ts: number;
 }
 
 export interface VerdictOut {

@@ -10,7 +10,8 @@ export type Tags = Map<string, number>;
 
 export const WEIGHTS = { symbol: 1.2, name: 1.0, description: 0.4, pair: 0.6 } as const;
 const STOP = new Set<string>(dictionary.stop);
-const ALIAS = dictionary.alias as Record<string, string>;
+// a Map, not the JSON object: a token described as "16x Constructors' champions" looked up `constructor` on a plain object and got a function
+const ALIAS = new Map(Object.entries(dictionary.alias as Record<string, string>));
 const PAIR = dictionary.pair_tags as Record<string, string>;
 const CJK: [string, string][] = Object.entries(dictionary.cjk as Record<string, string>).filter(([k]) => !k.startsWith("_")).sort((a, b) => b[0].length - a[0].length);
 
@@ -47,16 +48,16 @@ export function words(s: string): string[] {
 }
 
 export function normalize(w: string): string | null {
-  const a = ALIAS[w] ?? w;
+  const a = ALIAS.get(w) ?? w;
   if (STOP.has(a)) return null;
   if (/^\d+$/.test(a)) return null;               // bare numbers cluster nothing
   // crude plural stripping for latin words of 5+ letters
-  if (/^[a-z]{4,}s$/.test(a) && !a.endsWith("ss") && !a.endsWith("us")) { const sing = a.slice(0, -1); return ALIAS[sing] ?? sing; }
+  if (/^[a-z]{4,}s$/.test(a) && !a.endsWith("ss") && !a.endsWith("us")) { const sing = a.slice(0, -1); return ALIAS.get(sing) ?? sing; }
   return a;
 }
 
 /** Seeds: canonical tags and alias keys long enough to be recognised inside a compound like HOODRAT or GROKTRENCHER. */
-const SEEDS: string[] = [...new Set([...Object.values(ALIAS), ...Object.keys(ALIAS)])].filter((s) => s.length >= 3 && !STOP.has(s)).sort((a, b) => b.length - a.length);
+const SEEDS: string[] = [...new Set([...ALIAS.values(), ...ALIAS.keys()])].filter((s) => s.length >= 3 && !STOP.has(s)).sort((a, b) => b.length - a.length);
 
 /** "hoodrat" → ["hood", "rat"]; "groktrencher" → ["grok", "trencher"]; a plain word returns []. */
 export function splitCompound(w: string): string[] {

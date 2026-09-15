@@ -62,6 +62,7 @@ export class Store {
     // meta_id: the identity a slug keeps while its members overlap tick to tick; first_seen: when that identity was born
     if (!cols.has("meta_id")) this.db.exec(`ALTER TABLE cluster_snapshots ADD COLUMN meta_id TEXT`);
     if (!cols.has("first_seen")) this.db.exec(`ALTER TABLE cluster_snapshots ADD COLUMN first_seen INTEGER`);
+    this.db.exec(`CREATE INDEX IF NOT EXISTS snapshots_meta ON cluster_snapshots(meta_id, window, ts)`);
   }
 
   close(): void { this.db.close(); }
@@ -281,7 +282,12 @@ export class Store {
    * a 15m row and a 60m row of the same minute.
    */
   snapshotHistory(target: string, sinceTs: number, window = "60m"): SnapshotRow[] {
-    if (target.includes("@")) return this.db.prepare(`SELECT * FROM cluster_snapshots WHERE window = ? AND ts >= ? AND (meta_id = ? OR (meta_id IS NULL AND slug = ?)) ORDER BY ts`).all(window, sinceTs, target, target.split("@")[0]) as SnapshotRow[];
+    if (target.includes("@")) {
+      const rows = this.db.prepare(`SELECT * FROM cluster_snapshots WHERE window = ? AND ts >= ? AND (meta_id = ? OR (meta_id IS NULL AND slug = ?)) ORDER BY ts`).all(window, sinceTs, target, target.split("@")[0]) as SnapshotRow[];
+      if (rows.length) return rows;
+      // ids are minted per window: a 60m id asked in the 15m window falls back to the slug there
+      return this.snapshotHistory(target.split("@")[0], sinceTs, window);
+    }
     return this.db.prepare(`SELECT * FROM cluster_snapshots WHERE window = ? AND ts >= ? AND slug = ? ORDER BY ts`).all(window, sinceTs, target) as SnapshotRow[];
   }
   stats(): { launches: number; tokens: number; trades: number; swaps: number; pools: number; snapshots: number; hourly: number; oldest_trade_ts: number | null; newest_trade_ts: number | null } {
