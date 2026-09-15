@@ -21,7 +21,7 @@ Open on the owner's side: `npm publish` (2FA), token contract and launch date, h
 |---|---|---|
 | `npm publish narrahood` | owner | `npm i -g narrahood && narra` works on a clean machine |
 | Site: `/flow` with history and moves, `/wallets` as wallet-cluster cards with copyable addresses, streaming home | frontend | pages ship against the live API; home TTFB < 0.5 s |
-| Content warm-up starts (`docs/CONTENT-PLAN.md`) | owner | first ship post with a real board |
+| Content warm-up starts (the owner's content plan, kept outside the repo) | owner | first ship post with a real board |
 | Token launch on Pons v2 | owner | address in `service/.env` as `NARRA_TOKEN_ADDRESS` (gate stays off) |
 | Watch: health, RPC meter, memory, backups; calibration re-run on launch-week traffic | Claude | daily check, one summary to the owner |
 | Preview cards checked on real X posts | owner + frontend | cluster and coin cards render in X previews |
