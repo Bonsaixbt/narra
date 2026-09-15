@@ -86,7 +86,10 @@ export function analyze(store: Store, windowKey: string, windowSec: number, nowT
   // identity: an inherited slug keeps the previous tick's id (snapshots from before ids existed get slug@their ts); a fresh slug is a new meta
   const prevBySlug = new Map(prev.map((p) => [p.slug, p]));
   const identity = (c: RawCluster): { id: string; first_seen_ts: number } => {
-    const p = c.inherited ? prevBySlug.get(c.slug) : undefined;
+    // inherited (half the members shared) or the same slug with at least one member in common: the same meta.
+    // Without the second rule a slug that regenerates from its tags every tick was born again every tick.
+    let p = prevBySlug.get(c.slug);
+    if (p && !c.inherited) { const mine = new Set(c.members); if (!p.members.some((m) => mine.has(m))) p = undefined; }
     if (!p) return { id: `${c.slug}@${to}`, first_seen_ts: to };
     const first = p.first_seen ?? p.ts;
     return { id: p.meta_id ?? `${c.slug}@${first}`, first_seen_ts: first };

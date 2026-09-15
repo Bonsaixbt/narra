@@ -441,7 +441,15 @@
       "vladuinu",
       "rob",
       "hoodlife",
-      "robinscan"
+      "robinscan",
+      "fly",
+      "send",
+      "valhalla",
+      "jonze",
+      "family",
+      "pons",
+      "ponsmarket",
+      "hoodstreet"
     ],
     "ai-agents": [
       "grok",
@@ -472,7 +480,8 @@
       "cpu",
       "brain",
       "open",
-      "anth"
+      "anth",
+      "quantum"
     ],
     "politics": [
       "trump",
@@ -549,7 +558,10 @@
       "app",
       "scan",
       "trader",
-      "trade"
+      "trade",
+      "utility",
+      "chart",
+      "momentum"
     ],
     "celebrities": [
       "elon",
@@ -619,7 +631,11 @@
       "peniscoin",
       "wif",
       "mog",
-      "morning"
+      "morning",
+      "yolo",
+      "waifu",
+      "believe",
+      "sperm"
     ],
     "chinese": [
       "china",
