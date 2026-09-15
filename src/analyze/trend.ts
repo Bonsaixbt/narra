@@ -39,9 +39,9 @@ export function computeTrend(store: Store, hours: number, step: number, nowTs = 
   return { hours, step, since, narratives: topNar, rows: out };
 }
 
-export interface ClusterHistoryRow { ts: string; ts_unix: number; window: string; status: string; n_launches: number; quote_eth: number; buyers: number; graduations: number; members: number }
-export function clusterHistory(store: Store, slug: string, hours: number, nowTs = Math.floor(Date.now() / 1000)): ClusterHistoryRow[] {
-  return store.snapshotHistory(slug, nowTs - hours * 3600).map((s) => { const p = JSON.parse(s.payload) as { heat?: { n_launches: number; quote_norm_in: number; unique_buyers: number; n_graduated: number }; members?: string[] }; return { ts: new Date(s.ts * 1000).toISOString(), ts_unix: s.ts, window: s.window, status: s.status, n_launches: p.heat?.n_launches ?? 0, quote_eth: p.heat?.quote_norm_in ?? 0, buyers: p.heat?.unique_buyers ?? 0, graduations: p.heat?.n_graduated ?? 0, members: p.members?.length ?? 0 }; });
+export interface ClusterHistoryRow { ts: string; ts_unix: number; window: string; status: string; n_launches: number; quote_eth: number; buyers: number; graduations: number; members: number; id?: string | null }
+export function clusterHistory(store: Store, slug: string, hours: number, nowTs = Math.floor(Date.now() / 1000), window = "60m"): ClusterHistoryRow[] {
+  return store.snapshotHistory(slug, nowTs - hours * 3600, window).map((s) => { const p = JSON.parse(s.payload) as { heat?: { n_launches: number; quote_norm_in: number; unique_buyers: number; n_graduated: number }; members?: string[] }; return { ts: new Date(s.ts * 1000).toISOString(), ts_unix: s.ts, window: s.window, status: s.status, id: s.meta_id ?? null, n_launches: p.heat?.n_launches ?? 0, quote_eth: p.heat?.quote_norm_in ?? 0, buyers: p.heat?.unique_buyers ?? 0, graduations: p.heat?.n_graduated ?? 0, members: p.members?.length ?? 0 }; });
 }
 
 export interface TokenHourRow { hour: string; hour_ts: number; curve_buys: number; curve_in_eth: number; pool_buys: number; pool_in_eth: number; buyers: number }

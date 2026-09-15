@@ -41,10 +41,12 @@ export async function history(args: Args): Promise<number> {
       console.log(table([["hour", "curve buys", "curve ETH", "pool buys", "pool ETH", "buyers"], ...out.map((r) => [r.hour.slice(5, 16), String(r.curve_buys), r.curve_in_eth.toFixed(2), String(r.pool_buys), r.pool_in_eth.toFixed(2), String(r.buyers)])], [17, 11, 10, 10, 9, 0]));
       return 0;
     }
-    const out = clusterHistory(n.store, target, hours);
+    const window = (str(args.flags.window) ?? "60m") as WindowKey;
+    if (!(window in WINDOWS)) { console.error("--window must be 15m, 60m or 4h"); return 10; }
+    const out = clusterHistory(n.store, target, hours, undefined, window);
     if (!out.length) { console.error(`no snapshots for "${target}" in the last ${hours}h`); return 3; }
     const reading = readClusterHistory(target, out, hours);
-    if (args.flags.json) { printJson({ slug: target, hours, snapshots: out, reading }); return 0; }
+    if (args.flags.json) { printJson({ slug: target, window, hours, snapshots: out, reading }); return 0; }
     console.log(`${c.bold(target)}  last ${hours}h  ${out.length} snapshots  ${utc()}\n\n  ${reading}\n`);
     // one line per status change plus the last row
     const lines: string[][] = [];

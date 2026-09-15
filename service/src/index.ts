@@ -83,7 +83,12 @@ app.get("/api/cluster/:slug", async (c) => { const rw = resolveWindow(c); if (rw
 app.get("/api/flow", gated, async (c) => { const rw = resolveWindow(c); if (rw instanceof Response) return rw; const { w, cached } = rw; return c.json(await engine.n.flow({ analysis: cached, window: w })); });
 app.get("/api/wallets", gated, async (c) => { const rw = resolveWindow(c); if (rw instanceof Response) return rw; const { w, cached } = rw; return c.json(await engine.n.wallets({ analysis: cached, window: w, cohort: c.req.query("cohort") as "rotator" | undefined, sort: c.req.query("sort") as "net_eth" | undefined, top: Number(c.req.query("top") ?? 25) })); });
 app.get("/api/wallet/:address", gated, async (c) => { const a = c.req.param("address"); if (!/^0x[0-9a-fA-F]{40}$/.test(a)) { const e = err("BAD_ADDRESS", "expected 0x + 40 hex", 400); return c.json(e.body, e.status); } const rw = resolveWindow(c); if (rw instanceof Response) return rw; const { w, cached } = rw; return c.json(await engine.n.wallet(a, { analysis: cached, window: w })); });
-app.get("/api/history/cluster/:slug", gated, (c) => c.json(engine.n.history(c.req.param("slug"), Number(c.req.query("hours") ?? 24))));
+app.get("/api/history/cluster/:slug", gated, (c) => {
+  // :slug is a slug or a meta id (slug@first_seen); one window per answer, 60m unless asked
+  const w = windowOf(c.req.query("window"));
+  if (!w) { const e = err("BAD_WINDOW", "window must be 15m, 60m or 4h", 400); return c.json(e.body, e.status); }
+  return c.json(engine.n.history(c.req.param("slug"), Number(c.req.query("hours") ?? 24), w));
+});
 app.get("/api/history/token/:ca", gated, (c) => c.json(engine.n.history(c.req.param("ca"), Number(c.req.query("hours") ?? 24))));
 app.get("/api/history/flow", gated, (c) => {
   // sampled ticks from the cache: one tick per step, never a sum (consecutive windows overlap)

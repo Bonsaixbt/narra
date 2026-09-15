@@ -5,6 +5,20 @@
     "slug": {
       "type": "string"
     },
+    "id": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "window": {
+      "type": "string",
+      "enum": [
+        "15m",
+        "60m",
+        "4h"
+      ]
+    },
     "hours": {
       "type": "number"
     },
@@ -27,6 +41,12 @@
           },
           "status": {
             "type": "string"
+          },
+          "id": {
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "n_launches": {
             "type": "number"
