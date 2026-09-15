@@ -1,6 +1,6 @@
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StdioClientTransport } from "@modelcontextprotocol/sdk/client/stdio.js";
-const t = new StdioClientTransport({ command: "npx", args: ["tsx", "bin/narra.ts", "mcp", "--db", process.argv[2]], cwd: "/Users/vovaslupacik/Desktop/bonsai", stderr: "ignore" });
+const t = new StdioClientTransport({ command: "npx", args: ["tsx", "bin/narra.ts", "mcp", "--db", process.argv[2]], cwd: new URL("../..", import.meta.url).pathname, stderr: "ignore" });
 const c = new Client({ name: "smoke", version: "0.0.0" });
 await c.connect(t);
 const tools = await c.listTools();
