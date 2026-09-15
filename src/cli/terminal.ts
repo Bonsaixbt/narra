@@ -163,7 +163,7 @@ export async function terminal(args: Args): Promise<number> {
         if (k.summary) right.push(fit(c.dim(k.summary), rightW));
         right.push(fit(c.dim(`${h.n_launches} CA · ${k.members.length} members · ${h.n_alive} alive · ${h.quote_norm_in.toFixed(2)} ETH · ${h.unique_buyers} buyers · ${h.n_graduated} grad · ${Math.round(h.graduated_share * 100)}% pool · Δ ${h.delta_pct ?? "n/a"}%`), rightW));
         right.push(fit(c.dim(`links name ${k.links.text} · semantic ${k.links.semantic} · wallet ${k.links.wallet} · deployer ${k.links.deployer}`), rightW));
-        if (k.cohorts) right.push(fit(c.dim(`cohorts snipers ${k.cohorts.sniper} · rotators ${k.cohorts.rotator} · early-in-hot ${k.cohorts["early-in-hot"]} · sprayers ${k.cohorts.sprayer} of ${k.cohorts.total}`), rightW));
+        if (k.cohorts) right.push(fit(c.dim(`wallet clusters snipers ${k.cohorts.sniper} · rotators ${k.cohorts.rotator} · early-in-hot ${k.cohorts["early-in-hot"]} · sprayers ${k.cohorts.sprayer} of ${k.cohorts.total}`), rightW));
         const ein = a.edges.filter((e) => e.to === k.slug), eout = a.edges.filter((e) => e.from === k.slug);
         for (const e of ein.slice(0, 2)) right.push(fit(`  ⇦ ${e.from}  ${e.wallets} wallets  ${e.quote_norm.toFixed(2)} ETH`, rightW));
         for (const e of eout.slice(0, 2)) right.push(fit(`  ⇨ ${e.to}  ${e.wallets} wallets  ${e.quote_norm.toFixed(2)} ETH`, rightW));
@@ -199,7 +199,7 @@ export async function terminal(args: Args): Promise<number> {
       for (let i = 0; i < bodyH; i++) L.push(fit(lines[i] ?? "", W));
     } else if (view === "wallets") {
       const list = a ? a.wallets : [];
-      const lines = [c.dim(`  wallet          buy/sell  tok   in ETH  out ETH     net  entry  cohorts                clusters`)];
+      const lines = [c.dim(`  wallet          buy/sell  tok   in ETH  out ETH     net  entry  wallet cluster         metas`)];
       for (const w of list.slice(0, bodyH - 1)) lines.push(`  ${short(w.wallet, 8)}  ${fit(`${w.buys}/${w.sells}`, 8)} ${String(w.tokens).padStart(4)} ${w.quote_in.toFixed(2).padStart(8)} ${w.quote_out.toFixed(2).padStart(8)} ${(w.net_eth >= 0 ? c.green : c.red)(w.net_eth.toFixed(2).padStart(7))} ${fit(w.median_entry_sec === null ? "-" : w.median_entry_sec + "s", 6)} ${fit(w.cohorts.join(","), 22)} ${c.dim(w.clusters.slice(0, 3).join(" "))}`);
       for (let i = 0; i < bodyH; i++) L.push(fit(lines[i] ?? "", W));
     }

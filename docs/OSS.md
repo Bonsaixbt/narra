@@ -101,7 +101,7 @@ Full-screen view: board, selected meta, live feed, contract lookup, flow, wallet
 
 ### `narra wallets`, `narra wallet <address>`
 
-Wallet cohorts (sniper, sprayer, rotator, early-in-hot), positions, entry delay after launch.
+Wallet wallet clusters (sniper, sprayer, rotator, early-in-hot), positions, entry delay after launch.
 
 ### `narra history`, `narra trend`, `narra backfill`
 
@@ -189,7 +189,7 @@ Pure functions without any network are exported too: `tokenize`, `buildClusters`
 | `narra_coin` | `{ address }` or `{ addresses[] }` | verdict(s) |
 | `narra_flow` | `{ window? }` | edges |
 | `narra_why` | `{ slug }` | cluster explanation |
-| `narra_wallets` | `{ window?, cohort?, sort?, top? }` | wallet cohorts |
+| `narra_wallets` | `{ window?, cohort?, sort?, top? }` | wallet wallet clusters |
 | `narra_wallet` | `{ address }` | one wallet |
 | `narra_doctor` | — | health |
 
@@ -312,7 +312,7 @@ narra/
 
 **v0.1 — public repo**: RPC layer, ingest, cache, tokenisation, clusters, statuses, verdicts, flow, watch, MCP, serve, integrations, README. Done.
 
-**v0.2 — before the token launch**: pools after graduation, deep history with hourly compaction, wallet cohorts, semantic layer, websocket trigger, reorg rewind, calibration tool, replay fixtures, CI, terminal, narratives, popularity. Done except the calibration itself (needs days of snapshots) and publishing.
+**v0.2 — before the token launch**: pools after graduation, deep history with hourly compaction, wallet wallet clusters, semantic layer, websocket trigger, reorg rewind, calibration tool, replay fixtures, CI, terminal, narratives, popularity. Done except the calibration itself (needs days of snapshots) and publishing.
 
 **v0.3 — after the launch**: Telegram alerts, the social-signal module (NOISE) as a fourth signal, a dictionary tuned on history.
 

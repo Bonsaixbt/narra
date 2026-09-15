@@ -55,7 +55,7 @@ The screen:
 ```
 
 - Left: the board, ranked. ROTATING IN and HOT first, then EMERGING, then the cooling ones.
-- Right: the selected meta — numbers, what holds it together, wallet cohorts, inflow and outflow, members.
+- Right: the selected meta — numbers, what holds it together, wallet wallet clusters, inflow and outflow, members.
 - Bottom: the live feed — new launches, status changes, new flow edges, graduations. The socket wakes the refresh seconds after an event.
 
 Keys:
@@ -67,7 +67,7 @@ Keys:
 | `b` or `esc` | back to the board |
 | `c` | paste a contract address → card |
 | `f` | capital flow between metas |
-| `W` | wallets with cohorts |
+| `W` | wallets with wallet clusters |
 | `w` | cycle the window 15m → 60m → 4h |
 | `r` | refresh now |
 | `?` | help |
@@ -114,7 +114,7 @@ How to read it:
 | the number after the meta | membership 0..1: half text similarity, half overlap of early buyers |
 | `alt` | other metas the token is close to |
 | `popular` | the meta's rank on the board, the token's rank inside the meta by buyers, the share of tokens in the window it out-buys |
-| `reasons` | every line is derived from numbers: wallet overlap, cohorts, the meta's state |
+| `reasons` | every line is derived from numbers: wallet overlap, wallet clusters, the meta's state |
 | `watch` | risks: early buyers leaving for another meta, snipers, a launch-farm deployer |
 
 Exit codes with `--quiet`, for scripts: 0 IN, 1 EDGE, 2 OUT, 3 ORPHAN, 4 NOT_PONS.
@@ -185,9 +185,9 @@ narra wallets --all              # including wallets that only sold
 narra wallet 0xADDRESS           # one wallet: cohorts, positions, entry delay after launch
 ```
 
-Cohorts:
+Wallet clusters:
 
-| Cohort | Rule |
+| Wallet cluster | Rule |
 |---|---|
 | `sniper` | 3+ buys and half of them within 5 seconds of launch |
 | `sprayer` | more tokens per window than the cap of 8 / 20 / 50 for 15m / 60m / 4h; does not vote in clustering |

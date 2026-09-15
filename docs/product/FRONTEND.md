@@ -26,7 +26,7 @@ Related: `docs/product/BACKEND.md` (API and types), `docs/OSS.md`, `docs/GUIDE.m
 | `/coin/[ca]` | the verdict card for a token | no |
 | `/cluster/[slug]` | a meta: members, tags, edges, history | 7-day history — holders |
 | `/flow` | the capital-flow graph between metas | holders |
-| `/wallets` | wallet cohorts | holders |
+| `/wallets` | wallet wallet clusters | holders |
 | `/holders` | holder check and extended mode | no |
 | `/docs` | how it is computed: tags, statuses, flow, limits | no |
 | `/api/og/...` | server-rendered PNG previews (proxied from the backend) | no |
@@ -149,7 +149,7 @@ Edges as a table: `from → to · wallets · ETH · deployers · window`. No gra
 
 ### 4.5 `/wallets`
 
-The cohort table from the CLI: wallet, buys/sells, tokens, ETH in/out, net, wins, entry delay, cohorts, metas. Filters by cohort. The note "net ignores what is still held; cohorts are arithmetic labels, not a signal".
+The wallet cluster table from the CLI: wallet, buys/sells, tokens, ETH in/out, net, wins, entry delay, wallet clusters, metas. Filters by wallet cluster. The note "net ignores what is still held; wallet clusters are arithmetic labels, not a signal".
 
 ### 4.6 `/holders`
 
