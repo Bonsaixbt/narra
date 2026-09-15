@@ -52,11 +52,11 @@ Evaluated top-down; thresholds in `thresholds.json`:
 1. `DEAD` — nothing alive.
 2. `ROTATING OUT` — outgoing edges ≥ 8 wallets and delta < 0.
 3. `ROTATING IN` — HOT or EMERGING conditions and incoming edges ≥ 8 wallets.
-4. `HOT` — ≥ 8 launches, ≥ 1.5 ETH, ≥ 1 graduation.
-5. `EMERGING` — < 8 launches, delta ≥ +100 %, ≥ 30 buyers; or nothing decisive but ≥ 2 live curves and ≥ 0.1 ETH.
-6. `COOLING` — ≥ 8 launches, < 0.5 ETH, delta < −50 %; or a trickle.
+4. `HOT` — ≥ 9 launches and ≥ 20 ETH (the top decile of a window's inflow; calibrated 2026-09-14, graduations no longer required).
+5. `EMERGING` — < 9 launches, delta ≥ +100 %, ≥ 38 buyers; or nothing decisive but ≥ 2 live curves and ≥ 0.25 ETH.
+6. `COOLING` — ≥ 3 launches, < 0.25 ETH, delta < −50 %; or a trickle.
 
-Clusters with < 10 buyers and < 3 launches in the window are not published.
+Clusters with < 8 buyers and < 3 launches in the window are not published. Narrative: a family names the cluster when its votes (dictionary tags at full weight, semantic categories at half) cover ≥ 25 % of members; CJK names ≥ 50 % make it `chinese` first.
 
 ## 5. Flow
 
@@ -85,6 +85,6 @@ Reasons are sentences generated from the numbers above; nothing in them is free 
 
 - Timestamps inside a 2 000-block chunk are interpolated between the chunk's edge blocks (±1 s).
 - Stock-token pairs (NVDA, TSLA, …) carry no ETH value until a price source exists; their clusters are ranked by buyers and launches.
-- Curves that emit `CurveBuy` but were launched more than 600 000 blocks (~17 h) ago are not resolved to a token.
+- Curves launched before the cache began are resolved through `token()`/`launchedAt()` on the curve and `getLaunchedToken` on the factory; their launch block is estimated from the block rate (±a few blocks).
 - Buyer sets are window-wide; the "moved in the last 10 minutes" rotation signal is approximated by window-wide overlap in v0.1.
-- Thresholds are starting values (`calibrated_on: null`). Expect them to change after a week of snapshots.
+- Thresholds were calibrated on 2026-09-14 from a week of snapshots and are re-fit as the data grows (`calibrated_on` in `thresholds.json`).
