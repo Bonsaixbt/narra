@@ -2,6 +2,24 @@
 
 The account is @bonsaixbt on X. The product is narra: which meta is printing on Pons right now, whether a token belongs to it, and where the repeat buyers moved. Every post is made from the product's own output; nothing is promised that the numbers do not show.
 
+## 0. The bridge: from the current feed to the warm-up (D−10 → D−6)
+
+What the feed is on 2026-09-15: nine recent posts about AI tools with a punchline (Grok 5 and the $800 subscription, "if your feed is not about these AI guys", a fly playing poker, Elon and trained flies, "1980 Rubik's cube / 2026 GPT", a $100 bet on a generated boxing match, GPT Astra rebuilding a game from an ad); 600–2,700 views each; the pinned article on Karpathy and token savings at 1.4M views; bio "Creator | Video maker | Love playing with AI tools". The audience came for "AI does strange and impressive things"; it is not a crypto audience.
+
+Rules of the bridge: the format stays (a quoted post or a short video plus a two-line punchline); only the subject changes — not Grok, but how AI and people guess metas. No "narra", no repo, no ticker of ours. The bridge goes through AI, not through memecoins: "I gave an agent a launchpad to watch" belongs in this feed, "buy $PONS" does not.
+
+| Day | Post | Text |
+|---|---|---|
+| D−10 | M1 — the "1980 / 2026" format; image: the board with 71 metas in an hour, unlabeled | `2026: your AI agent solves a Rubik's cube, boxes, plays poker and codes a game from an ad.` / `Also 2026: 27,000 tokens launch on one chain in a day and not one agent can tell you which 40 of them belong together.` / `Pattern matching on cubes: solved. Pattern matching on wallets: nobody bothered.` |
+| D−9 | M2 — quote a fresh Vlad Tenev or Robinhood post about Robinhood Chain (trending) | `Robinhood built a chain, $PONS built a launchpad on it, and degens are now launching a new token every 3 seconds on top of both.` / `The chain handles it fine. The humans reading the feed do not.` |
+| D−8 | M3 — video: three models confidently call a token "the cat meta"; next to it the chain: 9 of its buyers among the meta's 403 | `Asked three AI models if a token was part of the cat meta.` / `All three said yes. All three quoted the same two tweets. The chain said the cat meta had 403 buyers that hour and this token had 9 of them.` / `The model read the timeline. Nobody read the wallets.` — the seed of P1 |
+| D−7 | M4 — the "generated boxing match" format: a bet on something already decided | `You buy the token at 14:20 because the meta is "clearly heating up".` / `At 14:05, 480 wallets had already left it for the next one. Two buys in the old meta, one in the new, same wallets, on chain, public.` / `You did not lose to the market. You lost to a timestamp.` |
+| D−6 | M5 — the first terminal frame, framed as one more AI experiment; `narra terminal` full screen, 20 s, no name on screen | `Gave an AI agent one job: watch a launchpad for an hour and group every launch into memes as they happen.` / `No tweets, no KOLs, no "sentiment". Just who is buying what and when.` / `It found 71 groups. Six were alive. One had 403 wallets in it. Tomorrow I show what it says about the one you are holding.` — from here the feed is about the tool |
+
+Transition details: keep the Karpathy article pinned until D−1 (it is the one anchor on "tools for agents"); bio on D−3 becomes "Creator | Video maker | building a terminal that reads Robinhood Chain", the word narra enters the bio on D0; one off-topic AI video every two days at most, none about Elon; from D−10, short replies with one number from the terminal under other people's posts about Robinhood Chain and $PONS, no links — the cheapest audience for the warm-up. Numbers in the posts are from 2026-09-15; refresh them from the terminal before filming.
+
+The owner's operative plan with the warm-up posts P0–P5 and the launch hour lives outside the repo; this file keeps the pillars, the calendar and the rules.
+
 ## 1. The three phases
 
 | Phase | When | Goal | Cadence |
