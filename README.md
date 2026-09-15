@@ -73,7 +73,7 @@ narra terminal          # full screen; q quits
  ↑↓ move · enter open · c contract · f flow · W wallets · w window · r refresh · ? help · q quit
 ```
 
-Left: the board, ranked. Right: the selected meta — numbers, what holds it together, cohorts, flow in and out, members. Bottom: the live feed. Press `c`, paste a contract address, and the card replaces the board: verdict, the meta it belongs to, **popularity** (meta rank on the board, the token's rank inside it by buyers, and the share of tokens it out-buys), reasons, watch-outs. `f` shows where repeat buyers and deployers moved between metas; `W` shows the wallet cohorts; `w` cycles the window. Everything on screen is the same data `--json` prints.
+Left: the board, ranked. Right: the selected meta — numbers, what holds it together, wallet clusters, flow in and out, members. Bottom: the live feed. Press `c`, paste a contract address, and the card replaces the board: verdict, the meta it belongs to, **popularity** (meta rank on the board, the token's rank inside it by buyers, and the share of tokens it out-buys), reasons, watch-outs. `f` shows where repeat buyers and deployers moved between metas; `W` shows the wallet wallet clusters; `w` cycles the window. Everything on screen is the same data `--json` prints.
 
 ## Install
 
@@ -96,8 +96,8 @@ First run reads the last hour from the public RPCs (about two minutes) into `~/.
 | `narra coin <CA…>` | IN / EDGE / OUT / ORPHAN / NOT_PONS for a token, with reasons | `--quiet`: 0 IN · 1 EDGE · 2 OUT · 3 ORPHAN · 4 NOT_PONS |
 | `narra flow` | which wallets and deployers moved from meta A to meta B | 0 |
 | `narra why <meta>` | why a cluster is named and grouped that way, members, links; takes the slug or any word from its name, tags or tickers | 0 (3 if nothing matches) |
-| `narra wallets [--cohort sniper\|sprayer\|rotator\|early-in-hot] [--sort net_eth]` | which wallets carry capital between metas, with cohort labels | 0 |
-| `narra wallet <0x…>` | one wallet: cohorts, positions, entry delay after launch, ETH in/out | 0 |
+| `narra wallets [--cohort sniper\|sprayer\|rotator\|early-in-hot] [--sort net_eth]` | which wallets carry capital between metas, with wallet cluster labels | 0 |
+| `narra wallet <0x…>` | one wallet: wallet clusters, positions, entry delay after launch, ETH in/out | 0 |
 | `narra history <slug\|0x…> [--hours 24]` | status timeline of a meta, or hourly activity of a token | 0 / 3 |
 | `narra history flow [--hours 24] [--step 1h] [--window 60m]` | flow edges sampled per step from the cache (one tick per step) | 0 |
 | `narra watch [--every 15] [--only STATUS,EDGE]` | live feed: LAUNCH, STATUS, EDGE, GRAD, JOIN | runs until ctrl-c |
@@ -194,7 +194,7 @@ Every cluster carries a narrative class next to its slug, decided by open rules 
 
 ## Wallets
 
-Cohorts are arithmetic over the cache, recomputed every tick: **sniper** (≥ 3 buys, half of them within 5 s of launch), **sprayer** (more distinct tokens than the window's cap; they do not vote in clustering), **rotator** (bought in ≥ 3 metas, net ETH out > in), **early-in-hot** (≥ 3 buys of live-meta members within 5 minutes of launch). Every cluster shows its cohort mix, and a token's verdict says how many rotators and early-in-hot wallets are among its early buyers. Net flow is out − in and ignores what is still held; it is a flow number, not a P&L claim, and there is no follow-this-wallet mode.
+Wallet clusters are arithmetic over the cache, recomputed every tick: **sniper** (≥ 3 buys, half of them within 5 s of launch), **sprayer** (more distinct tokens than the window's cap; they do not vote in clustering), **rotator** (bought in ≥ 3 metas, net ETH out > in), **early-in-hot** (≥ 3 buys of live-meta members within 5 minutes of launch). Every cluster shows its wallet cluster mix, and a token's verdict says how many rotators and early-in-hot wallets are among its early buyers. Net flow is out − in and ignores what is still held; it is a flow number, not a P&L claim, and there is no follow-this-wallet mode.
 
 ## After graduation
 

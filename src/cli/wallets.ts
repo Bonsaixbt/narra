@@ -7,11 +7,11 @@ import type { WalletsOut, WalletOut } from "../schemas.js";
 const COHORTS = ["sniper", "sprayer", "rotator", "early-in-hot"] as const;
 
 export function renderWallets(r: WalletsOut): string {
-  const L = [`${c.bold("NARRA wallets")}  ${utc()}   window ${r.window}   ${r.cohort ? "cohort " + r.cohort : "all cohorts"}   sort ${r.sort}`,
+  const L = [`${c.bold("NARRA wallets")}  ${utc()}   window ${r.window}   ${r.cohort ? "wallet cluster " + r.cohort : "all wallet clusters"}   sort ${r.sort}`,
     c.dim(`${r.counts.wallets} wallets · ${r.counts.sniper} snipers · ${r.counts.sprayer} sprayers · ${r.counts.rotator} rotators · ${r.counts["early-in-hot"]} early-in-hot`), ...(r.reading ? ["", `  ${r.reading}`] : []), ""];
   const rows = r.wallets.map((w) => [short(w.wallet, 8), `${w.buys}/${w.sells}`, String(w.tokens), w.quote_in.toFixed(2), w.quote_out.toFixed(2), (w.net_eth >= 0 ? c.green : c.red)(w.net_eth.toFixed(2).padStart(7)), `${w.wins}/${w.closed_tokens}`, w.median_entry_sec === null ? "-" : `${w.median_entry_sec}s`, `${Math.round(w.fast_share * 100)}%`, w.cohorts.join(",") || c.dim("-"), c.dim(w.clusters.slice(0, 3).join(" "))]);
-  L.push(table([["wallet", "buy/sell", "tok", "in ETH", "out ETH", "net", "wins", "entry", "fast", "cohorts", "clusters"], ...rows], [16, 9, 4, 8, 8, 8, 6, 7, 6, 22, 0]));
-  L.push("", c.dim("net = out − in over the window; ignores what is still held. Cohorts are arithmetic labels, not a signal."));
+  L.push(table([["wallet", "buy/sell", "tok", "in ETH", "out ETH", "net", "wins", "entry", "fast", "wallet cluster", "metas"], ...rows], [16, 9, 4, 8, 8, 8, 6, 7, 6, 22, 0]));
+  L.push("", c.dim("net = out − in over the window; ignores what is still held. Wallet clusters are arithmetic labels, not a signal."));
   return L.join("\n");
 }
 
@@ -29,7 +29,7 @@ export function renderWallet(r: WalletOut): string {
 
 export async function wallets(args: Args): Promise<number> {
   const cohort = str(args.flags.cohort) as (typeof COHORTS)[number] | undefined;
-  if (cohort && !COHORTS.includes(cohort)) { console.error(`unknown cohort "${cohort}" (${COHORTS.join(", ")})`); return 10; }
+  if (cohort && !COHORTS.includes(cohort)) { console.error(`unknown wallet cluster "${cohort}" (${COHORTS.join(", ")})`); return 10; }
   const sort = (str(args.flags.sort) ?? "net_eth") as "net_eth" | "tokens" | "buys" | "quote_in";
   const { n, q, done } = open(args);
   try {
