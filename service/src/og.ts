@@ -32,7 +32,10 @@ export async function toPng(svg: string): Promise<Uint8Array | null> {
   try {
     const { Resvg } = await import("@resvg/resvg-js");
     // the runtime image installs fonts-dejavu-core: without a system font resvg draws a blank card
-    const r = new Resvg(svg, { fitTo: { mode: "width", value: 1200 }, font: { loadSystemFonts: true, defaultFontFamily: "DejaVu Sans Mono" } });
+    // loadSystemFonts alone found nothing in the container; the DejaVu directory is named explicitly and still works on a laptop
+    const { existsSync } = await import("node:fs");
+    const dejavu = "/usr/share/fonts/truetype/dejavu";
+    const r = new Resvg(svg, { fitTo: { mode: "width", value: 1200 }, font: { loadSystemFonts: true, fontDirs: existsSync(dejavu) ? [dejavu] : [], defaultFontFamily: "DejaVu Sans Mono" } });
     return r.render().asPng();
   } catch { return null; }
 }
