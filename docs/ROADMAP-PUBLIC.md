@@ -7,7 +7,7 @@ The version for the site and the announcement: no dates, no owners, only what ex
 - **The board** — which meta is printing right now: 15m, 60m and 4h windows, HOT / EMERGING / ROTATING / COOLING statuses, narratives, a one-line reading.
 - **The coin card** — paste a CA and see whether it sits in a live meta, how many early buyers came from another hot meta, snipers and rotators, its rank inside the meta.
 - **Flow** — where repeat buyers moved: every arrow is a list of wallets and transactions, with an hourly flow history.
-- **Wallets** — cohorts: snipers, sprayers, rotators, early-in-hot.
+- **Wallets** — wallet clusters: snipers, sprayers, rotators, early-in-hot.
 - **Trend** — narratives over two days in four-hour steps.
 - **Terminal and agents** — `narrahood` on npm: a full-screen terminal, JSON for scripts, an MCP server for Claude, Cursor and any agent.
 - **Telegram** — a community bot with a digest and commands, batched alerts every five minutes that link into the site.
