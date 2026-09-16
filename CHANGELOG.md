@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.3.1 — 2026-09-16
 
 - Fix: a token described as "16x Constructors' champions" crashed the trend every pass (`tag.startsWith is not a function`): the alias table was a plain object and `constructor` returned a function. The table is a Map; regression test.
 - `/api/wallet-clusters`: every wallet cluster from one analysis — counts, ETH in/out, medians, overlaps, top metas, members — with a reading that names no address (the site's map needed four consistent calls).
