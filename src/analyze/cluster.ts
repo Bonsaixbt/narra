@@ -93,9 +93,29 @@ export function buildClusters(tokens: TokenInfo[], buyers: Map<string, Set<strin
     const subSem: SemanticPair[] = semantic.flatMap(([a, b, sc]) => { const x = local.get(tokens[a].token), y = local.get(tokens[b].token); return x !== undefined && y !== undefined && sc >= opts.semanticSplitFloor ? [[x, y, sc] as SemanticPair] : []; });
     const sub = buildClusters(subTokens, buyers, stricter, depth - 1, subSem);
     if (sub.length === 1 && sub[0].members.length === c.members.length) { out.push(c); continue; }
+    reattachByName(sub, subTokens, buyers);
     out.push(...sub);
   }
   return out.sort((a, b) => b.members.length - a.members.length).map((c, i) => ({ ...c, id: i }));
+}
+
+/**
+ * After a strict split, tokens that fell out of every sub-cluster rejoin the biggest sub-cluster whose slug carries
+ * one of their content tags: the most-bought $penis belongs with the 60 other penis tokens even when its buyers were
+ * too spread out for the stricter wallet floor. Membership 0.5, one degree: it is a name link, not a crowd link.
+ */
+export function reattachByName(sub: RawCluster[], tokens: TokenInfo[], buyers: Map<string, Set<string>>): void {
+  const placed = new Set(sub.flatMap((c) => c.members));
+  const bySize = [...sub].sort((a, b) => (b.members.length - a.members.length));
+  for (const t of tokens) {
+    if (placed.has(t.token)) continue;
+    const words = new Set([...t.tags.keys()].filter((k) => isContentTag(k) && !isCategoryTag(k)));
+    const home = bySize.find((c) => c.top_tags.slice(0, 2).some((tag) => words.has(tag.tag)));
+    if (!home) continue;
+    home.members.push(t.token); home.membership.set(t.token, 0.5); home.degree.set(t.token, 1); home.links.text++;
+    placed.add(t.token);
+    void buyers;
+  }
 }
 
 function buildClustersOnce(tokens: TokenInfo[], buyers: Map<string, Set<string>>, opts: ClusterOptions, semantic: SemanticPair[] = []): RawCluster[] {
@@ -192,9 +212,19 @@ function buildClustersOnce(tokens: TokenInfo[], buyers: Map<string, Set<string>>
     const gi = new Set(g);
     for (const [k, kind] of linkKind) { const [a, b] = k.split(":").map(Number); if (gi.has(a) && gi.has(b)) links[kind]++; }
     // Wallet-only clusters share a crowd, not a word: name them after their two most-bought members.
-    const fallback = top.length ? [] : [...members].sort((x, y) => (buyers.get(y.token)?.size ?? 0) - (buyers.get(x.token)?.size ?? 0)).slice(0, 2)
+    const byBuyers = [...members].sort((x, y) => (buyers.get(y.token)?.size ?? 0) - (buyers.get(x.token)?.size ?? 0));
+    const fallback = top.length ? [] : byBuyers.slice(0, 2)
       .map((m) => [...m.tags.keys()].find(isContentTag) ?? m.symbol.toLowerCase()).filter(Boolean).map((tag) => ({ tag, weight: 0.01 }));
-    out.push({ id: id++, members: members.map((m) => m.token), centroid, top_tags: top.length ? top : fallback, slug: slugOf(top.length ? top : fallback, id), membership, degree, links });
+    // A clear leader names the meta: when one token holds half of the crowd, its word goes first in the slug
+    // (LITVM with 4,600 of 7,000 buyers should not be filed under "rarefriend-rare").
+    let named = top.length ? top : fallback;
+    const leader = byBuyers[0];
+    const crowd = new Set<string>(); for (const m of members) for (const w of buyers.get(m.token) ?? []) crowd.add(w);
+    if (leader && crowd.size >= 20 && (buyers.get(leader.token)?.size ?? 0) >= crowd.size * 0.5) {
+      const word = [...leader.tags.keys()].find((k) => isContentTag(k) && !isCategoryTag(k) && !SLUG_STOP.has(k));
+      if (word && named[0]?.tag !== word) named = [{ tag: word, weight: (named[0]?.weight ?? 0.01) + 0.001 }, ...named.filter((t) => t.tag !== word)];
+    }
+    out.push({ id: id++, members: members.map((m) => m.token), centroid, top_tags: named, slug: slugOf(named, id), membership, degree, links });
   }
   return out.sort((a, b) => b.members.length - a.members.length);
 }
@@ -236,14 +266,18 @@ export function slugOf(top: { tag: string }[], fallbackId: number): string {
 /** Keep slugs stable across ticks: a cluster that shares ≥ 50 % of members with a previous one inherits its slug. */
 export function inheritSlugs(prev: { slug: string; members: string[] }[], curr: RawCluster[]): RawCluster[] {
   const used = new Set<string>();
-  for (const c of curr) {
+  // biggest current clusters choose first, and each picks the previous cluster that contributes the most members
+  // (ties by share). Scoring by share alone let a tiny previous cluster, fully swallowed by a big new one, hand its
+  // name to the big one — and the name flipped back and forth every tick.
+  for (const c of [...curr].sort((a, b) => b.members.length - a.members.length)) {
     const mine = new Set(c.members);
-    let best: { slug: string; score: number } | null = null;
+    let best: { slug: string; shared: number; score: number } | null = null;
     for (const p of prev) {
       if (used.has(p.slug) || p.slug.startsWith("mixed-")) continue;
       const shared = p.members.filter((m) => mine.has(m)).length;
       const score = shared / Math.min(mine.size, p.members.length);
-      if (score >= 0.5 && (!best || score > best.score)) best = { slug: p.slug, score };
+      if (score < 0.5) continue;
+      if (!best || shared > best.shared || (shared === best.shared && score > best.score)) best = { slug: p.slug, shared, score };
     }
     if (best) { c.slug = best.slug; c.inherited = true; used.add(best.slug); }
   }

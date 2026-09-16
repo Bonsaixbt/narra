@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { buildClusters, inheritSlugs, buyersByToken } from "../src/analyze/cluster.ts";
+import { buildClusters, inheritSlugs, buyersByToken, DEFAULT_CLUSTER_OPTIONS } from "../src/analyze/cluster.ts";
 import { tokenize } from "../src/analyze/tokenize.ts";
 import type { TokenInfo } from "../src/analyze/types.ts";
 
@@ -77,4 +77,42 @@ test("a launch farm's tokens do not link through the deployer", () => {
   const cl = buildClusters(tokens, new Map());
   // shared tag "thing" + same deployer would chain all 12; the farm rule leaves only name links, which stay under 0.35
   assert.equal(cl.length, 0, `expected no cluster from a farm, got ${cl.map((c) => c.members.length).join(",")}`);
+});
+
+test("the previous cluster that contributes the most members keeps the name; a swallowed small one does not rename the big one", () => {
+  const big = { id: 0, members: Array.from({ length: 30 }, (_, i) => `0xb${i}`), centroid: new Map(), top_tags: [{ tag: "rare", weight: 1 }], slug: "rare-friend", membership: new Map(), degree: new Map(), links: { text: 0, wallet: 30, deployer: 0, semantic: 0 } };
+  const small = { id: 1, members: ["0xs1", "0xs2", "0xs3"], centroid: new Map(), top_tags: [{ tag: "star", weight: 1 }], slug: "star-lit", membership: new Map(), degree: new Map(), links: { text: 2, wallet: 0, deployer: 0, semantic: 0 } };
+  // this tick the big cluster absorbed the old star cluster's 8 members on top of its own 30
+  big.members.push("0xs4", "0xs5", "0xs6", "0xs7", "0xs8", "0xs9", "0xs10", "0xs11");
+  const prev = [
+    { slug: "star-programmable", members: ["0xs4", "0xs5", "0xs6", "0xs7", "0xs8", "0xs9", "0xs10", "0xs11"] },
+    { slug: "rarefriend-rare", members: big.members.slice(0, 30) },
+  ];
+  const out = inheritSlugs(prev, [big, small]);
+  assert.equal(out[0].slug, "rarefriend-rare", "30 shared members beat 8 fully-shared ones");
+  assert.equal(out[1].slug, "star-lit", "the small cluster keeps its own fresh name, no suffix");
+});
+
+test("after a strict split, a dropped token whose word names a sub-cluster rejoins it", async () => {
+  const { reattachByName } = await import("../src/analyze/cluster.ts");
+  const { tokenize } = await import("../src/analyze/tokenize.ts");
+  const mk = (token: string, symbol: string, name: string) => ({ token, symbol, name, description: "", pair: "", pairKind: "other" as const, pairSymbol: "", deployer: "", launchedTs: 0, phase: "curve" as const, graduatedTs: null, tags: tokenize({ name, symbol, pairKind: "other" }) });
+  const toks = [mk("0x1", "PENIS", "penis"), mk("0x2", "PENIS", "penis coin"), mk("0x3", "PENIS", "penis 2"), mk("0x4", "penis", "the original penis"), mk("0x5", "DOG", "doggo")];
+  const sub = [{ id: 0, members: ["0x1", "0x2", "0x3"], centroid: new Map(), top_tags: [{ tag: "peni", weight: 1 }], slug: "peni", membership: new Map([["0x1", 1], ["0x2", 1], ["0x3", 1]]), degree: new Map(), links: { text: 3, wallet: 0, deployer: 0, semantic: 0 } }];
+  reattachByName(sub, toks, new Map());
+  assert.deepEqual(sub[0].members, ["0x1", "0x2", "0x3", "0x4"], "0x4 rejoined by its word; the dog did not");
+  assert.equal(sub[0].membership.get("0x4"), 0.5);
+});
+
+test("a token holding half of a meta's crowd puts its word first in the slug", () => {
+  const mk = (token: string, symbol: string, name: string) => ({ token, symbol, name, description: "", pair: "", pairKind: "other" as const, pairSymbol: "", deployer: "d" + token, launchedTs: 0, phase: "curve" as const, graduatedTs: null, tags: tokenize({ name, symbol, pairKind: "other" }) });
+  const toks = [mk("0x1", "RAREFRIEND", "rare friend"), mk("0x2", "RAREFRIEND", "rare friend two"), mk("0x3", "RARE", "rare friend three"), mk("0x4", "LITVM", "litvm")];
+  const buyers = new Map<string, Set<string>>();
+  const crowd = Array.from({ length: 40 }, (_, i) => `w${i}`);
+  buyers.set("0x1", new Set(crowd.slice(0, 8))); buyers.set("0x2", new Set(crowd.slice(0, 8))); buyers.set("0x3", new Set(crowd.slice(0, 8)));
+  buyers.set("0x4", new Set(crowd)); // the leader: every wallet of the crowd bought it, and 8 of them also bought the rare-friend trio
+  const cl = buildClusters(toks, buyers, { ...DEFAULT_CLUSTER_OPTIONS, minBuyerOverlap: 5, minBuyerShare: 0.2 });
+  const c = cl.find((k) => k.members.includes("0x4"));
+  assert.ok(c && c.members.length === 4, "one cluster through shared buyers");
+  assert.ok(c!.slug.startsWith("litvm"), `slug ${c!.slug}`);
 });

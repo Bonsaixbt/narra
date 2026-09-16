@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Slug inheritance: the previous cluster that contributes the most members keeps the name; scoring by share alone let a small cluster swallowed by a big one rename the big one, and the name flipped every tick (`star-programmable` ↔ `rarefriend-rare-2` on 2026-09-16 at the meta's HOT minute, so the history showed 59 members one tick and 4 the next).
+- A token holding half of a meta's crowd puts its word first in the slug: LITVM with 4,600 of 7,000 buyers is `litvm-…`, not `rarefriend-rare`.
+- After a strict split of an oversized component, a token that fell out of every sub-cluster rejoins the biggest one whose slug carries its word (the most-bought $penis is back with the other 60; frontend note 11).
 - Telegram bot rebuilt on the pattern of scanner bots: one fact per line with an emoji, the address in a code block, inline buttons (card, meta, flow, explorer) under every answer; a pasted CA anywhere in a short message answers with the card; new `/hot`, `/history meta`, `/wallet 0x…`, `/stats`; `/alerts on|off` per chat (admins only in groups, stored in the cache); the command menu is registered with Telegram. Digest at most once an hour and only when the board changed. Alerts only when a meta went HOT or 15+ wallets moved, HOT ↔ ROTATING IN flapping and rotating-out ignored, graduations alone wait for the next real event.
 - Flow: edges are kept even when one end is below the publish floor (a meta that emptied out is where the wallets came from); those ends appear as quiet nodes in `/api/flow` (`nodes`) and in flow history, so every edge has a node again. `cluster_snapshots` gets a `(window, ts)` index: `/api/history/flow` over 24 h went from 5 s to well under a second.
 - Library exports `WalletsOut`, `WalletOut`, `WalletClustersOut`, `FlowHistoryOut` types.
