@@ -116,3 +116,11 @@ test("a token holding half of a meta's crowd puts its word first in the slug", (
   assert.ok(c && c.members.length === 4, "one cluster through shared buyers");
   assert.ok(c!.slug.startsWith("litvm"), `slug ${c!.slug}`);
 });
+
+test("a leader-named cluster keeps the new name over an inherited one, but remembers what it continues", () => {
+  const big = { id: 0, members: Array.from({ length: 30 }, (_, i) => `0xb${i}`), centroid: new Map(), top_tags: [{ tag: "litvm", weight: 1 }], slug: "litvm-rare", leaderTag: "litvm", membership: new Map(), degree: new Map(), links: { text: 0, wallet: 30, deployer: 0, semantic: 0 } };
+  const out = inheritSlugs([{ slug: "rarefriend-rare-2", members: big.members.slice(0, 25) }], [big]);
+  assert.equal(out[0].slug, "litvm-rare");
+  assert.equal(out[0].inheritedFrom, "rarefriend-rare-2");
+  assert.equal(out[0].inherited, true);
+});

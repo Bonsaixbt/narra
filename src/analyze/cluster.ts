@@ -45,6 +45,10 @@ export interface RawCluster {
   links: { text: number; wallet: number; deployer: number; semantic: number };
   /** set by inheritSlugs: the slug came from a previous tick's cluster sharing members, so it is the same meta */
   inherited?: boolean;
+  /** the previous tick's slug this cluster continues (differs from `slug` when a leader renamed the meta) */
+  inheritedFrom?: string;
+  /** the word of a token that holds half of the crowd: it names the meta even over an inherited slug */
+  leaderTag?: string;
 }
 
 class UnionFind {
@@ -218,13 +222,14 @@ function buildClustersOnce(tokens: TokenInfo[], buyers: Map<string, Set<string>>
     // A clear leader names the meta: when one token holds half of the crowd, its word goes first in the slug
     // (LITVM with 4,600 of 7,000 buyers should not be filed under "rarefriend-rare").
     let named = top.length ? top : fallback;
+    let leaderTag: string | undefined;
     const leader = byBuyers[0];
     const crowd = new Set<string>(); for (const m of members) for (const w of buyers.get(m.token) ?? []) crowd.add(w);
     if (leader && crowd.size >= 20 && (buyers.get(leader.token)?.size ?? 0) >= crowd.size * 0.5) {
       const word = [...leader.tags.keys()].find((k) => isContentTag(k) && !isCategoryTag(k) && !SLUG_STOP.has(k));
-      if (word && named[0]?.tag !== word) named = [{ tag: word, weight: (named[0]?.weight ?? 0.01) + 0.001 }, ...named.filter((t) => t.tag !== word)];
+      if (word) { leaderTag = word; if (named[0]?.tag !== word) named = [{ tag: word, weight: (named[0]?.weight ?? 0.01) + 0.001 }, ...named.filter((t) => t.tag !== word)]; }
     }
-    out.push({ id: id++, members: members.map((m) => m.token), centroid, top_tags: named, slug: slugOf(named, id), membership, degree, links });
+    out.push({ id: id++, members: members.map((m) => m.token), centroid, top_tags: named, slug: slugOf(named, id), membership, degree, links, leaderTag });
   }
   return out.sort((a, b) => b.members.length - a.members.length);
 }
@@ -279,7 +284,11 @@ export function inheritSlugs(prev: { slug: string; members: string[] }[], curr: 
       if (score < 0.5) continue;
       if (!best || shared > best.shared || (shared === best.shared && score > best.score)) best = { slug: p.slug, shared, score };
     }
-    if (best) { c.slug = best.slug; c.inherited = true; used.add(best.slug); }
+    if (best) {
+      c.inherited = true; c.inheritedFrom = best.slug; used.add(best.slug);
+      // a leader that holds half of the crowd renames the meta once; the id (identity) still follows the old slug
+      if (!(c.leaderTag && !best.slug.includes(c.leaderTag))) c.slug = best.slug;
+    }
   }
   // de-duplicate freshly generated slugs
   const seen = new Map<string, number>();

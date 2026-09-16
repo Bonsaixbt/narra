@@ -90,7 +90,7 @@ export function analyze(store: Store, windowKey: string, windowSec: number, nowT
   const identity = (c: RawCluster): { id: string; first_seen_ts: number } => {
     // inherited (half the members shared) or the same slug with at least one member in common: the same meta.
     // Without the second rule a slug that regenerates from its tags every tick was born again every tick.
-    let p = prevBySlug.get(c.slug);
+    let p = prevBySlug.get(c.inheritedFrom ?? c.slug);
     if (p && !c.inherited) { const mine = new Set(c.members); if (!p.members.some((m) => mine.has(m))) p = undefined; }
     if (!p) return { id: `${c.slug}@${to}`, first_seen_ts: to };
     const first = p.first_seen ?? p.ts;
