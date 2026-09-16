@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- Telegram bot rebuilt on the pattern of scanner bots: one fact per line with an emoji, the address in a code block, inline buttons (card, meta, flow, explorer) under every answer; a pasted CA anywhere in a short message answers with the card; new `/hot`, `/history meta`, `/wallet 0x…`, `/stats`; `/alerts on|off` per chat (admins only in groups, stored in the cache); the command menu is registered with Telegram. Digest at most once an hour and only when the board changed. Alerts only when a meta went HOT or 15+ wallets moved, HOT ↔ ROTATING IN flapping and rotating-out ignored, graduations alone wait for the next real event.
+- Flow: edges are kept even when one end is below the publish floor (a meta that emptied out is where the wallets came from); those ends appear as quiet nodes in `/api/flow` (`nodes`) and in flow history, so every edge has a node again. `cluster_snapshots` gets a `(window, ts)` index: `/api/history/flow` over 24 h went from 5 s to well under a second.
+- Library exports `WalletsOut`, `WalletOut`, `WalletClustersOut`, `FlowHistoryOut` types.
+
 ## 0.3.1 — 2026-09-16
 
 - Fix: a token described as "16x Constructors' champions" crashed the trend every pass (`tag.startsWith is not a function`): the alias table was a plain object and `constructor` returned a function. The table is a Map; regression test.

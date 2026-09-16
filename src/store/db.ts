@@ -63,6 +63,7 @@ export class Store {
     if (!cols.has("meta_id")) this.db.exec(`ALTER TABLE cluster_snapshots ADD COLUMN meta_id TEXT`);
     if (!cols.has("first_seen")) this.db.exec(`ALTER TABLE cluster_snapshots ADD COLUMN first_seen INTEGER`);
     this.db.exec(`CREATE INDEX IF NOT EXISTS snapshots_meta ON cluster_snapshots(meta_id, window, ts)`);
+    this.db.exec(`CREATE INDEX IF NOT EXISTS snapshots_window_ts ON cluster_snapshots(window, ts)`); // snapshotsAt / snapshotTicks: flow history reads a tick per step
   }
 
   close(): void { this.db.close(); }

@@ -23,10 +23,12 @@ const esc = (s: string) => s.replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt
 export function formatAlert(e: WatchEvent): AlertItem | null {
   switch (e.type) {
     case "STATUS":
-      if (e.to !== "HOT" && e.to !== "ROTATING IN" && e.to !== "ROTATING OUT") return null;
-      return { key: `status:${e.slug}:${e.to}`, kind: e.to === "ROTATING OUT" ? "out" : "hot", weight: 0, slug: e.slug, status: e.to, was: e.from && e.from !== "NEW" ? e.from : undefined, note: e.note };
+      // a meta that just went HOT or is being rotated into; ROTATING OUT and cooling are what /flow and the board are for
+      if (e.to !== "HOT" && e.to !== "ROTATING IN") return null;
+      if (e.from === "HOT" || e.from === "ROTATING IN") return null; // HOT ↔ ROTATING IN flapping is not news
+      return { key: `status:${e.slug}`, kind: "hot", weight: Number((e.note ?? "").match(/([\d.]+) ETH/)?.[1] ?? 0), slug: e.slug, status: e.to, was: e.from && e.from !== "NEW" ? e.from : undefined, note: e.note };
     case "EDGE":
-      if ((e.wallets ?? 0) < 10) return null;
+      if ((e.wallets ?? 0) < 15) return null;
       return { key: `edge:${e.from}:${e.to}`, kind: "move", weight: e.wallets ?? 0, from: e.from, to: e.to, wallets: e.wallets, note: e.note };
     case "GRAD":
       return { key: `grad:${e.token}`, kind: "grad", weight: 0, token: e.token, symbol: e.symbol, slug: e.slug };
@@ -35,10 +37,10 @@ export function formatAlert(e: WatchEvent): AlertItem | null {
 }
 
 const SECTIONS: { kind: AlertKind; title: string; max: number }[] = [
-  { kind: "hot", title: "🔥 now HOT or rotating in", max: 8 },
-  { kind: "out", title: "🟣 rotating out", max: 6 },
-  { kind: "move", title: "↪ where repeat buyers moved", max: 6 },
-  { kind: "grad", title: "🎓 graduated", max: 5 },
+  { kind: "hot", title: "🔥 went HOT", max: 5 },
+  { kind: "move", title: "🔁 repeat buyers moved", max: 4 },
+  { kind: "grad", title: "🎓 graduated to the pool", max: 4 },
+  { kind: "out", title: "🟣 rotating out", max: 3 },
 ];
 
 /** One HTML line per item; metas and coins link into the site when `siteUrl` is set. */
@@ -46,15 +48,15 @@ export function alertLine(i: AlertItem, siteUrl: string): string {
   const meta = (slug: string) => (siteUrl ? `<a href="${siteUrl}/cluster/${encodeURIComponent(slug)}">${esc(slug)}</a>` : esc(slug));
   const note = i.note ? ` · ${esc(i.note)}` : "";
   switch (i.kind) {
-    case "hot": case "out": return `${meta(i.slug ?? "")} → ${i.status}${i.was ? ` (was ${i.was})` : ""}${note}`;
-    case "move": return `${i.wallets} wallets ${meta(i.from ?? "")} → <b>${meta(i.to ?? "")}</b>${note}`;
+    case "hot": case "out": return `<b>${meta(i.slug ?? "")}</b>${i.note ? ` · ${esc(i.note)}` : ""}${i.was ? ` · was ${i.was.toLowerCase()}` : ""}`;
+    case "move": return `${meta(i.from ?? "")} → <b>${meta(i.to ?? "")}</b> · ${i.wallets} wallets${note}`;
     case "grad": { const label = `$${i.symbol || "?"}`; const coin = siteUrl && i.token ? `<a href="${siteUrl}/coin/${i.token}">${esc(label)}</a>` : esc(label); return `${coin}${i.slug ? ` · meta ${meta(i.slug)}` : ""}${i.token ? `\n<code>${i.token}</code>` : ""}`; }
   }
 }
 
 /** One message out of a batch of items: sections with blank lines between them, the biggest moves first. */
 export function formatAlertDigest(items: AlertItem[], minutes: number, siteUrl = ""): string {
-  const blocks: string[] = [`<b>narra · last ${minutes} min</b>`];
+  const blocks: string[] = [`⚡ <b>Pons · last ${minutes} min</b>`];
   for (const sec of SECTIONS) {
     const mine = items.filter((i) => i.kind === sec.kind).sort((a, b) => b.weight - a.weight);
     if (!mine.length) continue;
@@ -62,7 +64,7 @@ export function formatAlertDigest(items: AlertItem[], minutes: number, siteUrl =
     if (mine.length > sec.max) lines.push(`… ${mine.length - sec.max} more`);
     blocks.push(`<b>${sec.title}</b>\n${lines.join("\n")}`);
   }
-  blocks.push(siteUrl ? `<a href="${siteUrl}/">the board</a> · /why meta · /coin 0x…` : "/meta for the board · /why meta");
+  blocks.push("<i>/why meta · paste a CA for its card · /alerts off to mute</i>");
   return blocks.join("\n\n");
 }
 
@@ -76,6 +78,8 @@ export class Alerter {
   sent = 0; dropped = 0; errors = 0;
   /** The last Telegram refusal (`400 chat not found`, `429 …`), so health says why alerts do not arrive. */
   lastError = "";
+  /** set by the service: chats that switched alerts off with /alerts off */
+  muted?: (chat: string) => boolean;
   constructor(private cfg: AlertConfig, private fetchFn: typeof fetch = fetch, now = Date.now()) { this.startedAt = now; this.timer = setInterval(() => void this.flush(), 1_000); this.timer.unref(); }
 
   offer(e: WatchEvent, now = Date.now()): boolean {
@@ -97,13 +101,17 @@ export class Alerter {
   async flush(now = Date.now()): Promise<number> {
     if (!this.batch.length || now < this.pausedUntil) return 0;
     if (now - this.batchOpenedAt < (this.cfg.batchSec + this.cfg.delaySec) * 1000) return 0;
+    // graduations and rotating-out alone are not worth a buzz: they wait for a HOT or a move, or age out after four batches
+    if (!this.batch.some((i) => i.kind === "hot" || i.kind === "move") && now - this.batchOpenedAt < this.cfg.batchSec * 4 * 1000) return 0;
     this.sentAt = this.sentAt.filter((t) => now - t < 60_000);
     if (this.sentAt.length >= this.cfg.perMinute) return 0;
     const text = formatAlertDigest(this.batch, Math.max(1, Math.round(this.cfg.batchSec / 60)), this.cfg.siteUrl);
     let n = 0;
     for (const chat of this.cfg.chats) {
       try {
-        const r = await this.fetchFn(`https://api.telegram.org/bot${this.cfg.token}/sendMessage`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ chat_id: chat, text, parse_mode: "HTML", disable_web_page_preview: true }), signal: AbortSignal.timeout(10_000) });
+        if (this.muted?.(chat)) continue;
+        const reply_markup = this.cfg.siteUrl ? { inline_keyboard: [[{ text: "board", url: `${this.cfg.siteUrl}/` }, { text: "flow", url: `${this.cfg.siteUrl}/flow` }]] } : undefined;
+        const r = await this.fetchFn(`https://api.telegram.org/bot${this.cfg.token}/sendMessage`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ chat_id: chat, text, parse_mode: "HTML", disable_web_page_preview: true, ...(reply_markup ? { reply_markup } : {}) }), signal: AbortSignal.timeout(10_000) });
         if (r.ok) { this.sent++; n++; continue; }
         const body = (await r.json().catch(() => ({}))) as { description?: string; parameters?: { retry_after?: number } };
         this.errors++; this.lastError = `${r.status} ${body.description ?? ""}`.trim();

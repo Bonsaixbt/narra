@@ -24,7 +24,7 @@ export { resolveCluster, type FindOut } from "./narra.js";
 export { liveTrigger } from "./ingest/live.js";
 export { loadEnv } from "./env.js";
 export { SCHEMAS, SCHEMA_VERSION, jsonSchema } from "./schemas.js";
-export type { NowOut, CoinOut, NotPonsOut, FlowOut, WhyOut, WatchEvent } from "./schemas.js";
+export type { NowOut, CoinOut, NotPonsOut, FlowOut, WhyOut, WatchEvent, WalletsOut, WalletOut, WalletClustersOut, FlowHistoryOut } from "./schemas.js";
 export type { Status, VerdictKind, Heat, Edge, ClusterOut, MemberOut, TokenInfo } from "./analyze/types.js";
 export { CHAIN, ADDR, PROTOCOL, DEFAULT_ENDPOINTS } from "./chain/constants.js";
 export { TOPICS } from "./chain/topics.js";

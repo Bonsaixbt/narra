@@ -295,7 +295,7 @@ Narra.prototype.flow = async function (this: Narra, opts: QueryOptions = {}): Pr
   const { a, meta } = await this.prepare(opts);
   // moves carry the buy that put each wallet on the edge; the symbol is looked up here, where the tokens are
   const edges = a.edges.map((e) => ({ ...e, moves: (e.moves ?? []).map((m) => ({ ...m, symbol: a.tokens.get(m.token)?.symbol ?? "" })) }));
-  const out: FlowOut = { ...meta, nodes: a.clusters.map((c) => ({ slug: c.slug, status: c.status, id: c.id, first_seen_ts: c.first_seen_ts })), edges };
+  const out: FlowOut = { ...meta, nodes: [...a.clusters.map((c) => ({ slug: c.slug, status: c.status, id: c.id, first_seen_ts: c.first_seen_ts })), ...a.flowNodes], edges };
   out.reading = readFlow(out);
   return out;
 };

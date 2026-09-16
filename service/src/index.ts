@@ -63,7 +63,21 @@ const bot = botCfg ? new CommunityBot(botCfg, {
   find: async (q) => { const cached = ready("60m"); return cached ? engine.n.find(q, { analysis: cached, window: "60m" }) : null; },
   flow: async () => { const cached = ready("60m"); return cached ? engine.n.flow({ analysis: cached, window: "60m" }) : null; },
   trend: async () => engine.trend()?.t ?? null,
+  history: async (slug) => { const h = engine.n.history(slug, 24, "60m"); return h.snapshots ? { rows: h.snapshots, reading: h.reading } : null; },
+  wallet: async (a) => { const cached = ready("60m"); return cached ? engine.n.wallet(a, { analysis: cached, window: "60m" }) : null; },
+  // chat preferences (/alerts on|off) live in the cache's kv table so they survive a restart
+  pref: { get: (k) => engine.n.store.get(`tg:${k}`), set: (k, v) => engine.n.store.set(`tg:${k}`, v) },
+  // in a group only admins switch digests off; a private chat is its own admin
+  isAdmin: async (chat, user) => {
+    if (String(chat) === String(user) || !String(chat).startsWith("-")) return true;
+    try {
+      const r = await fetch(`https://api.telegram.org/bot${botCfg.token}/getChatMember?chat_id=${chat}&user_id=${user}`, { signal: AbortSignal.timeout(5_000) });
+      const j = (await r.json()) as { ok: boolean; result?: { status?: string } };
+      return j.ok && (j.result?.status === "creator" || j.result?.status === "administrator");
+    } catch { return false; }
+  },
 }) : null;
+if (alerter && bot) alerter.muted = (chat) => bot.muted(chat);
 
 app.get("/api/health", (c) => { const h = engine.health(); return c.json({ ...h, narra: "service 0.1.0", gate: gateEnabled(), stream_clients: hub.size, alerts: alerter ? { sent: alerter.sent, dropped: alerter.dropped, errors: alerter.errors, last_error: alerter.lastError || null } : null, bot: bot ? { sent: bot.sent, errors: bot.errors, last_error: bot.lastError || null, poll_age_s: bot.lastPollAt ? Math.round((Date.now() - bot.lastPollAt) / 1000) : null, chats_seen: [...bot.seenChats].map(([id, c]) => ({ id, type: c.type, title: c.title, seen_s_ago: Math.round((Date.now() - c.at) / 1000) })) } : null }, h.ok ? 200 : 503); });
 

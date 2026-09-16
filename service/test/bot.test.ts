@@ -14,20 +14,24 @@ test("commands parse with and without the bot suffix; a bare address means /coin
   assert.equal(parseCommand("hello"), null);
 });
 
-test("digest opens with the reading, lists live metas in sections, skips DEAD", () => {
-  const t = formatDigest(board);
+test("digest opens with counts, lists live metas one per line with flow, ends with the reading, skips DEAD", () => {
+  const { text: t } = formatDigest(board);
+  assert.ok(t.startsWith("📊 <b>Pons · last 60m</b>"), t);
   assert.ok(t.includes("Most of it into cat-fart"), t);
   assert.ok(t.includes("Capital is leaving fort-sol: 225 wallets"), t);
-  assert.ok(t.includes("<b>cat-fart</b> · hot · animals"), t);
+  assert.ok(t.includes("<b>cat-fart</b> hot · animals"), t);
   assert.ok(!t.includes("gone"));
   assert.ok(t.split("\n\n").length >= 3, "sections");
+  const hot = formatDigest(board, 8, (k) => k.status === "HOT" || k.status === "ROTATING IN");
+  assert.ok(hot.text.includes("cat-fart") && !hot.text.includes("fort-sol"), "hot filter keeps HOT only");
 });
 
 test("coin card keeps verdict, meta, popularity, two reasons and one watch-out, and escapes html", () => {
   const r: CoinOut = { schema_version: "1.0.0", computed_at: "", window: "60m", window_from: 0, window_to: 0, head_block: 1, lag_blocks: 0, source: { rpc: "x", mode: "cache" }, token: "0xabc", symbol: "S<UP", name: "Soup", phase: "curve", curve: { real_quote_eth: 1, threshold_eth: 4.2, progress: 0.2 }, pool: null, pair: { address: "0x0", symbol: "ETH", kind: "eth" }, launched_at: 0, deployer: "0x", verdict: "IN", cluster: { slug: "soup", status: "HOT", membership: 0.8 }, alternatives: [], reasons: ["a", "b", "c", "popularity: x"], watch: ["w1", "w2"], reading: "In a live meta.", activity: { buys_10m: 3, buyers_10m: 3, buys_60m: 20, buyers_60m: 15, sells_60m: 2, eth_in_60m: 1.5, last_trade_ts: 1, first_trade_ts: 0 }, early_cohorts: { sniper: 1, sprayer: 0, rotator: 2, "early-in-hot": 3, total: 10 }, deployer_launches_window: 1, nearest: [{ slug: "soup", status: "HOT", membership: 0.8, overlap: 5 }], words: ["soup"], narratives: [], popularity: { cluster_rank: 1, clusters_total: 9, rank_in_cluster: 2, cluster_size: 5, buyers: 50, buyers_percentile: 90 }, evidence: { early_buyers: 1, overlap_buyers: 1, text_score: 1, wallet_score: 1, launch_tx: null, launch_block: null } };
-  const t = formatCoin(r);
-  assert.ok(t.includes("$S&lt;UP") && t.includes("<b>IN</b> — soup 0.80 · hot") && t.includes("meta #1 of 9") && t.includes("3 buys · 3 buyers in 10m") && t.includes("\n· a") && t.includes("\n· b") && !t.includes("\n· c") && t.includes("⚠ w1") && t.includes("⚠ w2"), t);
+  const { text: t, buttons } = formatCoin(r);
+  assert.ok(t.includes("$S&lt;UP") && t.includes("<b>IN</b> · soup hot · membership 0.80") && t.includes("meta #1 of 9") && t.includes("⚡ 3 buys · 3 buyers in the last 10m") && t.includes("⚠ w1") && t.includes("⚠ w2") && t.includes("<code>0xabc</code>"), t);
   assert.ok(t.split("\n\n").length >= 4, "sections separated by blank lines");
+  assert.ok(buttons?.[0].some((b) => b.text === "explorer" && b.url.includes("0xabc")), "explorer button");
 });
 
 test("bot answers commands through the api, ignores chats outside the allow-list, rate-limits per user", async () => {
@@ -52,8 +56,12 @@ test("digest posts on change and at the hard max gap, not every interval", async
   current = { ...board, clusters: [board.clusters[1], board.clusters[0], board.clusters[2]] };
   assert.notEqual(digestSignature(current), digestSignature(board));
   assert.equal(await bot.digest(3600_000), true);                           // changed
-  assert.equal(await bot.digest(3600_000 + 4 * 1800_000), true);           // hard max gap reached
+  assert.equal(await bot.digest(3600_000 + 4 * 1800_000), false);          // unchanged, gap not yet 8 intervals
+  assert.equal(await bot.digest(3600_000 + 8 * 1800_000), true);           // hard max gap reached
   assert.equal(sent.length, 3);
+    await bot.answer("/alerts off", { chat: "c" });
+  current = { ...board, clusters: [board.clusters[2], board.clusters[0], board.clusters[1]] };
+  assert.equal(await bot.digest(9999_000_000), false, "muted chat gets no digest");
 });
 
 test("/coin takes up to three addresses in one message", async () => {

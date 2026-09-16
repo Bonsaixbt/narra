@@ -81,6 +81,9 @@ export function flowHistory(store: Store, window: WindowKey, hours: number, step
     if (ts === null) return { ts: null, from_ts: since + k * stepSec, nodes: [], edges: [], flow_known: false };
     const nodes = store.snapshotsAt(window, ts).map((s) => ({ slug: s.slug, status: s.status, id: s.meta_id ?? null, first_seen_ts: s.first_seen ?? null }));
     const edges = store.flowEdgesAt(window, ts).map((e) => ({ from: e.from_slug, to: e.to_slug, wallets: e.wallets, eth: r3(e.quote_norm), deployers: e.deployers }));
+    // an edge endpoint that was below the publish floor at that tick has no snapshot: it gets a quiet node
+    const have = new Set(nodes.map((x) => x.slug));
+    for (const e of edges) for (const slug of [e.from, e.to]) if (!have.has(slug)) { have.add(slug); nodes.push({ slug, status: "DEAD", id: null, first_seen_ts: null }); }
     return { ts, from_ts: since + k * stepSec, nodes, edges, flow_known: known.has(ts) };
   });
   return { window, hours, step, step_s: stepSec, since, until, slots, backfilled };
