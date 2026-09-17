@@ -1,6 +1,6 @@
 # narra — public roadmap
 
-The version for the site and the announcement: no dates, no owners, only what exists and what comes. The dated plan with owners is `ROADMAP.md`.
+The version for the site and the announcement: no dates, no owners, only what exists and what comes. The dated plan with owners lives in the team repository.
 
 ### Already here
 

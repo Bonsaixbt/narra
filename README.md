@@ -122,7 +122,7 @@ Pure functions (`tokenize`, `buildClusters`, `statusOf`, `flowEdges`, `verdictFo
 
 ## Hosted
 
-The same engine runs at [narrahood.com](https://narrahood.com): the board, the card, flow with history, wallet clusters, share cards for X. The API behind it is documented in [`docs/product/HANDOFF-FRONTEND.md`](./docs/product/HANDOFF-FRONTEND.md); the service code is in [`service/`](./service). A Telegram bot, [@xnarra_bot](https://t.me/xnarra_bot), answers `/coin`, `/meta`, `/why`, `/find`, `/flow` and `/trend` from the same analyses. The hosted version adds history and convenience, never data the terminal cannot compute itself.
+The same engine runs at [narrahood.com](https://narrahood.com): the board, the card, flow with history, wallet clusters, share cards for X. The service behind it is in [`service/`](./service) with its routes in [`service/README.md`](./service/README.md). A Telegram bot, [@xnarra_bot](https://t.me/xnarra_bot), answers `/coin`, `/meta`, `/why`, `/find`, `/flow` and `/trend` from the same analyses. The hosted version adds history and convenience, never data the terminal cannot compute itself.
 
 ## How it decides
 
